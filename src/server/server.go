@@ -47,10 +47,6 @@ func (s *Server) Run() error {
 	// Middleware
 	middleware.Middleware(middlewareHandler, r)
 
-	// Static files
-	fs := http.FileServer(http.Dir("static"))
-	r.Handle("/static/*", http.StripPrefix("/static/", fs))
-
 	// HTTP routes
 	api.RegisterApiRoutes(ApiHandler, r) // Api routes
 
