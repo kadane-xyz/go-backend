@@ -6,12 +6,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"kadane.xyz/go-backend/v2/src/api"
-	"kadane.xyz/go-backend/v2/src/cache"
 	"kadane.xyz/go-backend/v2/src/config"
 	"kadane.xyz/go-backend/v2/src/middleware"
 )
-
-var cacheInstance *cache.Cache // CacheInstance is the global cache instance for middleware/pages
 
 type Server struct {
 	config *config.Config
@@ -28,18 +25,11 @@ func NewServer(config *config.Config) *Server {
 }
 
 func (s *Server) Run() error {
-	// Initialize cache
-	cacheInstance = cache.NewCache()
-
 	//middleware handler
-	middlewareHandler := &middleware.Handler{
-		CacheInstance: cacheInstance,
-	}
+	middlewareHandler := &middleware.Handler{}
 
 	//api handler
-	ApiHandler := &api.Handler{
-		CacheInstance: cacheInstance,
-	}
+	ApiHandler := &api.Handler{}
 
 	// HTTP router
 	r := chi.NewRouter()
