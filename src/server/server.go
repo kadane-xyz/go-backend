@@ -1,35 +1,64 @@
 package server
 
 import (
+	"context"
+	"fmt"
 	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"kadane.xyz/go-backend/v2/src/api"
 	"kadane.xyz/go-backend/v2/src/config"
+	"kadane.xyz/go-backend/v2/src/db"
 	"kadane.xyz/go-backend/v2/src/middleware"
+	"kadane.xyz/go-backend/v2/src/sql/sql"
 )
 
 type Server struct {
-	config *config.Config
-	//api clients
+	config          *config.Config
+	postgresClient  *pgxpool.Pool
+	closeFunc       func()
+	PostgresQueries *sql.Queries
 }
 
-func NewServer(config *config.Config) *Server {
-	//initialize api clients
-	//ctx := context.Background()
+func NewServer(config *config.Config) (*Server, error) {
+	ctx := context.Background()
+	postgresClient, closeFunc, err := db.NewPostgresClient(ctx, config.PostgresUrl, config.PostgresUser, config.PostgresPass, config.PostgresDB)
+	if err != nil {
+		return nil, fmt.Errorf("error connecting to postgres: %v", err)
+	}
+
+	_, err = postgresClient.Acquire(ctx)
+	if err != nil {
+		closeFunc()
+		return nil, fmt.Errorf("error acquiring connection: %v", err)
+	}
+	log.Println("Database connection established")
 
 	return &Server{
-		config: config,
-	}
+		config:         config,
+		postgresClient: postgresClient,
+		closeFunc:      closeFunc,
+	}, nil
 }
 
 func (s *Server) Run() error {
+	//defer closing postgres connection
+	defer s.closeFunc()
+
+	//sql queries
+	queries := sql.New(s.postgresClient)
+	s.PostgresQueries = queries // Set queries to server
+
 	//middleware handler
 	middlewareHandler := &middleware.Handler{}
 
 	//api handler
-	ApiHandler := &api.Handler{}
+	ApiHandler := &api.Handler{
+		PostgresClient:  s.postgresClient,
+		PostgresQueries: s.PostgresQueries,
+	}
 
 	// HTTP router
 	r := chi.NewRouter()
@@ -43,7 +72,7 @@ func (s *Server) Run() error {
 	// Start server
 	log.Println("Starting server on :" + s.config.Port)
 	if err := http.ListenAndServe(":"+s.config.Port, r); err != nil {
-		log.Fatalf("Error starting server: %v", err)
+		return fmt.Errorf("error starting server: %v", err)
 	}
 
 	return nil
