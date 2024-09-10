@@ -4,12 +4,6 @@
 
 Install [golang](https://go.dev/doc/install) binaries
 
-Create keys for signing JWT
-```bash
-openssl genpkey -algorithm ed25519 -out ed25519-private.pem
-openssl pkey -in ed25519-private.pem -pubout -out ed25519-public.pem
-```
-
 Configure Environment Variables
 
 ``.env``
