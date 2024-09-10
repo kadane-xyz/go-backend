@@ -1,4 +1,7 @@
 version: "2"
+servers:
+- engine: postgresql
+  uri: "postgresql://gouser:gopassword@localhost:5432/kadane?sslmode=disable"
 sql:
 - schema: schema.sql
   queries: query.sql
@@ -8,3 +11,5 @@ sql:
       package: sql
       out: sql
       sql_package: pgx/v5
+  database:
+    managed: true
