@@ -11,5 +11,9 @@ sql:
       package: sql
       out: sql
       sql_package: pgx/v5
+      emit_json_tags: true
+      json_tags_case_style: camel
+      emit_prepared_queries: false
+      emit_interface: false
   database:
     managed: true
