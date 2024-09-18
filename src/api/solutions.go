@@ -12,49 +12,53 @@ import (
 )
 
 type Solutions struct {
-	ID    int      `json:"id"`
+	Id    int64    `json:"id"`
 	Email string   `json:"email"`
 	Title string   `json:"title"`
 	Date  string   `json:"date"`
 	Tags  []string `json:"tags"`
 	Body  string   `json:"body"`
 	//Comments []Comments `json:"comments"`
-	Votes int `json:"votes"`
+	Votes     int         `json:"votes"`
+	ProblemId pgtype.Int8 `json:"problemId"`
 }
 
-// GET: /
+// GET: /solutions
 func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
-	var idPg pgtype.Int8
+	var id *int64
 
-	// Handle problemID query parameter
-	problemID := r.URL.Query().Get("problemID")
-	// If problemID is empty, set idPg as NULL
-	if problemID == "" {
-		idPg = pgtype.Int8{
-			Valid: false,
-		}
+	// Handle problemId query parameter
+	problemId := r.URL.Query().Get("problemId")
+	// If problemId is empty, set idPg as NULL
+	if problemId == "" {
+		id = nil
+		http.Error(w, "problemId is required", http.StatusBadRequest)
+		return
 	} else {
-		id, err := strconv.ParseInt(problemID, 10, 64)
+		parsedId, err := strconv.ParseInt(problemId, 10, 64)
 		if err != nil {
-			http.Error(w, "problemID must be an integer", http.StatusBadRequest)
+			http.Error(w, "problemId must be an integer", http.StatusBadRequest)
 			return
 		}
-
-		idPg = pgtype.Int8{
-			Int64: id,
-			Valid: true,
-		}
+		id = &parsedId
 	}
 
 	// Get solutions from db by idPg
-	solutions, err := h.PostgresQueries.GetSolutionsWithCommentsCount(r.Context(), idPg)
+	solutions, err := h.PostgresQueries.GetSolutionsWithCommentsCount(r.Context(), pgtype.Int8{
+		Int64: *id,
+		Valid: id != nil,
+	})
 	if err != nil {
 		http.Error(w, "error getting solutions", http.StatusInternalServerError)
 		return
 	}
 
+	response := map[string]interface{}{
+		"data": solutions,
+	}
+
 	// Marshal solutions to JSON
-	solutionsJSON, err := json.Marshal(solutions)
+	responseJSON, err := json.Marshal(response)
 	if err != nil {
 		http.Error(w, "error marshalling solutions", http.StatusInternalServerError)
 		return
@@ -63,7 +67,7 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 	// Write solutionsJSON to response
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write(solutionsJSON)
+	w.Write(responseJSON)
 }
 
 // POST: /
@@ -77,15 +81,21 @@ func (h *Handler) CreateSolution(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if solution.Email == "" || solution.Title == "" || solution.Body == "" || !solution.ProblemId.Valid {
+		http.Error(w, "email, title, body, and problemId are required", http.StatusBadRequest)
+		return
+	}
+
 	// Insert solution into db
 	_, err = h.PostgresQueries.CreateSolution(r.Context(), sql.CreateSolutionParams{
 		Email: pgtype.Text{
 			String: solution.Email,
 			Valid:  true,
 		},
-		Title: solution.Title,
-		Tags:  solution.Tags,
-		Body:  solution.Body,
+		Title:     solution.Title,
+		Tags:      solution.Tags,
+		Body:      solution.Body,
+		ProblemID: solution.ProblemId,
 	})
 	if err != nil {
 		http.Error(w, "error creating solution", http.StatusInternalServerError)
@@ -95,22 +105,21 @@ func (h *Handler) CreateSolution(w http.ResponseWriter, r *http.Request) {
 	// Write response
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte(`{"message": "solution created"}`))
 }
 
-// GET: /{solutionID}
+// GET: /{solutionId}
 func (h *Handler) GetSolution(w http.ResponseWriter, r *http.Request) {
-	// Handle problemID query parameter
-	solutionID := chi.URLParam(r, "solutionID")
-	// If problemID is empty, set idPg as NULL
-	if solutionID == "" {
-		http.Error(w, "solutionID is required", http.StatusBadRequest)
+	// Handle problemId query parameter
+	solutionId := chi.URLParam(r, "solutionId")
+	// If problemId is empty, set idPg as NULL
+	if solutionId == "" {
+		http.Error(w, "solutionId is required", http.StatusBadRequest)
 		return
 	}
 
-	id, err := strconv.ParseInt(solutionID, 10, 64)
+	id, err := strconv.ParseInt(solutionId, 10, 64)
 	if err != nil {
-		http.Error(w, "solutionID must be an integer", http.StatusBadRequest)
+		http.Error(w, "solutionId must be an integer", http.StatusBadRequest)
 		return
 	}
 
@@ -121,8 +130,12 @@ func (h *Handler) GetSolution(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	response := map[string]interface{}{
+		"data": solutions,
+	}
+
 	// Marshal solutions to JSON
-	solutionsJSON, err := json.Marshal(solutions)
+	responseJSON, err := json.Marshal(response)
 	if err != nil {
 		http.Error(w, "error marshalling solutions", http.StatusInternalServerError)
 		return
@@ -131,22 +144,22 @@ func (h *Handler) GetSolution(w http.ResponseWriter, r *http.Request) {
 	// Write solutionsJSON to response
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write(solutionsJSON)
+	w.Write(responseJSON)
 }
 
-// PUT: /{solutionID}
+// PUT: /{solutionId}
 func (h *Handler) UpdateSolution(w http.ResponseWriter, r *http.Request) {
-	// Handle problemID query parameter
-	solutionID := chi.URLParam(r, "solutionID")
-	// If problemID is empty, set idPg as NULL
-	if solutionID == "" {
-		http.Error(w, "solutionID is required", http.StatusBadRequest)
+	// Handle problemId query parameter
+	solutionId := chi.URLParam(r, "solutionId")
+	// If problemId is empty, set idPg as NULL
+	if solutionId == "" {
+		http.Error(w, "solutionId is required", http.StatusBadRequest)
 		return
 	}
 
-	id, err := strconv.ParseInt(solutionID, 10, 64)
+	id, err := strconv.ParseInt(solutionId, 10, 64)
 	if err != nil {
-		http.Error(w, "solutionID must be an integer", http.StatusBadRequest)
+		http.Error(w, "solutionId must be an integer", http.StatusBadRequest)
 		return
 	}
 
@@ -169,38 +182,30 @@ func (h *Handler) UpdateSolution(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get solutions from db by idPg
-	solutions, err := h.PostgresQueries.UpdateSolution(r.Context(), solutionArgs)
+	_, err = h.PostgresQueries.UpdateSolution(r.Context(), solutionArgs)
 	if err != nil {
 		http.Error(w, "error getting solutions", http.StatusInternalServerError)
 		return
 	}
 
-	// Marshal solutions to JSON
-	solutionsJSON, err := json.Marshal(solutions)
-	if err != nil {
-		http.Error(w, "error marshalling solutions", http.StatusInternalServerError)
-		return
-	}
-
 	// Write solutionsJSON to response
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(solutionsJSON)
+	w.WriteHeader(http.StatusNoContent)
 }
 
-// DELETE: /{solutionID}
+// DELETE: /{solutionId}
 func (h *Handler) DeleteSolution(w http.ResponseWriter, r *http.Request) {
-	// Handle problemID query parameter
-	solutionID := chi.URLParam(r, "solutionID")
-	// If problemID is empty, set idPg as NULL
-	if solutionID == "" {
-		http.Error(w, "solutionID is required", http.StatusBadRequest)
+	// Handle problemId query parameter
+	solutionId := chi.URLParam(r, "solutionId")
+	// If problemId is empty, set idPg as NULL
+	if solutionId == "" {
+		http.Error(w, "solutionId is required", http.StatusBadRequest)
 		return
 	}
 
-	id, err := strconv.ParseInt(solutionID, 10, 64)
+	id, err := strconv.ParseInt(solutionId, 10, 64)
 	if err != nil {
-		http.Error(w, "solutionID must be an integer", http.StatusBadRequest)
+		http.Error(w, "solutionId must be an integer", http.StatusBadRequest)
 		return
 	}
 
@@ -221,22 +226,22 @@ type VoteRequest struct {
 	Vote  string `json:"vote"`
 }
 
-// PATCH: /{solutionID}/vote
+// PATCH: /{solutionId}/vote
 func (h *Handler) VoteSolution(w http.ResponseWriter, r *http.Request) {
-	// Handle problemID query parameter
-	solutionID := chi.URLParam(r, "solutionID")
-	// If problemID is empty, set idPg as NULL
-	if solutionID == "" {
-		http.Error(w, "solutionID is required", http.StatusBadRequest)
+	// Extract solutionId from URL parameters
+	solutionId := chi.URLParam(r, "solutionId")
+	if solutionId == "" {
+		http.Error(w, "solutionId is required", http.StatusBadRequest)
 		return
 	}
 
-	id, err := strconv.ParseInt(solutionID, 10, 64)
+	id, err := strconv.ParseInt(solutionId, 10, 64)
 	if err != nil {
-		http.Error(w, "solutionID must be an integer", http.StatusBadRequest)
+		http.Error(w, "solutionId must be an integer", http.StatusBadRequest)
 		return
 	}
 
+	// Decode the request body into VoteRequest struct
 	var req VoteRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "error decoding request body", http.StatusBadRequest)
@@ -248,15 +253,36 @@ func (h *Handler) VoteSolution(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//add checks for valid email and solution id
+	// Validate email and solution Id
+	// Check if the user exists
+	/*_, err = h.PostgresQueries.GetUserByEmail(r.Context(), req.Email)
+	if err != nil {
+		http.Error(w, "user not found", http.StatusBadRequest)
+		return
+	}*/
 
+	// Check if the solution exists
+	_, err = h.PostgresQueries.GetSolution(r.Context(), id)
+	if err != nil {
+		http.Error(w, "solution not found", http.StatusBadRequest)
+		return
+	}
+
+	// Prepare parameters to get the existing vote
 	solutionArgs := sql.GetSolutionVoteParams{
 		Email:      req.Email,
 		SolutionID: id,
 	}
 
+	// Get the existing vote
 	existingVote, err := h.PostgresQueries.GetSolutionVote(r.Context(), solutionArgs)
 	if err != nil {
+		// If there's no existing vote and the requested vote is 'none', nothing to do
+		if req.Vote == "none" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		// Insert the new vote
 		insertArgs := sql.InsertSolutionVoteParams{
 			Email:      req.Email,
 			SolutionID: id,
@@ -266,28 +292,37 @@ func (h *Handler) VoteSolution(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "error inserting vote", http.StatusInternalServerError)
 			return
 		}
-	} else if existingVote != sql.VoteType(req.Vote) {
-		updateArgs := sql.UpdateSolutionVoteParams{
-			Email:      req.Email,
-			SolutionID: id,
-			Vote:       sql.VoteType(req.Vote),
-		}
-		if err := h.PostgresQueries.UpdateSolutionVote(r.Context(), updateArgs); err != nil {
-			http.Error(w, "error updating vote", http.StatusInternalServerError)
+	} else {
+		// Handle vote update or deletion
+		if req.Vote == "none" {
+			// Delete the existing vote
+			deleteArgs := sql.DeleteSolutionVoteParams{
+				Email:      req.Email,
+				SolutionID: id,
+			}
+			if err := h.PostgresQueries.DeleteSolutionVote(r.Context(), deleteArgs); err != nil {
+				http.Error(w, "error deleting vote", http.StatusInternalServerError)
+				return
+			}
+		} else if existingVote != sql.VoteType(req.Vote) {
+			// Update the vote if it's different
+			updateArgs := sql.UpdateSolutionVoteParams{
+				Email:      req.Email,
+				SolutionID: id,
+				Vote:       sql.VoteType(req.Vote),
+			}
+			if err := h.PostgresQueries.UpdateSolutionVote(r.Context(), updateArgs); err != nil {
+				http.Error(w, "error updating vote", http.StatusInternalServerError)
+				return
+			}
+		} else {
+			// Vote is the same; no action needed
+			w.WriteHeader(http.StatusOK)
 			return
 		}
-	} else {
-		w.WriteHeader(http.StatusOK)
-		return
 	}
 
-	err = h.PostgresQueries.UpVoteSolution(r.Context(), id)
-	if err != nil {
-		http.Error(w, "error getting solutions", http.StatusInternalServerError)
-		return
-	}
-
-	// Write solutionsJSON to response
+	// Send the updated solution as the response
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusNoContent)
 }

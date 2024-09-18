@@ -15,12 +15,24 @@ func RegisterApiRoutes(h *Handler, r chi.Router) {
 		r.Route("/solutions", func(r chi.Router) {
 			r.Get("/", h.GetSolutions)
 			r.Post("/", h.CreateSolution)
-			r.Route("/{solutionID}", func(r chi.Router) {
+			r.Route("/{solutionId}", func(r chi.Router) {
 				r.Get("/", h.GetSolution)
 				r.Put("/", h.UpdateSolution)
 				r.Delete("/", h.DeleteSolution)
 				r.Route("/vote", func(r chi.Router) {
 					r.Patch("/", h.VoteSolution)
+				})
+			})
+		})
+		r.Route("/comments", func(r chi.Router) {
+			r.Get("/", h.GetComments)
+			r.Post("/", h.CreateComment)
+			r.Route("/{commentId}", func(r chi.Router) {
+				r.Get("/", h.GetComment)
+				r.Put("/", h.UpdateComment)
+				r.Delete("/", h.DeleteComment)
+				r.Route("/vote", func(r chi.Router) {
+					r.Patch("/", h.VoteComment)
 				})
 			})
 		})
