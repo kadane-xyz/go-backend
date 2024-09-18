@@ -28,12 +28,6 @@ RETURNING *;
 -- name: DeleteSolution :exec
 DELETE FROM solution WHERE id = $1;
 
--- name: UpVoteSolution :exec
-UPDATE solution SET votes = votes + 1 WHERE id = $1;
-
--- name: DownVoteSolution :exec
-UPDATE solution SET votes = votes - 1 WHERE id = $1;
-
 -- name: GetSolutionVote :one
 SELECT vote FROM solution_user_vote
 WHERE email = $1 AND solution_id = $2;
@@ -41,6 +35,9 @@ WHERE email = $1 AND solution_id = $2;
 -- name: InsertSolutionVote :exec
 INSERT INTO solution_user_vote (email, solution_id, vote)
 VALUES ($1, $2, $3);
+
+-- name: DeleteSolutionVote :exec
+DELETE FROM solution_user_vote WHERE email = $1 AND solution_id = $2;
 
 -- name: UpdateSolutionVote :exec
 UPDATE solution_user_vote
@@ -66,3 +63,19 @@ RETURNING *;
 
 -- name: DeleteComment :exec
 DELETE FROM comment WHERE id = $1;
+
+-- name: GetCommentVote :one
+SELECT vote FROM comment_user_vote
+WHERE email = $1 AND comment_id = $2;
+
+-- name: InsertCommentVote :exec
+INSERT INTO comment_user_vote (email, comment_id, vote)
+VALUES ($1, $2, $3);
+
+-- name: DeleteCommentVote :exec
+DELETE FROM comment_user_vote WHERE email = $1 AND comment_id = $2;
+
+-- name: UpdateCommentVote :exec
+UPDATE comment_user_vote 
+SET vote = $3
+WHERE email = $1 AND comment_id = $2;
