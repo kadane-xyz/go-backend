@@ -24,7 +24,7 @@ type Solutions struct {
 
 // GET: /solutions
 func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
-	var id int64
+	var id int64 // Problem ID
 
 	// Handle problemId query parameter
 	problemId := r.URL.Query().Get("problemId")
@@ -41,19 +41,19 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 		id = parsedId
 	}
 
-	// handle Preview is true
-	preview := r.URL.Query().Get("preview")
-
+	// Handle pagination
 	page, err := strconv.ParseInt(r.URL.Query().Get("page"), 10, 64)
 	if err != nil || page < 1 {
 		page = 0
 	}
 
+	// Handle perPage
 	perPage, err := strconv.ParseInt(r.URL.Query().Get("perPage"), 10, 64)
 	if err != nil || perPage < 1 {
 		perPage = 10 // Default to 10 items per page
 	}
 
+	// Calculate offset
 	offset := (page - 1) * perPage
 
 	// Get solutions from db by idPg
@@ -70,6 +70,7 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Handle if no solutions are found
 	if len(solutions) == 0 {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
@@ -80,6 +81,7 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get total count of solutions
 	totalCount, err := h.PostgresQueries.GetSolutionsCount(r.Context(), pgtype.Int8{Int64: id, Valid: true})
 	if err != nil {
 		http.Error(w, "error getting total count", http.StatusInternalServerError)
@@ -106,23 +108,25 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 			"votes":    solution.Votes,
 		}
 
-		if preview != "true" {
+		// If preview is not true, include the body
+		if r.URL.Query().Get("preview") != "true" {
 			solutionData["body"] = solution.Body
 		}
 
 		solutionsData = append(solutionsData, solutionData)
 	}
 
+	// Calculate last page
 	lastPage := (totalCount + perPage - 1) / perPage
 
 	// Final response
 	finalResponse := map[string]interface{}{
 		"data": solutionsData,
 		"pagination": map[string]interface{}{
-			"page":      page,
-			"perPage":   perPage,
-			"pageCount": totalCount,
-			"lastPage":  lastPage,
+			"page":      page,       // Current page
+			"perPage":   perPage,    // Items per page
+			"pageCount": totalCount, // Total items
+			"lastPage":  lastPage,   // Last page
 		},
 	}
 
