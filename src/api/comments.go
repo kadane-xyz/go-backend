@@ -15,7 +15,7 @@ import (
 type Comment struct {
 	ID         int64            `json:"id"`
 	SolutionID int64            `json:"solutionId"`
-	Email      string           `json:"email"`
+	Username   string           `json:"username"`
 	Body       string           `json:"body"`
 	CreatedAt  pgtype.Timestamp `json:"createdAt"`
 	Votes      pgtype.Int4      `json:"votes"`
@@ -54,7 +54,7 @@ func (h *Handler) GetComments(w http.ResponseWriter, r *http.Request) {
 		comment := &Comment{
 			ID:         dbComment.ID,
 			SolutionID: dbComment.SolutionID,
-			Email:      dbComment.Email,
+			Username:   dbComment.Username,
 			Body:       dbComment.Body,
 			CreatedAt:  dbComment.CreatedAt,
 			Votes:      dbComment.Votes,
@@ -101,8 +101,8 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate input
-	if comment.SolutionID == 0 || comment.Email == "" || comment.Body == "" {
-		http.Error(w, "SolutionID, Email, and Body are required", http.StatusBadRequest)
+	if comment.SolutionID == 0 || comment.Username == "" || comment.Body == "" {
+		http.Error(w, "SolutionID, Username, and Body are required", http.StatusBadRequest)
 		return
 	}
 
@@ -130,7 +130,7 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 	_, err = h.PostgresQueries.CreateComment(r.Context(), sql.CreateCommentParams{
 		SolutionID: comment.SolutionID,
 		ParentID:   comment.ParentID,
-		Email:      comment.Email,
+		Username:   comment.Username,
 		Body:       comment.Body,
 	})
 	if err != nil {
@@ -203,8 +203,8 @@ func (h *Handler) UpdateComment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate input
-	if comment.Email == "" || comment.Body == "" {
-		http.Error(w, "Email and Body are required", http.StatusBadRequest)
+	if comment.Username == "" || comment.Body == "" {
+		http.Error(w, "Username and Body are required", http.StatusBadRequest)
 		return
 	}
 
@@ -275,8 +275,8 @@ func (h *Handler) VoteComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Email == "" || req.Vote == "" {
-		http.Error(w, "email and vote are required", http.StatusBadRequest)
+	if req.Username == "" || req.Vote == "" {
+		http.Error(w, "username and vote are required", http.StatusBadRequest)
 		return
 	}
 
@@ -287,9 +287,9 @@ func (h *Handler) VoteComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate email and comment ID
+	// Validate username and comment ID
 	// Check if the user exists
-	/*_, err = h.PostgresQueries.GetUserByEmail(r.Context(), req.Email)
+	/*_, err = h.PostgresQueries.GetUserByUsername(r.Context(), req.Username)
 	if err != nil {
 		http.Error(w, "user not found", http.StatusBadRequest)
 		return
@@ -304,8 +304,8 @@ func (h *Handler) VoteComment(w http.ResponseWriter, r *http.Request) {
 
 	// Prepare parameters to get the existing vote
 	commentArgs := sql.GetCommentVoteParams{
-		Email: pgtype.Text{
-			String: req.Email,
+		Username: pgtype.Text{
+			String: req.Username,
 			Valid:  true,
 		},
 		CommentID: pgtype.Int8{
@@ -325,8 +325,8 @@ func (h *Handler) VoteComment(w http.ResponseWriter, r *http.Request) {
 		}
 		// Insert the new vote
 		insertArgs := sql.InsertCommentVoteParams{
-			Email: pgtype.Text{
-				String: req.Email,
+			Username: pgtype.Text{
+				String: req.Username,
 				Valid:  true,
 			},
 			CommentID: pgtype.Int8{
@@ -344,8 +344,8 @@ func (h *Handler) VoteComment(w http.ResponseWriter, r *http.Request) {
 		if req.Vote == "none" {
 			// Delete the existing vote
 			deleteArgs := sql.DeleteCommentVoteParams{
-				Email: pgtype.Text{
-					String: req.Email,
+				Username: pgtype.Text{
+					String: req.Username,
 					Valid:  true,
 				},
 				CommentID: pgtype.Int8{
@@ -360,8 +360,8 @@ func (h *Handler) VoteComment(w http.ResponseWriter, r *http.Request) {
 		} else if existingVote != sql.VoteType(req.Vote) {
 			// Update the vote if it's different
 			updateArgs := sql.UpdateCommentVoteParams{
-				Email: pgtype.Text{
-					String: req.Email,
+				Username: pgtype.Text{
+					String: req.Username,
 					Valid:  true,
 				},
 				CommentID: pgtype.Int8{

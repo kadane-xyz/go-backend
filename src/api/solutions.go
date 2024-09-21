@@ -12,26 +12,24 @@ import (
 )
 
 type Solutions struct {
-	Id    int64    `json:"id"`
-	Email string   `json:"email"`
-	Title string   `json:"title"`
-	Date  string   `json:"date"`
-	Tags  []string `json:"tags"`
-	Body  string   `json:"body"`
-	//Comments []Comments `json:"comments"`
+	Id        int64       `json:"id"`
+	Username  string      `json:"username"`
+	Title     string      `json:"title"`
+	Date      string      `json:"date"`
+	Tags      []string    `json:"tags"`
+	Body      string      `json:"body"`
 	Votes     int         `json:"votes"`
 	ProblemId pgtype.Int8 `json:"problemId"`
 }
 
 // GET: /solutions
 func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
-	var id *int64
+	var id int64
 
 	// Handle problemId query parameter
 	problemId := r.URL.Query().Get("problemId")
 	// If problemId is empty, set idPg as NULL
 	if problemId == "" {
-		id = nil
 		http.Error(w, "problemId is required", http.StatusBadRequest)
 		return
 	} else {
@@ -40,27 +38,99 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "problemId must be an integer", http.StatusBadRequest)
 			return
 		}
-		id = &parsedId
+		id = parsedId
 	}
 
+	// handle Preview is true
+	preview := r.URL.Query().Get("preview")
+
+	page, err := strconv.ParseInt(r.URL.Query().Get("page"), 10, 64)
+	if err != nil || page < 1 {
+		page = 0
+	}
+
+	perPage, err := strconv.ParseInt(r.URL.Query().Get("perPage"), 10, 64)
+	if err != nil || perPage < 1 {
+		perPage = 10 // Default to 10 items per page
+	}
+
+	offset := (page - 1) * perPage
+
 	// Get solutions from db by idPg
-	solutions, err := h.PostgresQueries.GetSolutionsWithCommentsCount(r.Context(), pgtype.Int8{
-		Int64: *id,
-		Valid: id != nil,
+	solutions, err := h.PostgresQueries.GetSolutionsPaginated(r.Context(), sql.GetSolutionsPaginatedParams{
+		ProblemID: pgtype.Int8{
+			Int64: id,
+			Valid: true,
+		},
+		Limit:  perPage,
+		Offset: offset,
 	})
 	if err != nil {
 		http.Error(w, "error getting solutions", http.StatusInternalServerError)
 		return
 	}
 
-	response := map[string]interface{}{
-		"data": solutions,
+	if len(solutions) == 0 {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		response := map[string]string{
+			"error": "No solutions found for the given page or problemId",
+		}
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	totalCount, err := h.PostgresQueries.GetSolutionsCount(r.Context(), pgtype.Int8{Int64: id, Valid: true})
+	if err != nil {
+		http.Error(w, "error getting total count", http.StatusInternalServerError)
+		return
+	}
+
+	// Get comments from db by idPg
+	comments, err := h.PostgresQueries.GetComments(r.Context(), id)
+	if err != nil {
+		http.Error(w, "error getting comments", http.StatusInternalServerError)
+		return
+	}
+
+	// Prepare response
+	var solutionsData []map[string]interface{}
+	for _, solution := range solutions {
+		solutionData := map[string]interface{}{
+			"id":       solution.ID,
+			"comments": comments,
+			"date":     solution.CreatedAt,
+			"tags":     solution.Tags,
+			"title":    solution.Title,
+			"username": solution.Username,
+			"votes":    solution.Votes,
+		}
+
+		if preview != "true" {
+			solutionData["body"] = solution.Body
+		}
+
+		solutionsData = append(solutionsData, solutionData)
+	}
+
+	lastPage := (totalCount + perPage - 1) / perPage
+
+	// Final response
+	finalResponse := map[string]interface{}{
+		"data": solutionsData,
+		"pagination": map[string]interface{}{
+			"page":      page,
+			"perPage":   perPage,
+			"pageCount": totalCount,
+			"lastPage":  lastPage,
+		},
 	}
 
 	// Marshal solutions to JSON
-	responseJSON, err := json.Marshal(response)
+	responseJSON, err := json.Marshal(finalResponse)
 	if err != nil {
 		http.Error(w, "error marshalling solutions", http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
 		return
 	}
 
@@ -81,15 +151,15 @@ func (h *Handler) CreateSolution(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if solution.Email == "" || solution.Title == "" || solution.Body == "" || !solution.ProblemId.Valid {
-		http.Error(w, "email, title, body, and problemId are required", http.StatusBadRequest)
+	if solution.Username == "" || solution.Title == "" || solution.Body == "" || !solution.ProblemId.Valid {
+		http.Error(w, "username, title, body, and problemId are required", http.StatusBadRequest)
 		return
 	}
 
 	// Insert solution into db
 	_, err = h.PostgresQueries.CreateSolution(r.Context(), sql.CreateSolutionParams{
-		Email: pgtype.Text{
-			String: solution.Email,
+		Username: pgtype.Text{
+			String: solution.Username,
 			Valid:  true,
 		},
 		Title:     solution.Title,
@@ -130,6 +200,7 @@ func (h *Handler) GetSolution(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Prepare response
 	response := map[string]interface{}{
 		"data": solutions,
 	}
@@ -222,8 +293,8 @@ func (h *Handler) DeleteSolution(w http.ResponseWriter, r *http.Request) {
 }
 
 type VoteRequest struct {
-	Email string `json:"email"`
-	Vote  string `json:"vote"`
+	Username string `json:"username"`
+	Vote     string `json:"vote"`
 }
 
 // PATCH: /{solutionId}/vote
@@ -248,14 +319,14 @@ func (h *Handler) VoteSolution(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Email == "" || req.Vote == "" {
-		http.Error(w, "email and vote are required", http.StatusBadRequest)
+	if req.Username == "" || req.Vote == "" {
+		http.Error(w, "username and vote are required", http.StatusBadRequest)
 		return
 	}
 
-	// Validate email and solution Id
+	// Validate username and solution Id
 	// Check if the user exists
-	/*_, err = h.PostgresQueries.GetUserByEmail(r.Context(), req.Email)
+	/*_, err = h.PostgresQueries.GetUserByUsername(r.Context(), req.Username)
 	if err != nil {
 		http.Error(w, "user not found", http.StatusBadRequest)
 		return
@@ -270,7 +341,7 @@ func (h *Handler) VoteSolution(w http.ResponseWriter, r *http.Request) {
 
 	// Prepare parameters to get the existing vote
 	solutionArgs := sql.GetSolutionVoteParams{
-		Email:      req.Email,
+		Username:   req.Username,
 		SolutionID: id,
 	}
 
@@ -284,7 +355,7 @@ func (h *Handler) VoteSolution(w http.ResponseWriter, r *http.Request) {
 		}
 		// Insert the new vote
 		insertArgs := sql.InsertSolutionVoteParams{
-			Email:      req.Email,
+			Username:   req.Username,
 			SolutionID: id,
 			Vote:       sql.VoteType(req.Vote),
 		}
@@ -297,7 +368,7 @@ func (h *Handler) VoteSolution(w http.ResponseWriter, r *http.Request) {
 		if req.Vote == "none" {
 			// Delete the existing vote
 			deleteArgs := sql.DeleteSolutionVoteParams{
-				Email:      req.Email,
+				Username:   req.Username,
 				SolutionID: id,
 			}
 			if err := h.PostgresQueries.DeleteSolutionVote(r.Context(), deleteArgs); err != nil {
@@ -307,7 +378,7 @@ func (h *Handler) VoteSolution(w http.ResponseWriter, r *http.Request) {
 		} else if existingVote != sql.VoteType(req.Vote) {
 			// Update the vote if it's different
 			updateArgs := sql.UpdateSolutionVoteParams{
-				Email:      req.Email,
+				Username:   req.Username,
 				SolutionID: id,
 				Vote:       sql.VoteType(req.Vote),
 			}
