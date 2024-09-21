@@ -2,34 +2,34 @@ CREATE TYPE vote_type AS ENUM ('up', 'down', 'none');
 
 CREATE TABLE account (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    email TEXT NOT NULL UNIQUE,
+    username TEXT NOT NULL UNIQUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE solution (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    email TEXT REFERENCES account(email) ON DELETE CASCADE,
+    username TEXT REFERENCES account(username) ON DELETE CASCADE,
     problem_id BIGINT,
     title TEXT NOT NULL,
     body TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     votes INTEGER DEFAULT 0,
     tags TEXT[],
-    UNIQUE (email, id)
+    UNIQUE (username, id)
 );
 
 CREATE TABLE solution_user_vote (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     solution_id BIGINT REFERENCES solution(id) ON DELETE CASCADE NOT NULL,
-    email TEXT REFERENCES account(email) ON DELETE CASCADE NOT NULL,
+    username TEXT REFERENCES account(username) ON DELETE CASCADE NOT NULL,
     vote vote_type NOT NULL,
-    UNIQUE (email, solution_id)
+    UNIQUE (username, solution_id)
 );
 
 CREATE TABLE comment (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     solution_id BIGINT NOT NULL, 
-    email TEXT NOT NULL,
+    username TEXT NOT NULL,
     body TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     votes INTEGER DEFAULT 0,
@@ -43,9 +43,9 @@ CREATE TABLE comment (
 CREATE TABLE comment_user_vote (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     comment_id BIGINT REFERENCES comment(id) ON DELETE CASCADE,
-    email TEXT REFERENCES account(email) ON DELETE CASCADE,
+    username TEXT REFERENCES account(username) ON DELETE CASCADE,
     vote vote_type NOT NULL,
-    UNIQUE (email, comment_id)
+    UNIQUE (username, comment_id)
 );
 
 -- Update the votes count for the solution when a vote is inserted, updated, or deleted

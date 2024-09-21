@@ -1,6 +1,12 @@
 -- name: GetSolutions :many
 SELECT * FROM solution WHERE problem_id = $1;
 
+-- name: GetSolutionsCount :one
+SELECT COUNT(*) FROM solution WHERE problem_id = $1;
+
+-- name: GetSolutionsPaginated :many
+SELECT * FROM solution WHERE problem_id = $1 ORDER BY votes DESC LIMIT $2 OFFSET $3;
+
 -- name: GetSolutionsWithCommentsCount :many
 SELECT s.*, COALESCE(comment_counts.comments_count, 0) AS comments_count
 FROM solution s
@@ -15,7 +21,7 @@ WHERE s.problem_id = $1;
 SELECT * FROM solution WHERE id = $1;
 
 -- name: CreateSolution :one
-INSERT INTO solution (email, title, body, problem_id, tags)
+INSERT INTO solution (username, title, body, problem_id, tags)
 VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
@@ -30,19 +36,19 @@ DELETE FROM solution WHERE id = $1;
 
 -- name: GetSolutionVote :one
 SELECT vote FROM solution_user_vote
-WHERE email = $1 AND solution_id = $2;
+WHERE username = $1 AND solution_id = $2;
 
 -- name: InsertSolutionVote :exec
-INSERT INTO solution_user_vote (email, solution_id, vote)
+INSERT INTO solution_user_vote (username, solution_id, vote)
 VALUES ($1, $2, $3);
 
 -- name: DeleteSolutionVote :exec
-DELETE FROM solution_user_vote WHERE email = $1 AND solution_id = $2;
+DELETE FROM solution_user_vote WHERE username = $1 AND solution_id = $2;
 
 -- name: UpdateSolutionVote :exec
 UPDATE solution_user_vote
 SET vote = $3
-WHERE email = $1 AND solution_id = $2;
+WHERE username = $1 AND solution_id = $2;
 
 -- name: GetComments :many
 SELECT * FROM comment WHERE solution_id = $1;
@@ -51,7 +57,7 @@ SELECT * FROM comment WHERE solution_id = $1;
 SELECT * FROM comment WHERE id = $1;
 
 -- name: CreateComment :one
-INSERT INTO comment (email, body, solution_id, parent_id)
+INSERT INTO comment (username, body, solution_id, parent_id)
 VALUES ($1, $2, $3, $4)
 RETURNING *;
 
@@ -66,16 +72,16 @@ DELETE FROM comment WHERE id = $1;
 
 -- name: GetCommentVote :one
 SELECT vote FROM comment_user_vote
-WHERE email = $1 AND comment_id = $2;
+WHERE username = $1 AND comment_id = $2;
 
 -- name: InsertCommentVote :exec
-INSERT INTO comment_user_vote (email, comment_id, vote)
+INSERT INTO comment_user_vote (username, comment_id, vote)
 VALUES ($1, $2, $3);
 
 -- name: DeleteCommentVote :exec
-DELETE FROM comment_user_vote WHERE email = $1 AND comment_id = $2;
+DELETE FROM comment_user_vote WHERE username = $1 AND comment_id = $2;
 
 -- name: UpdateCommentVote :exec
 UPDATE comment_user_vote 
 SET vote = $3
-WHERE email = $1 AND comment_id = $2;
+WHERE username = $1 AND comment_id = $2;
