@@ -59,8 +59,8 @@ jobs:
     - name: Install dependencies 
       run: |
         curl -s https://packagecloud.io/install/repositories/golang-migrate/migrate/script.deb.sh | sudo bash
-        apt-get update
-        apt-get install -y migrate
+        sudo apt-get update
+        sudo apt-get install -y migrate
     - name: Run migrations
       run: |
         migrate -path ./src/sql/schema.sql -database "postgres://${{ secrets.AWS_DB_USER }}:${{ secrets.AWS_DB_PASSWORD }}@${{ secrets.AWS_DB_HOST }}:${{ secrets.AWS_DB_PORT }}/${{ secrets.AWS_DB_NAME }}?sslmode=disable" up
