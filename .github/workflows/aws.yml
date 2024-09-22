@@ -56,6 +56,10 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        sparse-checkout: |
+            go-backend/src/sql/
     - name: Install dependencies 
       run: |
         curl -s https://packagecloud.io/install/repositories/golang-migrate/migrate/script.deb.sh | sudo bash
@@ -63,7 +67,7 @@ jobs:
         sudo apt-get install -y migrate
     - name: Run migrations
       run: |
-        migrate -path ./go-backend/go-backend/src/sql/schema.sql -database "postgres://${{ secrets.AWS_DB_USER }}:${{ secrets.AWS_DB_PASSWORD }}@${{ secrets.AWS_DB_HOST }}:${{ secrets.AWS_DB_PORT }}/${{ secrets.AWS_DB_NAME }}?sslmode=disable" up
+        migrate -path ./go-backend/src/sql/schema.sql -database "postgres://${{ secrets.AWS_DB_USER }}:${{ secrets.AWS_DB_PASSWORD }}@${{ secrets.AWS_DB_HOST }}:${{ secrets.AWS_DB_PORT }}/${{ secrets.AWS_DB_NAME }}?sslmode=disable" up
   # Build and deploy the container
   deploy:
     name: Deploy
