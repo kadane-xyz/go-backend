@@ -175,3 +175,22 @@ CREATE TRIGGER update_comment_vote_delete
 AFTER DELETE ON comment_user_vote
 FOR EACH ROW
 EXECUTE FUNCTION update_comment_votes();
+
+CREATE OR REPLACE FUNCTION get_solutions_paginated(
+    p_problem_id BIGINT,
+    p_limit INT,
+    p_offset INT,
+    p_order_by TEXT,
+    p_sort_direction TEXT
+) RETURNS SETOF solution AS $$
+DECLARE
+    valid_order_by TEXT := CASE WHEN p_order_by IN ('id', 'created_at', 'username', 'votes') THEN p_order_by ELSE 'votes' END;
+    valid_sort_direction TEXT := CASE WHEN LOWER(p_sort_direction) = 'asc' THEN 'ASC' ELSE 'DESC' END;
+BEGIN
+    RETURN QUERY EXECUTE format(
+        'SELECT * FROM solution WHERE problem_id = $1 ORDER BY %s %s LIMIT $2 OFFSET $3',
+        valid_order_by,
+        valid_sort_direction
+    ) USING p_problem_id, p_limit, p_offset;
+END;
+$$ LANGUAGE plpgsql;
