@@ -53,17 +53,33 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 		perPage = 10 // Default to 10 items per page
 	}
 
+	// Handle sort
+	sort := r.URL.Query().Get("sort")
+	if sort == "" {
+		sort = "votes"
+	} else if sort == "time" {
+		sort = "created_at"
+	}
+
+	// Handle order
+	order := r.URL.Query().Get("order")
+	if order == "asc" {
+		order = "ASC"
+	} else if order == "desc" {
+		order = "DESC"
+	} else {
+		order = "DESC"
+	}
+
 	// Calculate offset
 	offset := (page - 1) * perPage
 
-	// Get solutions from db by idPg
 	solutions, err := h.PostgresQueries.GetSolutionsPaginated(r.Context(), sql.GetSolutionsPaginatedParams{
-		ProblemID: pgtype.Int8{
-			Int64: id,
-			Valid: true,
-		},
-		Limit:  perPage,
-		Offset: offset,
+		PProblemID:     id,
+		PLimit:         int32(perPage),
+		POffset:        int32(offset),
+		PSortDirection: order,
+		POrderBy:       sort,
 	})
 	if err != nil {
 		http.Error(w, "error getting solutions", http.StatusInternalServerError)
@@ -88,19 +104,19 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get comments from db by idPg
-	comments, err := h.PostgresQueries.GetComments(r.Context(), id)
-	if err != nil {
-		http.Error(w, "error getting comments", http.StatusInternalServerError)
-		return
-	}
-
 	// Prepare response
 	var solutionsData []map[string]interface{}
 	for _, solution := range solutions {
+		// Get comments from db by idPg
+		comment, err := h.PostgresQueries.GetCommentCount(r.Context(), solution.ID)
+		if err != nil {
+			http.Error(w, "error getting comments", http.StatusInternalServerError)
+			return
+		}
+
 		solutionData := map[string]interface{}{
 			"id":       solution.ID,
-			"comments": comments,
+			"comments": comment,
 			"date":     solution.CreatedAt,
 			"tags":     solution.Tags,
 			"title":    solution.Title,

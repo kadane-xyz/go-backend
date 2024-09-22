@@ -5,7 +5,7 @@ SELECT * FROM solution WHERE problem_id = $1;
 SELECT COUNT(*) FROM solution WHERE problem_id = $1;
 
 -- name: GetSolutionsPaginated :many
-SELECT * FROM solution WHERE problem_id = $1 ORDER BY votes DESC LIMIT $2 OFFSET $3;
+SELECT * FROM get_solutions_paginated($1, $2, $3, $4, $5);
 
 -- name: GetSolutionsWithCommentsCount :many
 SELECT s.*, COALESCE(comment_counts.comments_count, 0) AS comments_count
@@ -73,6 +73,9 @@ DELETE FROM comment WHERE id = $1;
 -- name: GetCommentVote :one
 SELECT vote FROM comment_user_vote
 WHERE username = $1 AND comment_id = $2;
+
+-- name: GetCommentCount :one
+SELECT COUNT(*) FROM comment WHERE solution_id = $1;
 
 -- name: InsertCommentVote :exec
 INSERT INTO comment_user_vote (username, comment_id, vote)
