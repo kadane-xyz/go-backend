@@ -1,7 +1,4 @@
 version: "2"
-servers:
-- engine: postgresql
-  uri: "postgresql://gouser:gopassword@localhost:5432/kadane?sslmode=disable"
 sql:
 - schema: schema.sql
   queries: query.sql
@@ -15,5 +12,3 @@ sql:
       json_tags_case_style: camel
       emit_prepared_queries: false
       emit_interface: false
-  database:
-    managed: true
