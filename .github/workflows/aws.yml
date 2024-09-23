@@ -49,21 +49,6 @@ permissions:
   id-token: write
 
 jobs:
-  # Prepare RDS database
-  migrate-db:
-    name: Migrate DB
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-    - name: Install dependencies 
-      run: |
-        curl -s https://packagecloud.io/install/repositories/golang-migrate/migrate/script.deb.sh | sudo bash
-        sudo apt-get update
-        sudo apt-get install -y migrate
-    - name: Run migrations
-      run: |
-        migrate -path ./src/sql/schema.sql -database "postgres://${{ secrets.AWS_DB_USER }}:${{ secrets.AWS_DB_PASSWORD }}@${{ secrets.AWS_DB_HOST }}:${{ secrets.AWS_DB_PORT }}/${{ secrets.AWS_DB_NAME }}?sslmode=disable" up
   # Build and deploy the container
   deploy:
     name: Deploy
