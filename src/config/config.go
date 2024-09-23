@@ -27,7 +27,7 @@ func LoadConfig() (*Config, error) {
 
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080"
+		port = "80"
 	}
 
 	postgresUrl := os.Getenv("POSTGRES_URL")

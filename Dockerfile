@@ -18,6 +18,6 @@ RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/
 
 COPY --from=builder /app/server /server
 
-EXPOSE 8080
+EXPOSE 80
 
 CMD ["/server"]
