@@ -40,7 +40,7 @@ env:
   CONTAINER_NAME: kadane-backend             # set this to the name of the container in the
                                         # containerDefinitions section of your task definition
   APP_PORT: 80 # set this to the port your application listens on
-  LOAD_BALANCER_NAME: KadaneBackendLoadbalancer # set this to the name of your load balancer
+  #LOAD_BALANCER_NAME: KadaneBackendLoadbalancer # set this to the name of your load balancer
   TARGET_GROUP_ARN: arn:aws:elasticloadbalancing:us-east-2:905418014870:targetgroup/KadaneBackendECSCluster/5cf91a3fd7999c4b 
   CONTAINER_PORT: 80 # Port inside your container where the app is running
 
@@ -119,17 +119,3 @@ jobs:
         service: ${{ env.ECS_SERVICE }}
         cluster: ${{ env.ECS_CLUSTER }}
         wait-for-service-stability: true
-
-    - name: Update ECS service with load balancer
-      run: |
-        aws ecs update-service \
-          --cluster ${{ env.ECS_CLUSTER }} \
-          --service ${{ env.ECS_SERVICE }} \
-          --load-balancers targetGroupArn=${{ env.TARGET_GROUP_ARN }},containerName=${{ env.CONTAINER_NAME }},containerPort=${{ env.CONTAINER_PORT }} \
-          --force-new-deployment
-
-    - name: Get Load Balancer DNS name
-      id: get-lb-dns
-      run: |
-        LOAD_BALANCER_DNS=$(aws elbv2 describe-load-balancers --names ${{ env.LOAD_BALANCER_NAME }} --query 'LoadBalancers[0].DNSName' --output text)
-        echo "LOAD_BALANCER_DNS=$LOAD_BALANCER_DNS" >> $GITHUB_ENV
