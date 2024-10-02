@@ -39,8 +39,8 @@ func Middleware(m *Handler, r chi.Router) {
 	r.Use(middleware.StripSlashes)
 	r.Use(middleware.CleanPath) // CleanPath middleware will clean up the request URL path
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"https://kadane.xyz", "https://www.kadane.xyz", "https://api.kadane.xyz", "http://localhost"}, // Define allowed origins (wildcard "*" can be used but it's not recommended for security reasons)
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},                                                    // HTTP methods that are allowed
+		AllowedOrigins:   []string{"https://kadane.xyz", "https://www.kadane.xyz", "https://api.kadane.xyz", "http://localhost:5173"}, // Define allowed origins (wildcard "*" can be used but it's not recommended for security reasons)
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},                                                         // HTTP methods that are allowed
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
 		ExposedHeaders:   []string{"Link"}, // Headers that browsers can expose to frontend JavaScript
 		AllowCredentials: true,             // Allow credentials (cookies, authentication) to be shared
