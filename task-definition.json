@@ -15,6 +15,12 @@
                 }
             ],
             "essential": true,
+            "healthCheck": {
+                "command": [
+                  "CMD-SHELL",
+                  "curl -f http://localhost/ || exit 1"
+                ]
+            },
             "environment": [],
             "environmentFiles": [],
             "mountPoints": [],
