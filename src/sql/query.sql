@@ -2,10 +2,12 @@
 SELECT * FROM solution WHERE problem_id = $1;
 
 -- name: GetSolutionsCount :one
-SELECT COUNT(*) FROM solution WHERE problem_id = $1;
+SELECT COUNT(*) FROM solution
+WHERE problem_id = $1
+AND ($2::text[] IS NULL OR tags && $2);
 
 -- name: GetSolutionsPaginated :many
-SELECT * FROM get_solutions_paginated($1, $2, $3, $4, $5);
+SELECT * FROM get_solutions_paginated($1, $2, $3, $4, $5, $6::text[]);
 
 -- name: GetSolutionsWithCommentsCount :many
 SELECT s.*, COALESCE(comment_counts.comments_count, 0) AS comments_count

@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -41,6 +42,12 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 		id = parsedId
 	}
 
+	var tagsArray []string
+	tags := r.URL.Query().Get("tags")
+	if tags != "" {
+		tagsArray = strings.Split(tags, ",")
+	}
+
 	// Handle pagination
 	page, err := strconv.ParseInt(r.URL.Query().Get("page"), 10, 64)
 	if err != nil || page < 1 {
@@ -75,6 +82,7 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 	offset := (page - 1) * perPage
 
 	solutions, err := h.PostgresQueries.GetSolutionsPaginated(r.Context(), sql.GetSolutionsPaginatedParams{
+		Column6:        tagsArray,
 		PProblemID:     id,
 		PLimit:         int32(perPage),
 		POffset:        int32(offset),
@@ -97,8 +105,10 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get total count of solutions
-	totalCount, err := h.PostgresQueries.GetSolutionsCount(r.Context(), pgtype.Int8{Int64: id, Valid: true})
+	totalCount, err := h.PostgresQueries.GetSolutionsCount(r.Context(), sql.GetSolutionsCountParams{
+		ProblemID: pgtype.Int8{Int64: id, Valid: true},
+		Column2:   tagsArray,
+	})
 	if err != nil {
 		http.Error(w, "error getting total count", http.StatusInternalServerError)
 		return
