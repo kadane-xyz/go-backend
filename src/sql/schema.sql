@@ -180,17 +180,28 @@ CREATE OR REPLACE FUNCTION get_solutions_paginated(
     p_problem_id BIGINT,
     p_limit INT,
     p_offset INT,
-    p_order_by TEXT,
-    p_sort_direction TEXT
+    p_order_by TEXT DEFAULT 'votes',
+    p_sort_direction TEXT DEFAULT 'DESC',
+    p_tags TEXT[] DEFAULT NULL -- Made optional with default NULL
 ) RETURNS SETOF solution AS $$
 DECLARE
-    valid_order_by TEXT := CASE WHEN p_order_by IN ('id', 'created_at', 'username', 'votes') THEN p_order_by ELSE 'votes' END;
-    valid_sort_direction TEXT := CASE WHEN LOWER(p_sort_direction) = 'asc' THEN 'ASC' ELSE 'DESC' END;
+    valid_order_by TEXT := CASE
+        WHEN p_order_by IN ('id', 'created_at', 'username', 'votes') THEN p_order_by
+        ELSE 'votes'
+    END;
+    valid_sort_direction TEXT := CASE
+        WHEN UPPER(p_sort_direction) IN ('ASC', 'DESC') THEN p_sort_direction
+        ELSE 'DESC'
+    END;
 BEGIN
     RETURN QUERY EXECUTE format(
-        'SELECT * FROM solution WHERE problem_id = $1 ORDER BY %s %s LIMIT $2 OFFSET $3',
+        'SELECT * FROM solution
+         WHERE problem_id = $1
+         AND ($4 IS NULL OR tags && $4)
+         ORDER BY %I %s
+         LIMIT $2 OFFSET $3',
         valid_order_by,
         valid_sort_direction
-    ) USING p_problem_id, p_limit, p_offset;
+    ) USING p_problem_id, p_limit, p_offset, p_tags;
 END;
 $$ LANGUAGE plpgsql;
