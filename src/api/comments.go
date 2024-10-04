@@ -14,32 +14,32 @@ import (
 
 type Comment struct {
 	ID         int64            `json:"id"`
-	SolutionID int64            `json:"solutionId"`
+	SolutionId int64            `json:"solutionId"`
 	Username   string           `json:"username"`
 	Body       string           `json:"body"`
 	CreatedAt  pgtype.Timestamp `json:"createdAt"`
 	Votes      pgtype.Int4      `json:"votes"`
-	ParentID   pgtype.Int8      `json:"parentId,omitempty"`
+	ParentId   pgtype.Int8      `json:"parentId,omitempty"`
 	Children   []*Comment       `json:"children,omitempty"` // For nested child comments
 }
 
 // GET: /comments
 func (h *Handler) GetComments(w http.ResponseWriter, r *http.Request) {
-	// Get the solutionID from the query parameters
-	solutionID := r.URL.Query().Get("solutionId")
-	if solutionID == "" {
-		http.Error(w, "Missing solutionID", http.StatusBadRequest)
+	// Get the solutionId from the query parameters
+	solutionId := r.URL.Query().Get("solutionId")
+	if solutionId == "" {
+		http.Error(w, "Missing solutionId", http.StatusBadRequest)
 		return
 	}
 
-	// Convert solutionID to int64
-	id, err := strconv.ParseInt(solutionID, 10, 64)
+	// Convert solutionId to int64
+	id, err := strconv.ParseInt(solutionId, 10, 64)
 	if err != nil {
-		http.Error(w, "solutionID must be an integer", http.StatusBadRequest)
+		http.Error(w, "solutionId must be an integer", http.StatusBadRequest)
 		return
 	}
 
-	// Get all comments associated with the given solutionID
+	// Get all comments associated with the given solutionId
 	dbComments, err := h.PostgresQueries.GetComments(r.Context(), id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -53,22 +53,22 @@ func (h *Handler) GetComments(w http.ResponseWriter, r *http.Request) {
 	for _, dbComment := range dbComments {
 		comment := &Comment{
 			ID:         dbComment.ID,
-			SolutionID: dbComment.SolutionID,
+			SolutionId: dbComment.SolutionID,
 			Username:   dbComment.Username,
 			Body:       dbComment.Body,
 			CreatedAt:  dbComment.CreatedAt,
 			Votes:      dbComment.Votes,
-			ParentID:   dbComment.ParentID,
+			ParentId:   dbComment.ParentID,
 		}
 
 		allComments[comment.ID] = comment
 	}
 
 	for _, comment := range allComments {
-		if !comment.ParentID.Valid {
+		if !comment.ParentId.Valid {
 			topLevelComments = append(topLevelComments, comment)
 		} else {
-			if parent, ok := allComments[comment.ParentID.Int64]; ok {
+			if parent, ok := allComments[comment.ParentId.Int64]; ok {
 				parent.Children = append(parent.Children, comment)
 			}
 		}
@@ -101,21 +101,21 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate input
-	if comment.SolutionID == 0 || comment.Username == "" || comment.Body == "" {
-		http.Error(w, "SolutionID, Username, and Body are required", http.StatusBadRequest)
+	if comment.SolutionId == 0 || comment.Username == "" || comment.Body == "" {
+		http.Error(w, "SolutionId, Username, and Body are required", http.StatusBadRequest)
 		return
 	}
 
 	// Check if solution exists
-	_, err = h.PostgresQueries.GetSolution(r.Context(), comment.SolutionID)
+	_, err = h.PostgresQueries.GetSolution(r.Context(), comment.SolutionId)
 	if err != nil {
 		http.Error(w, "Solution not found", http.StatusNotFound)
 		return
 	}
 
-	// Check if parent comment exists if ParentID is provided
-	if comment.ParentID.Valid {
-		_, err := h.PostgresQueries.GetComment(r.Context(), comment.ParentID.Int64)
+	// Check if parent comment exists if ParentId is provided
+	if comment.ParentId.Valid {
+		_, err := h.PostgresQueries.GetComment(r.Context(), comment.ParentId.Int64)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				http.Error(w, "Parent comment not found", http.StatusNotFound)
@@ -128,8 +128,8 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 
 	// create comment
 	_, err = h.PostgresQueries.CreateComment(r.Context(), sql.CreateCommentParams{
-		SolutionID: comment.SolutionID,
-		ParentID:   comment.ParentID,
+		SolutionID: comment.SolutionId,
+		ParentID:   comment.ParentId,
 		Username:   comment.Username,
 		Body:       comment.Body,
 	})
@@ -142,17 +142,17 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-// GET: /comments/{commentID}
+// GET: /comments/{commentId}
 func (h *Handler) GetComment(w http.ResponseWriter, r *http.Request) {
-	commentID := chi.URLParam(r, "commentId")
-	if commentID == "" {
-		http.Error(w, "Missing commentID", http.StatusBadRequest)
+	commentId := chi.URLParam(r, "commentId")
+	if commentId == "" {
+		http.Error(w, "Missing commentId", http.StatusBadRequest)
 		return
 	}
 
-	id, err := strconv.ParseInt(commentID, 10, 64)
+	id, err := strconv.ParseInt(commentId, 10, 64)
 	if err != nil {
-		http.Error(w, "commentID must be an integer", http.StatusBadRequest)
+		http.Error(w, "commentId must be an integer", http.StatusBadRequest)
 		return
 	}
 
@@ -181,17 +181,17 @@ func (h *Handler) GetComment(w http.ResponseWriter, r *http.Request) {
 	w.Write(responseJSON)
 }
 
-// PUT: /comments/{commentID}
+// PUT: /comments/{commentId}
 func (h *Handler) UpdateComment(w http.ResponseWriter, r *http.Request) {
-	commentID := chi.URLParam(r, "commentId")
-	if commentID == "" {
-		http.Error(w, "Missing commentID", http.StatusBadRequest)
+	commentId := chi.URLParam(r, "commentId")
+	if commentId == "" {
+		http.Error(w, "Missing commentId", http.StatusBadRequest)
 		return
 	}
 
-	id, err := strconv.ParseInt(commentID, 10, 64)
+	id, err := strconv.ParseInt(commentId, 10, 64)
 	if err != nil {
-		http.Error(w, "commentID must be an integer", http.StatusBadRequest)
+		http.Error(w, "commentId must be an integer", http.StatusBadRequest)
 		return
 	}
 
@@ -225,17 +225,17 @@ func (h *Handler) UpdateComment(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// DELETE: /comments/{commentID}
+// DELETE: /comments/{commentId}
 func (h *Handler) DeleteComment(w http.ResponseWriter, r *http.Request) {
-	commentID := chi.URLParam(r, "commentId")
-	if commentID == "" {
-		http.Error(w, "Missing commentID", http.StatusBadRequest)
+	commentId := chi.URLParam(r, "commentId")
+	if commentId == "" {
+		http.Error(w, "Missing commentId", http.StatusBadRequest)
 		return
 	}
 
-	id, err := strconv.ParseInt(commentID, 10, 64)
+	id, err := strconv.ParseInt(commentId, 10, 64)
 	if err != nil {
-		http.Error(w, "commentID must be an integer", http.StatusBadRequest)
+		http.Error(w, "commentId must be an integer", http.StatusBadRequest)
 		return
 	}
 
@@ -253,18 +253,18 @@ func (h *Handler) DeleteComment(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// PATCH: /{commentID}/vote
+// PATCH: /{commentId}/vote
 func (h *Handler) VoteComment(w http.ResponseWriter, r *http.Request) {
-	// Extract commentID from URL parameters
-	commentID := chi.URLParam(r, "commentId")
-	if commentID == "" {
-		http.Error(w, "commentID is required", http.StatusBadRequest)
+	// Extract commentId from URL parameters
+	commentId := chi.URLParam(r, "commentId")
+	if commentId == "" {
+		http.Error(w, "commentId is required", http.StatusBadRequest)
 		return
 	}
 
-	id, err := strconv.ParseInt(commentID, 10, 64)
+	id, err := strconv.ParseInt(commentId, 10, 64)
 	if err != nil {
-		http.Error(w, "commentID must be an integer", http.StatusBadRequest)
+		http.Error(w, "commentId must be an integer", http.StatusBadRequest)
 		return
 	}
 
