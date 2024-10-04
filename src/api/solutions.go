@@ -149,10 +149,10 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 	finalResponse := map[string]interface{}{
 		"data": solutionsData,
 		"pagination": map[string]interface{}{
-			"page":      page,       // Current page
-			"perPage":   perPage,    // Items per page
-			"pageCount": totalCount, // Total items
-			"lastPage":  lastPage,   // Last page
+			"page":          page,       // Current page
+			"perPage":       perPage,    // Items per page
+			"solutionCount": totalCount, // Total items
+			"lastPage":      lastPage,   // Last page
 		},
 	}
 
