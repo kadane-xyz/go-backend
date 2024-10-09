@@ -182,8 +182,8 @@ CREATE OR REPLACE FUNCTION get_solutions_paginated(
     p_offset INT,
     p_order_by TEXT DEFAULT 'votes',
     p_sort_direction TEXT DEFAULT 'DESC',
-    p_tags TEXT[] DEFAULT NULL, -- Made optional with default NULL
-    p_title_search TEXT DEFAULT NULL -- New optional title search parameter
+    p_tags TEXT[] DEFAULT NULL, -- Optional with default NULL
+    p_title_search TEXT DEFAULT NULL -- Optional title search parameter
 ) RETURNS SETOF solution AS $$
 DECLARE
     valid_order_by TEXT := CASE
@@ -191,7 +191,7 @@ DECLARE
         ELSE 'votes'
     END;
     valid_sort_direction TEXT := CASE
-        WHEN UPPER(p_sort_direction) IN ('ASC', 'DESC') THEN p_sort_direction
+        WHEN UPPER(p_sort_direction) IN ('ASC', 'DESC') THEN UPPER(p_sort_direction)
         ELSE 'DESC'
     END;
 BEGIN
@@ -199,7 +199,7 @@ BEGIN
         'SELECT * FROM solution
          WHERE problem_id = $1
          AND ($4 IS NULL OR tags && $4)
-         AND ($5 IS NULL OR title ILIKE %$5%)
+         AND ($5 IS NULL OR title ILIKE ''%%'' || $5 || ''%%'')
          ORDER BY %I %s
          LIMIT $2 OFFSET $3',
         valid_order_by,
