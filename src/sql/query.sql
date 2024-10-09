@@ -4,10 +4,11 @@ SELECT * FROM solution WHERE problem_id = $1;
 -- name: GetSolutionsCount :one
 SELECT COUNT(*) FROM solution
 WHERE problem_id = $1
-AND ($2::text[] IS NULL OR tags && $2);
+  AND ($2 = '' OR title ILIKE '%' || $2 || '%')
+  AND (array_length($3::text[], 1) IS NULL OR tags && $3);
 
 -- name: GetSolutionsPaginated :many
-SELECT * FROM get_solutions_paginated($1, $2, $3, $4, $5, $6::text[]);
+SELECT * FROM get_solutions_paginated($1, $2, $3, $4, $5, $6::text[], $7);
 
 -- name: GetSolutionsWithCommentsCount :many
 SELECT s.*, COALESCE(comment_counts.comments_count, 0) AS comments_count

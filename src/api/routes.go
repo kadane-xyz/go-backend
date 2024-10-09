@@ -7,7 +7,7 @@ import (
 )
 
 func RegisterApiRoutes(h *Handler, r chi.Router) {
-	r.Route("/api/v1", func(r chi.Router) {
+	r.Route("/v1", func(r chi.Router) {
 		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte("Welcome to the API"))
 		})
@@ -24,6 +24,7 @@ func RegisterApiRoutes(h *Handler, r chi.Router) {
 				})
 			})
 		})
+		// comments
 		r.Route("/comments", func(r chi.Router) {
 			r.Get("/", h.GetComments)
 			r.Post("/", h.CreateComment)

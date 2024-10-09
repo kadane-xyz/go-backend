@@ -42,6 +42,11 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 		id = parsedId
 	}
 
+	titleSearch := r.URL.Query().Get("titleSearch")
+	if titleSearch == "" {
+		titleSearch = ""
+	}
+
 	var tagsArray []string
 	tags := r.URL.Query().Get("tags")
 	if tags != "" {
@@ -62,10 +67,11 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 
 	// Handle sort
 	sort := r.URL.Query().Get("sort")
-	if sort == "" {
-		sort = "votes"
-	} else if sort == "time" {
+	switch sort {
+	case "time":
 		sort = "created_at"
+	default:
+		sort = "votes"
 	}
 
 	// Handle order
@@ -82,8 +88,9 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 	offset := (page - 1) * perPage
 
 	solutions, err := h.PostgresQueries.GetSolutionsPaginated(r.Context(), sql.GetSolutionsPaginatedParams{
-		Column6:        tagsArray,
 		PProblemID:     id,
+		PTitleSearch:   titleSearch,
+		Column6:        tagsArray,
 		PLimit:         int32(perPage),
 		POffset:        int32(offset),
 		PSortDirection: order,
@@ -107,7 +114,8 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 
 	totalCount, err := h.PostgresQueries.GetSolutionsCount(r.Context(), sql.GetSolutionsCountParams{
 		ProblemID: pgtype.Int8{Int64: id, Valid: true},
-		Column2:   tagsArray,
+		Column2:   titleSearch,
+		Column3:   tagsArray,
 	})
 	if err != nil {
 		http.Error(w, "error getting total count", http.StatusInternalServerError)
@@ -224,7 +232,7 @@ func (h *Handler) GetSolution(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get solutions from db by idPg
-	solutions, err := h.PostgresQueries.GetSolution(r.Context(), id)
+	solution, err := h.PostgresQueries.GetSolution(r.Context(), id)
 	if err != nil {
 		http.Error(w, "error getting solutions", http.StatusInternalServerError)
 		return
@@ -232,7 +240,14 @@ func (h *Handler) GetSolution(w http.ResponseWriter, r *http.Request) {
 
 	// Prepare response
 	response := map[string]interface{}{
-		"data": solutions,
+		"data": map[string]interface{}{
+			"id":       solution.ID,
+			"date":     solution.CreatedAt,
+			"tags":     solution.Tags,
+			"title":    solution.Title,
+			"username": solution.Username,
+			"votes":    solution.Votes,
+		},
 	}
 
 	// Marshal solutions to JSON
