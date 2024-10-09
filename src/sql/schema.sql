@@ -182,7 +182,8 @@ CREATE OR REPLACE FUNCTION get_solutions_paginated(
     p_offset INT,
     p_order_by TEXT DEFAULT 'votes',
     p_sort_direction TEXT DEFAULT 'DESC',
-    p_tags TEXT[] DEFAULT NULL -- Made optional with default NULL
+    p_tags TEXT[] DEFAULT NULL, -- Made optional with default NULL
+    p_title_search TEXT DEFAULT NULL -- New optional title search parameter
 ) RETURNS SETOF solution AS $$
 DECLARE
     valid_order_by TEXT := CASE
@@ -198,10 +199,11 @@ BEGIN
         'SELECT * FROM solution
          WHERE problem_id = $1
          AND ($4 IS NULL OR tags && $4)
+         AND ($5 IS NULL OR title ILIKE %$5%)
          ORDER BY %I %s
          LIMIT $2 OFFSET $3',
         valid_order_by,
         valid_sort_direction
-    ) USING p_problem_id, p_limit, p_offset, p_tags;
+    ) USING p_problem_id, p_limit, p_offset, p_tags, p_title_search;
 END;
 $$ LANGUAGE plpgsql;
