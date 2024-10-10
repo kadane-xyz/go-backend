@@ -13,6 +13,11 @@ Initialize environment
 go mod tidy
 ```
 
+Install sqlc
+```bash
+go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
+```
+
 Install air
 ```bash
 go install github.com/air-verse/air@latest
