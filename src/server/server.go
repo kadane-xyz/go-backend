@@ -13,6 +13,9 @@ import (
 	"kadane.xyz/go-backend/v2/src/db"
 	"kadane.xyz/go-backend/v2/src/middleware"
 	"kadane.xyz/go-backend/v2/src/sql/sql"
+
+	firebase "firebase.google.com/go/v4"
+	firebaseApp "kadane.xyz/go-backend/v2/src/firebase"
 )
 
 type Server struct {
@@ -20,10 +23,13 @@ type Server struct {
 	postgresClient  *pgxpool.Pool
 	closeFunc       func()
 	PostgresQueries *sql.Queries
+	firebaseApp     *firebase.App
 }
 
 func NewServer(config *config.Config) (*Server, error) {
 	ctx := context.Background()
+
+	// Connect to Postgres
 	postgresClient, closeFunc, err := db.NewPostgresClient(ctx, config.PostgresUrl, config.PostgresUser, config.PostgresPass, config.PostgresDB)
 	if err != nil {
 		return nil, fmt.Errorf("error connecting to postgres: %v", err)
@@ -36,10 +42,19 @@ func NewServer(config *config.Config) (*Server, error) {
 	}
 	log.Println("Database connection established")
 
+	// Initialize Firebase client
+	firebaseApp, err := firebaseApp.NewFirebaseApp(config)
+	if err != nil {
+		closeFunc()
+		return nil, fmt.Errorf("error connecting to Firebase: %v", err)
+	}
+	log.Println("Firebase connection established")
+
 	return &Server{
 		config:         config,
 		postgresClient: postgresClient,
 		closeFunc:      closeFunc,
+		firebaseApp:    firebaseApp,
 	}, nil
 }
 
@@ -52,7 +67,10 @@ func (s *Server) Run() error {
 	s.PostgresQueries = queries // Set queries to server
 
 	//middleware handler
-	middlewareHandler := &middleware.Handler{}
+	middlewareHandler := &middleware.Handler{
+		Config:      s.config,
+		FirebaseApp: s.firebaseApp,
+	}
 
 	//api handler
 	ApiHandler := &api.Handler{
