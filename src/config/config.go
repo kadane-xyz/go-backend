@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"log"
 	"os"
 
@@ -14,6 +15,7 @@ type Config struct {
 	PostgresPass string
 	PostgresDB   string
 	Port         string
+	FirebaseCred string
 }
 
 // Fetch environment variables
@@ -22,7 +24,7 @@ func LoadConfig() (*Config, error) {
 
 	// load .env after fetching environment variables
 	if err := godotenv.Load(); err != nil && !os.IsNotExist(err) {
-		log.Fatalln("Error loading .env")
+		return nil, fmt.Errorf("error loading .env file: %v", err)
 	}
 
 	port := os.Getenv("PORT")
@@ -32,22 +34,27 @@ func LoadConfig() (*Config, error) {
 
 	postgresUrl := os.Getenv("POSTGRES_URL")
 	if postgresUrl == "" {
-		log.Fatalln("POSTGRES_URL is not set")
+		return nil, fmt.Errorf("POSTGRES_URL is not set")
 	}
 
 	postgresUser := os.Getenv("POSTGRES_USER")
 	if postgresUser == "" {
-		log.Fatalln("POSTGRES_USER is not set")
+		return nil, fmt.Errorf("POSTGRES_USER is not set")
 	}
 
 	postgresPass := os.Getenv("POSTGRES_PASSWORD")
 	if postgresPass == "" {
-		log.Fatalln("POSTGRES_PASS is not set")
+		return nil, fmt.Errorf("POSTGRES_PASSWORD is not set")
 	}
 
 	postgresDB := os.Getenv("POSTGRES_DB")
 	if postgresDB == "" {
-		log.Fatalln("POSTGRES_DB is not set")
+		return nil, fmt.Errorf("POSTGRES_DB is not set")
+	}
+
+	firebaseCred := os.Getenv("FIREBASE_CRED")
+	if firebaseCred == "" {
+		return nil, fmt.Errorf("FIREBASE_CRED is not set")
 	}
 
 	// Return the configuration by fetching environment variables
@@ -57,6 +64,8 @@ func LoadConfig() (*Config, error) {
 		PostgresUser: postgresUser,
 		PostgresPass: postgresPass,
 		PostgresDB:   postgresDB,
+		//Firebase
+		FirebaseCred: firebaseCred,
 		//Server
 		Port: port,
 	}
