@@ -42,6 +42,13 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 		id = parsedId
 	}
 
+	// Handle username
+	username := r.URL.Query().Get("username")
+	if username == "" {
+		http.Error(w, "username is required", http.StatusBadRequest)
+		return
+	}
+
 	titleSearch := r.URL.Query().Get("titleSearch")
 	if titleSearch == "" {
 		titleSearch = ""
@@ -132,14 +139,23 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		vote, err := h.PostgresQueries.GetSolutionVote(r.Context(), sql.GetSolutionVoteParams{
+			Username:   username,
+			SolutionID: solution.ID,
+		})
+		if err != nil {
+			vote = "none"
+		}
+
 		solutionData := map[string]interface{}{
-			"id":       solution.ID,
-			"comments": comment,
-			"date":     solution.CreatedAt,
-			"tags":     solution.Tags,
-			"title":    solution.Title,
-			"username": solution.Username,
-			"votes":    solution.Votes,
+			"id":              solution.ID,        // Solution ID
+			"comments":        comment,            // Solution comments count
+			"date":            solution.CreatedAt, // Solution date
+			"tags":            solution.Tags,      // Solution tags
+			"title":           solution.Title,     // Solution title
+			"username":        solution.Username,  // Solution author
+			"votes":           solution.Votes,     // Solution votes count
+			"currentUserVote": vote,               // Current user's vote
 		}
 
 		// If preview is not true, include the body
