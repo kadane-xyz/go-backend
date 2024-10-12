@@ -53,11 +53,14 @@ UPDATE solution_user_vote
 SET vote = $3
 WHERE username = $1 AND solution_id = $2;
 
+-- name: GetComment :one
+SELECT * FROM comment WHERE id = $1;
+
 -- name: GetComments :many
 SELECT * FROM comment WHERE solution_id = $1;
 
--- name: GetComment :one
-SELECT * FROM comment WHERE id = $1;
+-- name: GetCommentsSorted :many
+SELECT * FROM get_comments_sorted($1, $2, $3);
 
 -- name: CreateComment :one
 INSERT INTO comment (username, body, solution_id, parent_id)
