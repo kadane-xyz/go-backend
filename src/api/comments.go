@@ -39,8 +39,31 @@ func (h *Handler) GetComments(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Handle sort
+	sort := r.URL.Query().Get("sort")
+	switch sort {
+	case "time":
+		sort = "created_at"
+	default:
+		sort = "votes"
+	}
+
+	// Handle order
+	order := r.URL.Query().Get("order")
+	if order == "asc" {
+		order = "ASC"
+	} else if order == "desc" {
+		order = "DESC"
+	} else {
+		order = "DESC"
+	}
+
 	// Get all comments associated with the given solutionId
-	dbComments, err := h.PostgresQueries.GetComments(r.Context(), id)
+	dbComments, err := h.PostgresQueries.GetCommentsSorted(r.Context(), sql.GetCommentsSortedParams{
+		PSolutionID:    id,
+		PSortDirection: sort,
+		POrderBy:       order,
+	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
