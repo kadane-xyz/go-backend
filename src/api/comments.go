@@ -24,6 +24,10 @@ type Comment struct {
 	Children   []*Comment       `json:"children,omitempty"` // For nested child comments
 }
 
+type CommentResponse struct {
+	Data CommentsData `json:"data"`
+}
+
 type CommentsData struct {
 	ID              int64           `json:"id"`
 	SolutionId      int64           `json:"solutionId"`
@@ -214,6 +218,13 @@ func (h *Handler) GetComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Handle username
+	username := r.URL.Query().Get("username")
+	if username == "" {
+		http.Error(w, "username is required", http.StatusBadRequest)
+		return
+	}
+
 	id, err := strconv.ParseInt(commentId, 10, 64)
 	if err != nil {
 		http.Error(w, "commentId must be an integer", http.StatusBadRequest)
@@ -230,8 +241,28 @@ func (h *Handler) GetComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := map[string]interface{}{
-		"data": comment,
+	vote, err := h.PostgresQueries.GetCommentVote(r.Context(), sql.GetCommentVoteParams{
+		Username:  pgtype.Text{String: username, Valid: true},
+		CommentID: pgtype.Int8{Int64: id, Valid: true},
+	})
+	if err != nil || vote == "" {
+		vote = "none"
+	}
+
+	commentData := CommentsData{
+		ID:              comment.ID,
+		SolutionId:      comment.SolutionID,
+		Username:        comment.Username,
+		Body:            comment.Body,
+		CreatedAt:       comment.CreatedAt.Time,
+		Votes:           comment.Votes.Int32,
+		ParentId:        &comment.ParentID.Int64,
+		Children:        []*CommentsData{},
+		CurrentUserVote: vote,
+	}
+
+	response := CommentResponse{
+		Data: commentData,
 	}
 
 	responseJSON, err := json.Marshal(response)
