@@ -80,6 +80,11 @@ DELETE FROM comment WHERE id = $1;
 SELECT vote FROM comment_user_vote
 WHERE username = $1 AND comment_id = $2;
 
+-- name: GetCommentVotesBatch :many
+SELECT comment_id, vote
+FROM comment_user_vote
+WHERE username = $1 AND comment_id = ANY($2::bigint[]);
+
 -- name: GetCommentCount :one
 SELECT COUNT(*) FROM comment WHERE solution_id = $1;
 

@@ -219,11 +219,12 @@ BEGIN
         'SELECT * FROM comment
          WHERE solution_id = $1
          ORDER BY %s %s',
-        CASE p_order_by
-            WHEN 'votes' THEN 'votes'
-            WHEN 'created_at' THEN 'created_at'
-            ELSE 'created_at'  -- Default to created_at if invalid input
+        -- Only allow sorting by 'votes' or 'created_at'
+        CASE WHEN p_order_by = 'votes' THEN 'votes'
+             WHEN p_order_by = 'created_at' THEN 'created_at'
+             ELSE 'created_at'  -- Default to 'created_at' if invalid input
         END,
+        -- Only allow 'ASC' or 'DESC' for sort direction
         CASE WHEN UPPER(p_sort_direction) = 'DESC' THEN 'DESC' ELSE 'ASC' END
     ) USING p_solution_id;
 END;
