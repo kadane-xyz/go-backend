@@ -1,3 +1,5 @@
+-- GET --
+
 -- name: GetSolutions :many
 SELECT * FROM solution WHERE problem_id = $1;
 
@@ -23,10 +25,18 @@ WHERE s.problem_id = $1;
 -- name: GetSolution :one
 SELECT * FROM solution WHERE id = $1;
 
+-- name: GetSolutionVote :one
+SELECT vote FROM solution_user_vote
+WHERE username = $1 AND solution_id = $2;
+
+-- POST --
+
 -- name: CreateSolution :one
 INSERT INTO solution (username, title, body, problem_id, tags)
 VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
+
+-- PUT --
 
 -- name: UpdateSolution :one
 UPDATE solution
@@ -34,12 +44,12 @@ SET title = $1, body = $2, tags = $3
 WHERE id = $4
 RETURNING *;
 
+-- DELETE --
+
 -- name: DeleteSolution :exec
 DELETE FROM solution WHERE id = $1;
 
--- name: GetSolutionVote :one
-SELECT vote FROM solution_user_vote
-WHERE username = $1 AND solution_id = $2;
+-- PATCH --
 
 -- name: InsertSolutionVote :exec
 INSERT INTO solution_user_vote (username, solution_id, vote)
