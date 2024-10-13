@@ -41,7 +41,7 @@ type CommentsData struct {
 }
 
 type CommentsResponse struct {
-	Data []CommentsData `json:"data"`
+	Data []*CommentsData `json:"data"`
 }
 
 // GET: /comments
@@ -154,9 +154,13 @@ func (h *Handler) GetComments(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	response := CommentsResponse{
+		Data: topLevelComments,
+	}
+
 	// Set JSON response headers and encode the response directly
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(topLevelComments)
+	json.NewEncoder(w).Encode(response)
 }
 
 // POST: /comments
