@@ -45,7 +45,6 @@ func NewServer(config *config.Config) (*Server, error) {
 	// Initialize Firebase client
 	firebaseApp, err := firebaseApp.NewFirebaseApp(config)
 	if err != nil {
-		closeFunc()
 		return nil, fmt.Errorf("error connecting to Firebase: %v", err)
 	}
 	log.Println("Firebase connection established")
