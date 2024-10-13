@@ -1,0 +1,46 @@
+-- name: GetComment :one
+SELECT * FROM comment WHERE id = $1;
+
+-- name: GetComments :many
+SELECT * FROM comment WHERE solution_id = $1;
+
+-- name: GetCommentsSorted :many
+SELECT * FROM get_comments_sorted($1, $2, $3);
+
+-- name: CreateComment :one
+INSERT INTO comment (username, body, solution_id, parent_id)
+VALUES ($1, $2, $3, $4)
+RETURNING *;
+
+-- name: UpdateComment :one
+UPDATE comment
+SET body = $1
+WHERE id = $2
+RETURNING *;
+
+-- name: DeleteComment :exec
+DELETE FROM comment WHERE id = $1;
+
+-- name: GetCommentVote :one
+SELECT vote FROM comment_user_vote
+WHERE username = $1 AND comment_id = $2;
+
+-- name: GetCommentVotesBatch :many
+SELECT comment_id, vote
+FROM comment_user_vote
+WHERE username = $1 AND comment_id = ANY($2::bigint[]);
+
+-- name: GetCommentCount :one
+SELECT COUNT(*) FROM comment WHERE solution_id = $1;
+
+-- name: InsertCommentVote :exec
+INSERT INTO comment_user_vote (username, comment_id, vote)
+VALUES ($1, $2, $3);
+
+-- name: DeleteCommentVote :exec
+DELETE FROM comment_user_vote WHERE username = $1 AND comment_id = $2;
+
+-- name: UpdateCommentVote :exec
+UPDATE comment_user_vote 
+SET vote = $3
+WHERE username = $1 AND comment_id = $2;
