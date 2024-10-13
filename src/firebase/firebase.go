@@ -16,7 +16,7 @@ func NewFirebaseApp(config *config.Config) (*firebase.App, error) {
 	// decode the JSON data from base64
 	cred, err := base64.StdEncoding.DecodeString(config.FirebaseCred)
 	if err != nil {
-		log.Fatalf("error decoding base64 encoded FIREBASE_CRED: %v\n", err)
+		log.Printf("error decoding base64 encoded FIREBASE_CRED: %v\n", err)
 		return nil, err
 	}
 	opt := option.WithCredentialsJSON(cred)
@@ -24,7 +24,7 @@ func NewFirebaseApp(config *config.Config) (*firebase.App, error) {
 	// Initialize Firebase App
 	app, err := firebase.NewApp(ctx, nil, opt)
 	if err != nil {
-		log.Fatalf("error initializing app: %v\n", err)
+		log.Printf("error initializing app: %v\n", err)
 		return nil, err
 	}
 

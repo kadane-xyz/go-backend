@@ -7,10 +7,6 @@ import (
 )
 
 func RegisterApiRoutes(h *Handler, r chi.Router) {
-	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
-	})
 	r.Route("/v1", func(r chi.Router) {
 		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte("Welcome to the API"))
@@ -41,9 +37,6 @@ func RegisterApiRoutes(h *Handler, r chi.Router) {
 				})
 			})
 		})
-	})
-	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Welcome to the API"))
 	})
 	//generate a route to catch anything not defined and error/block spam
 	r.Get("/*", func(w http.ResponseWriter, r *http.Request) {
