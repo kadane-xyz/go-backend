@@ -11,7 +11,7 @@
                     "hostPort": 80,
                     "protocol": "tcp",
                     "name": "kadane-backend-80-tcp",
-                    "appProtocol": "http"
+                    "appProtocol": "http2"
                 }
             ],
             "essential": true,
