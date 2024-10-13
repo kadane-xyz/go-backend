@@ -21,6 +21,13 @@
             "volumesFrom": [],
             "ulimits": [],
             "systemControls": [],
+            "healthCheck": {
+                "command": [ "CMD-SHELL", "curl -f http://localhost/health" ],
+                "interval": 5,
+                "timeout": 5,
+                "retries": 5,
+                "startPeriod": 60
+            },
             "logConfiguration": {
                 "logDriver": "awslogs",
                 "options": {
