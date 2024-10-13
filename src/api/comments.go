@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx"
@@ -13,14 +14,30 @@ import (
 )
 
 type Comment struct {
-	ID         int64            `json:"id"`
+	ID         pgtype.Int8      `json:"id"`
 	SolutionId int64            `json:"solutionId"`
 	Username   string           `json:"username"`
 	Body       string           `json:"body"`
 	CreatedAt  pgtype.Timestamp `json:"createdAt"`
-	Votes      pgtype.Int4      `json:"votes"`
+	Votes      int32            `json:"votes"`
 	ParentId   pgtype.Int8      `json:"parentId,omitempty"`
 	Children   []*Comment       `json:"children,omitempty"` // For nested child comments
+}
+
+type CommentsData struct {
+	ID              int64           `json:"id"`
+	SolutionId      int64           `json:"solutionId"`
+	Username        string          `json:"username"`
+	Body            string          `json:"body"`
+	CreatedAt       time.Time       `json:"createdAt"`
+	Votes           int32           `json:"votes"`
+	ParentId        *int64          `json:"parentId,omitempty"`
+	Children        []*CommentsData `json:"children"` // For nested child comments
+	CurrentUserVote sql.VoteType    `json:"currentUserVote"`
+}
+
+type CommentsResponse struct {
+	Data []CommentsData `json:"data"`
 }
 
 // GET: /comments
@@ -29,6 +46,13 @@ func (h *Handler) GetComments(w http.ResponseWriter, r *http.Request) {
 	solutionId := r.URL.Query().Get("solutionId")
 	if solutionId == "" {
 		http.Error(w, "Missing solutionId", http.StatusBadRequest)
+		return
+	}
+
+	// Handle username
+	username := r.URL.Query().Get("username")
+	if username == "" {
+		http.Error(w, "username is required", http.StatusBadRequest)
 		return
 	}
 
@@ -58,60 +82,77 @@ func (h *Handler) GetComments(w http.ResponseWriter, r *http.Request) {
 		order = "DESC"
 	}
 
-	// Get all comments associated with the given solutionId
 	dbComments, err := h.PostgresQueries.GetCommentsSorted(r.Context(), sql.GetCommentsSortedParams{
 		PSolutionID:    id,
-		PSortDirection: sort,
-		POrderBy:       order,
+		POrderBy:       sort,
+		PSortDirection: order,
 	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Create maps to track all comments and top-level comments
-	allComments := make(map[int64]*Comment)
-	var topLevelComments []*Comment
+	// Create a map to hold all comments by ID
+	commentMap := make(map[int64]*CommentsData, len(dbComments))
 
+	// Create a slice to maintain the order of top-level comments
+	var topLevelComments []*CommentsData
+
+	// First pass: Create CommentsData objects
 	for _, dbComment := range dbComments {
-		comment := &Comment{
-			ID:         dbComment.ID,
-			SolutionId: dbComment.SolutionID,
-			Username:   dbComment.Username,
-			Body:       dbComment.Body,
-			CreatedAt:  dbComment.CreatedAt,
-			Votes:      dbComment.Votes,
-			ParentId:   dbComment.ParentID,
+		comment := &CommentsData{
+			ID:              dbComment.ID,
+			SolutionId:      dbComment.SolutionID,
+			Username:        dbComment.Username,
+			Body:            dbComment.Body,
+			CreatedAt:       dbComment.CreatedAt.Time,
+			Votes:           dbComment.Votes.Int32,
+			Children:        []*CommentsData{},
+			CurrentUserVote: "none", // Will be updated later
 		}
+		commentMap[comment.ID] = comment
 
-		allComments[comment.ID] = comment
+		if !dbComment.ParentID.Valid {
+			topLevelComments = append(topLevelComments, comment)
+		}
 	}
 
-	for _, comment := range allComments {
-		if !comment.ParentId.Valid {
-			topLevelComments = append(topLevelComments, comment)
-		} else {
-			if parent, ok := allComments[comment.ParentId.Int64]; ok {
-				parent.Children = append(parent.Children, comment)
+	// Second pass: Build the comment tree
+	for _, dbComment := range dbComments {
+		if dbComment.ParentID.Valid {
+			parentId := dbComment.ParentID.Int64
+			if parent, exists := commentMap[parentId]; exists {
+				parent.Children = append(parent.Children, commentMap[dbComment.ID])
 			}
 		}
 	}
 
-	response := map[string]interface{}{
-		"data": topLevelComments,
+	// Collect all comment IDs
+	commentIds := make([]int64, 0, len(commentMap))
+	for id := range commentMap {
+		commentIds = append(commentIds, id)
 	}
 
-	// Marshal the structured comments into JSON
-	responseJSON, err := json.Marshal(response)
+	// Fetch votes for all comments in a single query
+	votes, err := h.PostgresQueries.GetCommentVotesBatch(r.Context(), sql.GetCommentVotesBatchParams{
+		Username: pgtype.Text{String: username, Valid: true},
+		Column2:  commentIds,
+	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Set the response headers and write the JSON response
+	// Update CurrentUserVote for all comments
+	for _, vote := range votes {
+		if comment, exists := commentMap[vote.CommentID.Int64]; exists {
+			comment.CurrentUserVote = vote.Vote
+		}
+	}
+
+	// Set JSON response headers and encode the response directly
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(responseJSON)
+	json.NewEncoder(w).Encode(topLevelComments)
 }
 
 // POST: /comments
