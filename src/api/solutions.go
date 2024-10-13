@@ -23,6 +23,30 @@ type Solutions struct {
 	ProblemId pgtype.Int8 `json:"problemId"`
 }
 
+type SolutionsData struct {
+	Id              int64            `json:"id"`
+	Body            string           `json:"body,omitempty"`
+	Comments        int64            `json:"comments"`
+	Date            pgtype.Timestamp `json:"date"`
+	Tags            []string         `json:"tags"`
+	Title           string           `json:"title"`
+	Username        string           `json:"username,omitempty"`
+	Votes           int32            `json:"votes"`
+	CurrentUserVote sql.VoteType     `json:"currentUserVote"`
+}
+
+type SolutionsPagination struct {
+	Page          int64 `json:"page"`
+	PerPage       int64 `json:"perPage"`
+	SolutionCount int64 `json:"solutionCount"`
+	LastPage      int64 `json:"lastPage"`
+}
+
+type SolutionsResponse struct {
+	Data       []SolutionsData     `json:"data"`
+	Pagination SolutionsPagination `json:"pagination"`
+}
+
 // GET: /solutions
 func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 	var id int64 // Problem ID
@@ -63,7 +87,7 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 	// Handle pagination
 	page, err := strconv.ParseInt(r.URL.Query().Get("page"), 10, 64)
 	if err != nil || page < 1 {
-		page = 0
+		page = 1
 	}
 
 	// Handle perPage
@@ -130,7 +154,7 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Prepare response
-	var solutionsData []map[string]interface{}
+	var solutionsData []SolutionsData
 	for _, solution := range solutions {
 		// Get comments from db by idPg
 		comment, err := h.PostgresQueries.GetCommentCount(r.Context(), solution.ID)
@@ -147,20 +171,25 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 			vote = "none"
 		}
 
-		solutionData := map[string]interface{}{
-			"id":              solution.ID,        // Solution ID
-			"comments":        comment,            // Solution comments count
-			"date":            solution.CreatedAt, // Solution date
-			"tags":            solution.Tags,      // Solution tags
-			"title":           solution.Title,     // Solution title
-			"username":        solution.Username,  // Solution author
-			"votes":           solution.Votes,     // Solution votes count
-			"currentUserVote": vote,               // Current user's vote
+		// If tags is nil, set it to an empty array
+		if solution.Tags == nil {
+			solution.Tags = []string{}
+		}
+
+		solutionData := SolutionsData{
+			Id:              solution.ID,
+			Comments:        comment,
+			Date:            solution.CreatedAt,
+			Tags:            solution.Tags,
+			Title:           solution.Title,
+			Username:        solution.Username.String,
+			Votes:           solution.Votes.Int32,
+			CurrentUserVote: vote,
 		}
 
 		// If preview is not true, include the body
 		if r.URL.Query().Get("preview") != "true" {
-			solutionData["body"] = solution.Body
+			solutionData.Body = solution.Body
 		}
 
 		solutionsData = append(solutionsData, solutionData)
@@ -170,13 +199,13 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 	lastPage := (totalCount + perPage - 1) / perPage
 
 	// Final response
-	finalResponse := map[string]interface{}{
-		"data": solutionsData,
-		"pagination": map[string]interface{}{
-			"page":          page,       // Current page
-			"perPage":       perPage,    // Items per page
-			"solutionCount": totalCount, // Total items
-			"lastPage":      lastPage,   // Last page
+	finalResponse := SolutionsResponse{
+		Data: solutionsData,
+		Pagination: SolutionsPagination{
+			Page:          page,       // Current page
+			PerPage:       perPage,    // Items per page
+			SolutionCount: totalCount, // Total items
+			LastPage:      lastPage,   // Last page
 		},
 	}
 
@@ -241,6 +270,13 @@ func (h *Handler) GetSolution(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Handle username
+	username := r.URL.Query().Get("username")
+	if username == "" {
+		http.Error(w, "username is required", http.StatusBadRequest)
+		return
+	}
+
 	id, err := strconv.ParseInt(solutionId, 10, 64)
 	if err != nil {
 		http.Error(w, "solutionId must be an integer", http.StatusBadRequest)
@@ -254,20 +290,38 @@ func (h *Handler) GetSolution(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Prepare response
-	response := map[string]interface{}{
-		"data": map[string]interface{}{
-			"id":       solution.ID,
-			"date":     solution.CreatedAt,
-			"tags":     solution.Tags,
-			"title":    solution.Title,
-			"username": solution.Username,
-			"votes":    solution.Votes,
-		},
+	// Get comments from db by idPg
+	comment, err := h.PostgresQueries.GetCommentCount(r.Context(), solution.ID)
+	if err != nil {
+		http.Error(w, "error getting comments", http.StatusInternalServerError)
+		return
+	}
+
+	vote, err := h.PostgresQueries.GetSolutionVote(r.Context(), sql.GetSolutionVoteParams{
+		Username:   username,
+		SolutionID: solution.ID,
+	})
+	if err != nil {
+		vote = "none"
+	}
+
+	// If tags is nil, set it to an empty array
+	if solution.Tags == nil {
+		solution.Tags = []string{}
+	}
+
+	solutionData := SolutionsData{
+		Id:              solution.ID,
+		Comments:        comment,
+		Date:            solution.CreatedAt,
+		Tags:            solution.Tags,
+		Title:           solution.Title,
+		Votes:           solution.Votes.Int32,
+		CurrentUserVote: vote,
 	}
 
 	// Marshal solutions to JSON
-	responseJSON, err := json.Marshal(response)
+	responseJSON, err := json.Marshal(solutionData)
 	if err != nil {
 		http.Error(w, "error marshalling solutions", http.StatusInternalServerError)
 		return
