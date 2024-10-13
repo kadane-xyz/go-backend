@@ -23,6 +23,10 @@ type Solutions struct {
 	ProblemId pgtype.Int8 `json:"problemId"`
 }
 
+type SolutionResponse struct {
+	Data SolutionsData `json:"data"`
+}
+
 type SolutionsData struct {
 	Id              int64            `json:"id"`
 	Body            string           `json:"body,omitempty"`
@@ -320,8 +324,12 @@ func (h *Handler) GetSolution(w http.ResponseWriter, r *http.Request) {
 		CurrentUserVote: vote,
 	}
 
+	response := SolutionResponse{
+		Data: solutionData,
+	}
+
 	// Marshal solutions to JSON
-	responseJSON, err := json.Marshal(solutionData)
+	responseJSON, err := json.Marshal(response)
 	if err != nil {
 		http.Error(w, "error marshalling solutions", http.StatusInternalServerError)
 		return
