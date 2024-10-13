@@ -2,6 +2,7 @@ package firebase
 
 import (
 	"context"
+	"encoding/base64"
 	"log"
 
 	firebase "firebase.google.com/go/v4"
@@ -12,7 +13,12 @@ import (
 func NewFirebaseApp(config *config.Config) (*firebase.App, error) {
 	ctx := context.Background()
 	// Load Firebase credentials from environment variable
-	cred := []byte(config.FirebaseCred)
+	// decode the JSON data from base64
+	cred, err := base64.StdEncoding.DecodeString(config.FirebaseCred)
+	if err != nil {
+		log.Fatalf("error decoding base64 encoded FIREBASE_CRED: %v\n", err)
+		return nil, err
+	}
 	opt := option.WithCredentialsJSON(cred)
 
 	// Initialize Firebase App
