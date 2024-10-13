@@ -8,6 +8,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 	"kadane.xyz/go-backend/v2/src/api"
 	"kadane.xyz/go-backend/v2/src/config"
 	"kadane.xyz/go-backend/v2/src/db"
@@ -86,9 +88,15 @@ func (s *Server) Run() error {
 	// HTTP routes
 	api.RegisterApiRoutes(ApiHandler, r) // Api routes
 
+	h2s := &http2.Server{}
+	srv := &http.Server{
+		Addr:    ":" + s.config.Port,
+		Handler: h2c.NewHandler(r, h2s),
+	}
+
 	// Start server
 	log.Println("Starting server on :" + s.config.Port)
-	if err := http.ListenAndServe(":"+s.config.Port, r); err != nil {
+	if err := srv.ListenAndServe(); err != nil {
 		return fmt.Errorf("error starting server: %v", err)
 	}
 
