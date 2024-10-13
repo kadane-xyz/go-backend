@@ -1,3 +1,5 @@
 /tmp
 *.env.local
 *.pem
+
+src/sql/sql/*
