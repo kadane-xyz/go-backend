@@ -39,7 +39,7 @@ func RegisterApiRoutes(h *Handler, r chi.Router) {
 			})
 		})
 		// WebSocket route
-		r.HandleFunc("/ws", websocket.HandleWebSocket(h.WebSocketManager))
+		r.HandleFunc("/ws", websocket.HandleWebSocket(h.WebSocketManager, h.PostgresQueries))
 	})
 	//generate a route to catch anything not defined and error/block spam
 	r.Get("/*", func(w http.ResponseWriter, r *http.Request) {
