@@ -9,12 +9,6 @@ INSERT INTO account (username, email, verified, avatar_url, attributesId) VALUES
 ('janesmith', 'jane@example.com', TRUE, 'https://example.com/avatars/janesmith.jpg', 2),
 ('bobjohnson', 'bob@example.com', FALSE, 'https://example.com/avatars/bobjohnson.jpg', 3);
 
--- Insert test problems (assuming you have a problems table)
-INSERT INTO problems (title, description, difficulty) VALUES
-('Two Sum', 'Find two numbers in an array that add up to a target', 'Easy'),
-('Reverse Linked List', 'Reverse a singly linked list', 'Medium'),
-('Merge K Sorted Lists', 'Merge k sorted linked lists into one sorted list', 'Hard');
-
 -- Insert test solutions
 INSERT INTO solution (username, problem_id, title, body, tags) VALUES
 ('johndoe', 1, 'Efficient Two Sum Solution', 'Here''s an O(n) solution using a hash map...', ARRAY['array', 'hash table']),
