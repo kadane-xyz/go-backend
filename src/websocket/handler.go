@@ -14,11 +14,20 @@ import (
 
 type Message struct {
 	Type      string      `json:"type"`
-	RoomID    pgtype.Int8  `json:"room_id"`
+	RoomID    int64       `json:"room_id"`
 	Content   string      `json:"content"`
-	AccountID pgtype.Int8  `json:"account_id"`
+	AccountID int64       `json:"account_id"`
 	Username  string      `json:"username"`
-	ProblemID pgtype.Int8  `json:"problem_id"`
+	ProblemID int64       `json:"problem_id"`
+}
+
+type Response struct {
+	Type    string      `json:"type"`
+	Content interface{} `json:"content"`
+}
+
+func int64ToPgInt8(i int64) pgtype.Int8 {
+	return pgtype.Int8{Int64: i, Valid: true}
 }
 
 func HandleWebSocket(manager *Manager, queries *sql.Queries) http.HandlerFunc {
@@ -41,87 +50,104 @@ func HandleWebSocket(manager *Manager, queries *sql.Queries) http.HandlerFunc {
 				var msg Message
 				if err := json.Unmarshal(message, &msg); err != nil {
 					log.Printf("JSON unmarshal error: %v", err)
+					log.Printf("Received message: %s", string(message))
 					continue
 				}
+				log.Printf("Parsed message: %+v", msg)
 
 				switch msg.Type {
 				case "create":
 					// Insert new room into database
 					roomID, err := queries.CreateRoom(r.Context(), sql.CreateRoomParams{
 						Name:            msg.Content,
-						ProblemID:       msg.ProblemID,
+						ProblemID:       int64ToPgInt8(msg.ProblemID),
 						MaxParticipants: 4,
 						TimeLimit:       3600,
-						CreatorID:       msg.AccountID,
+						CreatorID:       int64ToPgInt8(msg.AccountID),
 					})
 					if err != nil {
 						log.Printf("Error creating room: %v", err)
-						sendResponse(conn, "Error creating room")
+						if err := sendResponse(conn, "error", "Error creating room"); err != nil {
+							log.Printf("Error sending response: %v", err)
+						}
 						continue
 					}
 					
 					room := manager.CreateRoom(roomID, msg.Content, msg.ProblemID, 4, 3600, msg.AccountID)
 					err = queries.AddParticipantToRoom(r.Context(), sql.AddParticipantToRoomParams{
-						RoomID:    pgtype.Int8{Int64: roomID, Valid: true},
-						AccountID: msg.AccountID,
+						RoomID:    int64ToPgInt8(roomID),
+						AccountID: int64ToPgInt8(msg.AccountID),
 					})
 					if err != nil {
 						log.Printf("Error adding participant to room: %v", err)
 					}
 					
 					room.AddClient(msg.AccountID, conn)
-					sendResponse(conn, fmt.Sprintf("Room created and joined: %d", roomID))
+					if err := sendResponse(conn, "room_created", fmt.Sprintf("Room created and joined: Room ID: %d", roomID)); err != nil {
+						log.Printf("Error sending response: %v", err)
+					}
 
 				case "join":
 					room, exists := manager.GetRoom(msg.RoomID)
 					if !exists {
-						sendResponse(conn, fmt.Sprintf("Room not found: %d", msg.RoomID.Int64))
+						if err := sendResponse(conn, "error", fmt.Sprintf("Room not found: %d", msg.RoomID)); err != nil {
+							log.Printf("Error sending response: %v", err)
+						}
 						continue
 					}
 					room.AddClient(msg.AccountID, conn)
 					
 					// Insert participant into room_participant table
 					err := queries.AddParticipantToRoom(r.Context(), sql.AddParticipantToRoomParams{
-						RoomID:    msg.RoomID,
-						AccountID: msg.AccountID,
+						RoomID:    int64ToPgInt8(msg.RoomID),
+						AccountID: int64ToPgInt8(msg.AccountID),
 					})
 					if err != nil {
 						log.Printf("Error adding participant to room: %v", err)
 					}
 					
-					sendResponse(conn, fmt.Sprintf("Joined room: %d", msg.RoomID.Int64))
+					if err := sendResponse(conn, "joined", fmt.Sprintf("Joined room: %d", msg.RoomID)); err != nil {
+						log.Printf("Error sending response: %v", err)
+					}
 
 				case "leave":
 					room, exists := manager.GetRoom(msg.RoomID)
 					if !exists {
-						sendResponse(conn, fmt.Sprintf("Room not found: %d", msg.RoomID.Int64))
+						if err := sendResponse(conn, "error", fmt.Sprintf("Room not found: %d", msg.RoomID)); err != nil {
+							log.Printf("Error sending response: %v", err)
+						}
 						continue
 					}
 					room.RemoveClient(msg.AccountID)
 					
 					// Update participant status in room_participant table
 					err := queries.UpdateParticipantStatus(r.Context(), sql.UpdateParticipantStatusParams{
-						RoomID:    msg.RoomID,
-						AccountID: msg.AccountID,
+						RoomID:    int64ToPgInt8(msg.RoomID),
+						AccountID: int64ToPgInt8(msg.AccountID),
 						Status:    "inactive",
 					})
 					if err != nil {
 						log.Printf("Error updating participant status: %v", err)
+						continue
 					}
 					
-					sendResponse(conn, fmt.Sprintf("Left room: %d", msg.RoomID.Int64))
+					if err := sendResponse(conn, "left", fmt.Sprintf("Left room: %d", msg.RoomID)); err != nil {
+						log.Printf("Error sending response: %v", err)
+					}
 
 				case "message":
 					room, exists := manager.GetRoom(msg.RoomID)
 					if !exists {
-						sendResponse(conn, fmt.Sprintf("Room not found: %d", msg.RoomID.Int64))
+						if err := sendResponse(conn, "error", fmt.Sprintf("Room not found: %d", msg.RoomID)); err != nil {
+							log.Printf("Error sending response: %v", err)
+						}
 						continue
 					}
 					
 					// Insert message into room_message table
 					err := queries.SaveRoomMessage(r.Context(), sql.SaveRoomMessageParams{
-						RoomID:    msg.RoomID,
-						AccountID: msg.AccountID,
+						RoomID:    int64ToPgInt8(msg.RoomID),
+						AccountID: int64ToPgInt8(msg.AccountID),
 						Content:   msg.Content,
 					})
 					if err != nil {
@@ -130,29 +156,42 @@ func HandleWebSocket(manager *Manager, queries *sql.Queries) http.HandlerFunc {
 					
 					room.Broadcast([]byte(msg.Content))
 
-				case "list_clients":
+				case "list_accounts":
 					room, exists := manager.GetRoom(msg.RoomID)
 					if !exists {
-						sendResponse(conn, fmt.Sprintf("Room not found: %d", msg.RoomID.Int64))
+						if err := sendResponse(conn, "error", fmt.Sprintf("Room not found: %d", msg.RoomID)); err != nil {
+							log.Printf("Error sending response: %v", err)
+						}
 						continue
 					}
 					clients := room.GetClients()
 					clientsJSON, _ := json.Marshal(clients)
-					sendResponse(conn, string(clientsJSON))
+					if err := sendResponse(conn, "accounts", string(clientsJSON)); err != nil {
+						log.Printf("Error sending response: %v", err)
+					}
 
 				default:
-					sendResponse(conn, "Unknown message type: "+msg.Type)
+					if err := sendResponse(conn, "error", "Unknown message type: "+msg.Type); err != nil {
+						log.Printf("Error sending response: %v", err)
+					}
 				}
 			}
 		}
 	}
 }
 
-func sendResponse(conn *websocket.Conn, message string) {
-	response := Message{
-		Type:    "response",
-		Content: message,
+func sendResponse(conn *websocket.Conn, responseType string, content interface{}) error {
+	response := struct {
+		Type    string      `json:"type"`
+		Content interface{} `json:"content"`
+	}{
+		Type:    responseType,
+		Content: content,
 	}
-	responseJSON, _ := json.Marshal(response)
-	conn.Write(context.Background(), websocket.MessageText, responseJSON)
+	responseJSON, err := json.Marshal(response)
+	if err != nil {
+		log.Printf("Error marshaling response: %v", err)
+		return err
+	}
+	return conn.Write(context.Background(), websocket.MessageText, responseJSON)
 }
