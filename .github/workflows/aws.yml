@@ -77,7 +77,11 @@ jobs:
         service: ${{ env.ECS_SERVICE }}
         cluster: ${{ env.ECS_CLUSTER }}
         wait-for-service-stability: false 
-        force-new-deployment: true
-        load-balancer-target-group-arn: ${{ env.TARGET_GROUP_ARN }}
-        load-balancer-container-name: ${{ env.CONTAINER_NAME }}
-        load-balancer-container-port: ${{ env.CONTAINER_PORT }}
+
+    - name: Update ECS service with load balancer
+      run: |
+        aws ecs update-service \
+          --cluster ${{ env.ECS_CLUSTER }} \
+          --service ${{ env.ECS_SERVICE }} \
+          --load-balancers targetGroupArn=${{ env.TARGET_GROUP_ARN }},containerName=${{ env.CONTAINER_NAME }},containerPort=${{ env.CONTAINER_PORT }} \
+          --force-new-deployment
