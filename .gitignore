@@ -3,3 +3,6 @@
 *.pem
 
 src/sql/sql/*
+
+.DS_Store
+*/.DS_Store

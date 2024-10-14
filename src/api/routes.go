@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"kadane.xyz/go-backend/v2/src/websocket"
 )
 
 func RegisterApiRoutes(h *Handler, r chi.Router) {
@@ -37,6 +38,8 @@ func RegisterApiRoutes(h *Handler, r chi.Router) {
 				})
 			})
 		})
+		// WebSocket route
+		r.HandleFunc("/ws", websocket.HandleWebSocket(h.WebSocketManager))
 	})
 	//generate a route to catch anything not defined and error/block spam
 	r.Get("/*", func(w http.ResponseWriter, r *http.Request) {

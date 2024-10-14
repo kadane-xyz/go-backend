@@ -15,6 +15,7 @@ import (
 	"kadane.xyz/go-backend/v2/src/db"
 	"kadane.xyz/go-backend/v2/src/middleware"
 	"kadane.xyz/go-backend/v2/src/sql/sql"
+	"kadane.xyz/go-backend/v2/src/websocket"
 
 	firebase "firebase.google.com/go/v4"
 	firebaseApp "kadane.xyz/go-backend/v2/src/firebase"
@@ -26,6 +27,7 @@ type Server struct {
 	closeFunc       func()
 	PostgresQueries *sql.Queries
 	firebaseApp     *firebase.App
+	WebSocketManager *websocket.Manager
 }
 
 func NewServer(config *config.Config) (*Server, error) {
@@ -51,11 +53,15 @@ func NewServer(config *config.Config) (*Server, error) {
 	}
 	log.Println("Firebase connection established")
 
+	// Initialize WebSocket manager
+	WebSocketManager := websocket.NewManager()
+
 	return &Server{
 		config:         config,
 		postgresClient: postgresClient,
 		closeFunc:      closeFunc,
 		firebaseApp:    firebaseApp,
+		WebSocketManager: WebSocketManager,
 	}, nil
 }
 
@@ -77,6 +83,7 @@ func (s *Server) Run() error {
 	ApiHandler := &api.Handler{
 		PostgresClient:  s.postgresClient,
 		PostgresQueries: s.PostgresQueries,
+		WebSocketManager: s.WebSocketManager,
 	}
 
 	// HTTP router
