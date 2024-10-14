@@ -84,5 +84,5 @@ func Middleware(m *Handler, r chi.Router) {
 	}))
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Heartbeat("/health")) // Heartbeat middleware will create a simple health check endpoint
-	// r.Use(m.FirebaseAuth())                // Firebase Auth middleware
+	r.Use(m.FirebaseAuth())                // Firebase Auth middleware
 }
