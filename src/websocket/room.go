@@ -17,7 +17,7 @@ type Room struct {
 	MaxParticipants int
 	TimeLimit       int
 	CreatorID       int64
-	clients         map[int64]*websocket.Conn // key is account ID, value is WebSocket connection
+	clients         map[int64]*websocket.Conn
 	mu              sync.Mutex
 }
 

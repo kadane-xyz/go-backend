@@ -53,7 +53,6 @@ func HandleWebSocket(manager *Manager, queries *sql.Queries) http.HandlerFunc {
 					log.Printf("Received message: %s", string(message))
 					continue
 				}
-				log.Printf("Parsed message: %+v", msg)
 
 				switch msg.Type {
 				case "create":
