@@ -11,4 +11,5 @@ type Handler struct {
 	PostgresQueries *sql.Queries
 	AWSClient       *s3.Client
 	AWSBucketAvatar string
+	AWSRegion       string
 }

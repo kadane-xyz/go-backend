@@ -89,6 +89,7 @@ func (s *Server) Run() error {
 		PostgresQueries: s.PostgresQueries,
 		AWSClient:       s.awsClient,
 		AWSBucketAvatar: s.config.AWSBucketAvatar,
+		AWSRegion:       s.config.AWSRegion,
 	}
 
 	// HTTP router
