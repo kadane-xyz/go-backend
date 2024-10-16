@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -22,6 +23,40 @@ func (h *Handler) GetAccounts(w http.ResponseWriter, r *http.Request) {
 
 func GetS3PublicURL(bucketName, region, objectKey string) string {
 	return fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", bucketName, region, objectKey)
+}
+
+type CreateAccountRequest struct {
+	ID       string `json:"id"`
+	Username string `json:"username"`
+	Email    string `json:"email"`
+}
+
+// Post: /accounts
+func (h *Handler) CreateAccount(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Error reading request body", http.StatusInternalServerError)
+		return
+	}
+	defer r.Body.Close()
+
+	var createAccountRequest CreateAccountRequest
+	err = json.Unmarshal(body, &createAccountRequest)
+	if err != nil {
+		http.Error(w, "Error unmarshalling request body", http.StatusInternalServerError)
+		return
+	}
+
+	err = h.PostgresQueries.CreateAccount(r.Context(), sql.CreateAccountParams{
+		ID:       createAccountRequest.ID,
+		Username: createAccountRequest.Username,
+		Email:    createAccountRequest.Email,
+	})
+	if err != nil {
+		log.Println("Error creating account: ", err)
+		http.Error(w, "Error creating account", http.StatusInternalServerError)
+		return
+	}
 }
 
 // POST: /accounts/avatar
