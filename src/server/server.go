@@ -59,6 +59,7 @@ func NewServer(config *config.Config) (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error connecting to AWS: %v", err)
 	}
+	log.Println("AWS connection established")
 
 	return &Server{
 		config:         config,

@@ -26,6 +26,5 @@ func NewPostgresClient(ctx context.Context, PostgresUrl, PostgresUser, PostgresP
 		log.Println("Database pool closed")
 	}
 
-	log.Println("Database pool created")
 	return dbpool, closeFunc, nil
 }
