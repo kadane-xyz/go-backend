@@ -37,6 +37,13 @@ func RegisterApiRoutes(h *Handler, r chi.Router) {
 				})
 			})
 		})
+		//accounts
+		r.Route("/accounts", func(r chi.Router) {
+			//r.Post("/", h.CreateAccount)
+			r.Route("/avatar", func(r chi.Router) {
+				r.Post("/", h.UploadAvatar)
+			})
+		})
 	})
 	//generate a route to catch anything not defined and error/block spam
 	r.Get("/*", func(w http.ResponseWriter, r *http.Request) {

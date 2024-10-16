@@ -1,13 +1,3 @@
-CREATE TABLE account (
-    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    username TEXT NOT NULL UNIQUE,
-    email TEXT NOT NULL UNIQUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    verified BOOLEAN DEFAULT FALSE,
-    avatar_url TEXT,
-    attributesId BIGINT REFERENCES account_attributes(id) ON DELETE CASCADE
-);
-
 CREATE TABLE account_attributes (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     bio TEXT,
@@ -18,6 +8,16 @@ CREATE TABLE account_attributes (
     facebook_url TEXT,
     twitter_url TEXT,
     school TEXT
+);
+
+CREATE TABLE account (
+    id TEXT NOT NULL UNIQUE PRIMARY KEY,
+    username TEXT NOT NULL UNIQUE,
+    email TEXT NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    avatar_url TEXT,
+    attributesId BIGINT REFERENCES account_attributes(id) ON DELETE CASCADE,
+    level INTEGER DEFAULT 1
 );
 
 CREATE TABLE account_solved_problems (

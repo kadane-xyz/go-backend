@@ -11,3 +11,8 @@ SELECT * FROM account;
 -- name: CreateAccount :exec
 INSERT INTO account (username, email)
 VALUES ($1, $2);
+
+-- name: UpdateAvatar :exec
+UPDATE account
+SET avatar_url = $1
+WHERE id = $2;
