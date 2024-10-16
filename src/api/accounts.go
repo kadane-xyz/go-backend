@@ -60,7 +60,7 @@ func (h *Handler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get image url
-	url := GetS3PublicURL(h.AWSBucketAvatar, "us-east-2", userId)
+	url := GetS3PublicURL(h.AWSBucketAvatar, h.AWSRegion, userId)
 	log.Println("Avatar URL: ", url)
 
 	// store image url in accounts table

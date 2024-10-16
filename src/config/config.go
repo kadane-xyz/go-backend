@@ -22,6 +22,7 @@ type Config struct {
 	AWSKey          string
 	AWSSecret       string
 	AWSBucketAvatar string
+	AWSRegion       string
 }
 
 // Fetch environment variables
@@ -78,6 +79,11 @@ func LoadConfig() (*Config, error) {
 		return nil, fmt.Errorf("AWS_BUCKET_AVATAR is not set")
 	}
 
+	awsRegion := os.Getenv("AWS_REGION")
+	if awsRegion == "" {
+		return nil, fmt.Errorf("AWS_REGION is not set")
+	}
+
 	// Return the configuration by fetching environment variables
 	config := &Config{
 		//Postgres
@@ -93,6 +99,7 @@ func LoadConfig() (*Config, error) {
 		AWSKey:          awsKey,
 		AWSSecret:       awsSecret,
 		AWSBucketAvatar: awsBucketAvatar,
+		AWSRegion:       awsRegion,
 	}
 
 	log.Println("Configuration loaded")
