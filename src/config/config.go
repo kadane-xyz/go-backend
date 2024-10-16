@@ -9,13 +9,19 @@ import (
 )
 
 type Config struct {
-	//Postgres
+	// Postgres
 	PostgresUrl  string
 	PostgresUser string
 	PostgresPass string
 	PostgresDB   string
-	Port         string
+	// Server
+	Port string
+	// Firebase
 	FirebaseCred string
+	// AWS
+	AWSKey          string
+	AWSSecret       string
+	AWSBucketAvatar string
 }
 
 // Fetch environment variables
@@ -57,6 +63,21 @@ func LoadConfig() (*Config, error) {
 		return nil, fmt.Errorf("FIREBASE_CRED is not set")
 	}
 
+	awsKey := os.Getenv("AWS_KEY")
+	if awsKey == "" {
+		return nil, fmt.Errorf("AWS_KEY is not set")
+	}
+
+	awsSecret := os.Getenv("AWS_SECRET")
+	if awsSecret == "" {
+		return nil, fmt.Errorf("AWS_SECRET is not set")
+	}
+
+	awsBucketAvatar := os.Getenv("AWS_BUCKET_AVATAR")
+	if awsBucketAvatar == "" {
+		return nil, fmt.Errorf("AWS_BUCKET_AVATAR is not set")
+	}
+
 	// Return the configuration by fetching environment variables
 	config := &Config{
 		//Postgres
@@ -68,6 +89,10 @@ func LoadConfig() (*Config, error) {
 		FirebaseCred: firebaseCred,
 		//Server
 		Port: port,
+		//AWS
+		AWSKey:          awsKey,
+		AWSSecret:       awsSecret,
+		AWSBucketAvatar: awsBucketAvatar,
 	}
 
 	log.Println("Configuration loaded")

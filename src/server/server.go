@@ -6,11 +6,13 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 	"kadane.xyz/go-backend/v2/src/api"
+	"kadane.xyz/go-backend/v2/src/aws"
 	"kadane.xyz/go-backend/v2/src/config"
 	"kadane.xyz/go-backend/v2/src/db"
 	"kadane.xyz/go-backend/v2/src/middleware"
@@ -26,6 +28,7 @@ type Server struct {
 	closeFunc       func()
 	PostgresQueries *sql.Queries
 	firebaseApp     *firebase.App
+	awsClient       *s3.Client
 }
 
 func NewServer(config *config.Config) (*Server, error) {
@@ -51,11 +54,18 @@ func NewServer(config *config.Config) (*Server, error) {
 	}
 	log.Println("Firebase connection established")
 
+	// Initialize AWS client
+	awsClient, err := aws.NewAWSClient(config)
+	if err != nil {
+		return nil, fmt.Errorf("error connecting to AWS: %v", err)
+	}
+
 	return &Server{
 		config:         config,
 		postgresClient: postgresClient,
 		closeFunc:      closeFunc,
 		firebaseApp:    firebaseApp,
+		awsClient:      awsClient,
 	}, nil
 }
 
@@ -77,6 +87,8 @@ func (s *Server) Run() error {
 	ApiHandler := &api.Handler{
 		PostgresClient:  s.postgresClient,
 		PostgresQueries: s.PostgresQueries,
+		AWSClient:       s.awsClient,
+		AWSBucketAvatar: s.config.AWSBucketAvatar,
 	}
 
 	// HTTP router

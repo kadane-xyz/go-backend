@@ -1,0 +1,78 @@
+package api
+
+import (
+	"bytes"
+	"encoding/base64"
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/jackc/pgx/v5/pgtype"
+	"kadane.xyz/go-backend/v2/src/middleware"
+	"kadane.xyz/go-backend/v2/src/sql/sql"
+)
+
+// GET: /accounts
+func (h *Handler) GetAccounts(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte("Get Accounts"))
+	return
+}
+
+func GetS3PublicURL(bucketName, region, objectKey string) string {
+	return fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", bucketName, region, objectKey)
+}
+
+// POST: /accounts/avatar
+// Uploads an avatar image to S3 bucket and stores the URL in the accounts table
+func (h *Handler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
+	//get userid from middleware context
+	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	if userId == "" {
+		http.Error(w, "Missing user id", http.StatusBadRequest)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Error reading request body", http.StatusInternalServerError)
+		return
+	}
+	defer r.Body.Close()
+
+	decodedContent, err := base64.StdEncoding.DecodeString(string(body))
+	if err != nil {
+		http.Error(w, "Error decoding base64 string", http.StatusInternalServerError)
+		return
+	}
+
+	// s3 bucket upload file and return url
+	_, err = h.AWSClient.PutObject(r.Context(), &s3.PutObjectInput{
+		Bucket: &h.AWSBucketAvatar,
+		Key:    &userId,
+		Body:   bytes.NewReader(decodedContent),
+	})
+	if err != nil {
+		log.Println("Error uploading avatar: ", err)
+		http.Error(w, "Error uploading avatar", http.StatusInternalServerError)
+		return
+	}
+
+	// Get image url
+	url := GetS3PublicURL(h.AWSBucketAvatar, "us-east-2", userId)
+	log.Println("Avatar URL: ", url)
+
+	// store image url in accounts table
+	err = h.PostgresQueries.UpdateAvatar(r.Context(), sql.UpdateAvatarParams{
+		ID:        userId,
+		AvatarUrl: pgtype.Text{String: url, Valid: true},
+	})
+	if err != nil {
+		log.Println("Error updating avatar url: ", err)
+		http.Error(w, "Error updating avatar url", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
