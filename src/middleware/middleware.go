@@ -33,6 +33,12 @@ func BlockConnectMethod(next http.Handler) http.Handler {
 	})
 }
 
+type FirebaseTokenInfo struct {
+	UserID string
+	Email  string
+	Name   string
+}
+
 func (h *Handler) FirebaseAuth() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -56,7 +62,13 @@ func (h *Handler) FirebaseAuth() func(http.Handler) http.Handler {
 				return
 			}
 
-			ctx := context.WithValue(r.Context(), FirebaseTokenKey, token)
+			claims := FirebaseTokenInfo{
+				UserID: token.UID,
+				Email:  token.Claims["email"].(string),
+				Name:   token.Claims["name"].(string),
+			}
+
+			ctx := context.WithValue(r.Context(), FirebaseTokenKey, claims)
 
 			// Call the next handler with the updated context
 			next.ServeHTTP(w, r.WithContext(ctx))
