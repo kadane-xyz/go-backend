@@ -1,21 +1,21 @@
 CREATE TABLE solution (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    username TEXT REFERENCES account(username) ON DELETE CASCADE,
+    user_id TEXT REFERENCES account(id) ON DELETE CASCADE,
     problem_id BIGINT,
     title TEXT NOT NULL,
     body TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     votes INTEGER DEFAULT 0,
     tags TEXT[],
-    UNIQUE (username, id)
+    UNIQUE (user_id, id)
 );
 
 CREATE TABLE solution_user_vote (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     solution_id BIGINT REFERENCES solution(id) ON DELETE CASCADE NOT NULL,
-    username TEXT REFERENCES account(username) ON DELETE CASCADE NOT NULL,
+    user_id TEXT REFERENCES account(id) ON DELETE CASCADE NOT NULL,
     vote vote_type NOT NULL,
-    UNIQUE (username, solution_id)
+    UNIQUE (user_id, solution_id)
 );
 
 -- Update the votes count for the solution when a vote is inserted, updated, or deleted

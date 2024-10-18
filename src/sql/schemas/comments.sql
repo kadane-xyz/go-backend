@@ -1,7 +1,7 @@
 CREATE TABLE comment (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     solution_id BIGINT NOT NULL, 
-    username TEXT NOT NULL,
+    user_id TEXT NOT NULL,
     body TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     votes INTEGER DEFAULT 0,
@@ -15,9 +15,9 @@ CREATE TABLE comment (
 CREATE TABLE comment_user_vote (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     comment_id BIGINT REFERENCES comment(id) ON DELETE CASCADE,
-    username TEXT REFERENCES account(username) ON DELETE CASCADE,
+    user_id TEXT REFERENCES account(id) ON DELETE CASCADE,
     vote vote_type NOT NULL,
-    UNIQUE (username, comment_id)
+    UNIQUE (user_id, comment_id)
 );
 
 -- Update the votes count for the comment when a vote is inserted, updated, or deleted

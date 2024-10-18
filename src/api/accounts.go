@@ -62,7 +62,7 @@ func (h *Handler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 // POST: /accounts/avatar
 // Uploads an avatar image to S3 bucket and stores the URL in the accounts table
 func (h *Handler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
-	//get userid from middleware context
+	// Get userid from middleware context
 	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
 	if userId == "" {
 		http.Error(w, "Missing user id", http.StatusBadRequest)

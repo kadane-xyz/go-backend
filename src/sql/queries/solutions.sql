@@ -27,12 +27,12 @@ SELECT * FROM solution WHERE id = $1;
 
 -- name: GetSolutionVote :one
 SELECT vote FROM solution_user_vote
-WHERE username = $1 AND solution_id = $2;
+WHERE user_id = $1 AND solution_id = $2;
 
 -- POST --
 
 -- name: CreateSolution :one
-INSERT INTO solution (username, title, body, problem_id, tags)
+INSERT INTO solution (user_id, title, body, problem_id, tags)
 VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
@@ -41,24 +41,24 @@ RETURNING *;
 -- name: UpdateSolution :one
 UPDATE solution
 SET title = $1, body = $2, tags = $3
-WHERE id = $4
+WHERE id = $4 AND user_id = $5
 RETURNING *;
 
 -- DELETE --
 
 -- name: DeleteSolution :exec
-DELETE FROM solution WHERE id = $1;
+DELETE FROM solution WHERE id = $1 AND user_id = $2;
 
 -- PATCH --
 
 -- name: InsertSolutionVote :exec
-INSERT INTO solution_user_vote (username, solution_id, vote)
+INSERT INTO solution_user_vote (user_id, solution_id, vote)
 VALUES ($1, $2, $3);
 
 -- name: DeleteSolutionVote :exec
-DELETE FROM solution_user_vote WHERE username = $1 AND solution_id = $2;
+DELETE FROM solution_user_vote WHERE user_id = $1 AND solution_id = $2;
 
 -- name: UpdateSolutionVote :exec
 UPDATE solution_user_vote
 SET vote = $3
-WHERE username = $1 AND solution_id = $2;
+WHERE user_id = $1 AND solution_id = $2;
