@@ -22,14 +22,14 @@ CREATE TABLE account (
 
 CREATE TABLE account_solved_problems (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    username TEXT REFERENCES account(username) ON DELETE CASCADE,
+    user_id TEXT REFERENCES account(id) ON DELETE CASCADE,
     problem_id BIGINT REFERENCES problems(id) ON DELETE CASCADE,
     solved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE account_game_stats (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    username TEXT REFERENCES account(username) ON DELETE CASCADE,
+    user_id TEXT REFERENCES account(id) ON DELETE CASCADE,
     wins INTEGER DEFAULT 0,
     losses INTEGER DEFAULT 0,
     elo INTEGER 

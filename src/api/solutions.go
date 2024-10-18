@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"kadane.xyz/go-backend/v2/src/middleware"
 	"kadane.xyz/go-backend/v2/src/sql/sql"
 )
 
@@ -53,6 +54,13 @@ type SolutionsResponse struct {
 
 // GET: /solutions
 func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
+	// Get userid from middleware context
+	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	if userId == "" {
+		http.Error(w, "Missing user id", http.StatusBadRequest)
+		return
+	}
+
 	var id int64 // Problem ID
 
 	// Handle problemId query parameter
@@ -68,13 +76,6 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		id = parsedId
-	}
-
-	// Handle username
-	username := r.URL.Query().Get("username")
-	if username == "" {
-		http.Error(w, "username is required", http.StatusBadRequest)
-		return
 	}
 
 	titleSearch := r.URL.Query().Get("titleSearch")
@@ -168,7 +169,7 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 		}
 
 		vote, err := h.PostgresQueries.GetSolutionVote(r.Context(), sql.GetSolutionVoteParams{
-			Username:   username,
+			UserID:     userId,
 			SolutionID: solution.ID,
 		})
 		if err != nil {
@@ -186,7 +187,7 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 			Date:            solution.CreatedAt,
 			Tags:            solution.Tags,
 			Title:           solution.Title,
-			Username:        solution.Username.String,
+			Username:        solution.UserID.String,
 			Votes:           solution.Votes.Int32,
 			CurrentUserVote: vote,
 		}
@@ -229,6 +230,13 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 
 // POST: /
 func (h *Handler) CreateSolution(w http.ResponseWriter, r *http.Request) {
+	// Get userid from middleware context
+	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	if userId == "" {
+		http.Error(w, "Missing user id", http.StatusBadRequest)
+		return
+	}
+
 	// Parse request body
 	var solution Solutions
 	err := json.NewDecoder(r.Body).Decode(&solution)
@@ -238,15 +246,15 @@ func (h *Handler) CreateSolution(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if solution.Username == "" || solution.Title == "" || solution.Body == "" || !solution.ProblemId.Valid {
-		http.Error(w, "username, title, body, and problemId are required", http.StatusBadRequest)
+	if solution.Title == "" || solution.Body == "" || !solution.ProblemId.Valid {
+		http.Error(w, "title, body, and problemId are required", http.StatusBadRequest)
 		return
 	}
 
 	// Insert solution into db
 	_, err = h.PostgresQueries.CreateSolution(r.Context(), sql.CreateSolutionParams{
-		Username: pgtype.Text{
-			String: solution.Username,
+		UserID: pgtype.Text{
+			String: userId,
 			Valid:  true,
 		},
 		Title:     solution.Title,
@@ -266,18 +274,18 @@ func (h *Handler) CreateSolution(w http.ResponseWriter, r *http.Request) {
 
 // GET: /{solutionId}
 func (h *Handler) GetSolution(w http.ResponseWriter, r *http.Request) {
+	// Get userid from middleware context
+	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	if userId == "" {
+		http.Error(w, "Missing user id", http.StatusBadRequest)
+		return
+	}
+
 	// Handle problemId query parameter
 	solutionId := chi.URLParam(r, "solutionId")
 	// If problemId is empty, set idPg as NULL
 	if solutionId == "" {
 		http.Error(w, "solutionId is required", http.StatusBadRequest)
-		return
-	}
-
-	// Handle username
-	username := r.URL.Query().Get("username")
-	if username == "" {
-		http.Error(w, "username is required", http.StatusBadRequest)
 		return
 	}
 
@@ -302,7 +310,7 @@ func (h *Handler) GetSolution(w http.ResponseWriter, r *http.Request) {
 	}
 
 	vote, err := h.PostgresQueries.GetSolutionVote(r.Context(), sql.GetSolutionVoteParams{
-		Username:   username,
+		UserID:     userId,
 		SolutionID: solution.ID,
 	})
 	if err != nil {
@@ -343,6 +351,13 @@ func (h *Handler) GetSolution(w http.ResponseWriter, r *http.Request) {
 
 // PUT: /{solutionId}
 func (h *Handler) UpdateSolution(w http.ResponseWriter, r *http.Request) {
+	// Get userid from middleware context
+	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	if userId == "" {
+		http.Error(w, "Missing user id", http.StatusBadRequest)
+		return
+	}
+
 	// Handle problemId query parameter
 	solutionId := chi.URLParam(r, "solutionId")
 	// If problemId is empty, set idPg as NULL
@@ -369,10 +384,11 @@ func (h *Handler) UpdateSolution(w http.ResponseWriter, r *http.Request) {
 	}
 
 	solutionArgs := sql.UpdateSolutionParams{
-		ID:    id,
-		Title: solutionRequest.Title,
-		Body:  solutionRequest.Body,
-		Tags:  solutionRequest.Tags,
+		ID:     id,
+		Title:  solutionRequest.Title,
+		Body:   solutionRequest.Body,
+		Tags:   solutionRequest.Tags,
+		UserID: pgtype.Text{String: userId, Valid: true},
 	}
 
 	// Get solutions from db by idPg
@@ -389,6 +405,13 @@ func (h *Handler) UpdateSolution(w http.ResponseWriter, r *http.Request) {
 
 // DELETE: /{solutionId}
 func (h *Handler) DeleteSolution(w http.ResponseWriter, r *http.Request) {
+	// Get userid from middleware context
+	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	if userId == "" {
+		http.Error(w, "Missing user id", http.StatusBadRequest)
+		return
+	}
+
 	// Handle problemId query parameter
 	solutionId := chi.URLParam(r, "solutionId")
 	// If problemId is empty, set idPg as NULL
@@ -404,7 +427,10 @@ func (h *Handler) DeleteSolution(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get solutions from db by idPg
-	err = h.PostgresQueries.DeleteSolution(r.Context(), id)
+	err = h.PostgresQueries.DeleteSolution(r.Context(), sql.DeleteSolutionParams{
+		ID:     id,
+		UserID: pgtype.Text{String: userId, Valid: true},
+	})
 	if err != nil {
 		http.Error(w, "error getting solutions", http.StatusInternalServerError)
 		return
@@ -416,12 +442,18 @@ func (h *Handler) DeleteSolution(w http.ResponseWriter, r *http.Request) {
 }
 
 type VoteRequest struct {
-	Username string `json:"username"`
-	Vote     string `json:"vote"`
+	Vote string `json:"vote"`
 }
 
 // PATCH: /{solutionId}/vote
 func (h *Handler) VoteSolution(w http.ResponseWriter, r *http.Request) {
+	// Get userid from middleware context
+	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	if userId == "" {
+		http.Error(w, "Missing user id", http.StatusBadRequest)
+		return
+	}
+
 	// Extract solutionId from URL parameters
 	solutionId := chi.URLParam(r, "solutionId")
 	if solutionId == "" {
@@ -442,18 +474,10 @@ func (h *Handler) VoteSolution(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Username == "" || req.Vote == "" {
-		http.Error(w, "username and vote are required", http.StatusBadRequest)
+	if req.Vote == "" {
+		http.Error(w, "vote is required", http.StatusBadRequest)
 		return
 	}
-
-	// Validate username and solution Id
-	// Check if the user exists
-	/*_, err = h.PostgresQueries.GetUserByUsername(r.Context(), req.Username)
-	if err != nil {
-		http.Error(w, "user not found", http.StatusBadRequest)
-		return
-	}*/
 
 	// Check if the solution exists
 	_, err = h.PostgresQueries.GetSolution(r.Context(), id)
@@ -464,8 +488,8 @@ func (h *Handler) VoteSolution(w http.ResponseWriter, r *http.Request) {
 
 	// Prepare parameters to get the existing vote
 	solutionArgs := sql.GetSolutionVoteParams{
-		Username:   req.Username,
 		SolutionID: id,
+		UserID:     userId,
 	}
 
 	// Get the existing vote
@@ -478,7 +502,7 @@ func (h *Handler) VoteSolution(w http.ResponseWriter, r *http.Request) {
 		}
 		// Insert the new vote
 		insertArgs := sql.InsertSolutionVoteParams{
-			Username:   req.Username,
+			UserID:     userId,
 			SolutionID: id,
 			Vote:       sql.VoteType(req.Vote),
 		}
@@ -491,7 +515,7 @@ func (h *Handler) VoteSolution(w http.ResponseWriter, r *http.Request) {
 		if req.Vote == "none" {
 			// Delete the existing vote
 			deleteArgs := sql.DeleteSolutionVoteParams{
-				Username:   req.Username,
+				UserID:     userId,
 				SolutionID: id,
 			}
 			if err := h.PostgresQueries.DeleteSolutionVote(r.Context(), deleteArgs); err != nil {
@@ -501,7 +525,7 @@ func (h *Handler) VoteSolution(w http.ResponseWriter, r *http.Request) {
 		} else if existingVote != sql.VoteType(req.Vote) {
 			// Update the vote if it's different
 			updateArgs := sql.UpdateSolutionVoteParams{
-				Username:   req.Username,
+				UserID:     userId,
 				SolutionID: id,
 				Vote:       sql.VoteType(req.Vote),
 			}

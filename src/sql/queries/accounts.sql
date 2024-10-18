@@ -1,7 +1,7 @@
 -- GET --
 
 -- name: GetAccount :one
-SELECT * FROM account WHERE username = $1;
+SELECT * FROM account WHERE id = $1;
 
 -- name: GetAccounts :many
 SELECT * FROM account;

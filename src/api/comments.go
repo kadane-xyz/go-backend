@@ -10,13 +10,13 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx"
 	"github.com/jackc/pgx/v5/pgtype"
+	"kadane.xyz/go-backend/v2/src/middleware"
 	"kadane.xyz/go-backend/v2/src/sql/sql"
 )
 
 type Comment struct {
 	ID         pgtype.Int8      `json:"id"`
 	SolutionId int64            `json:"solutionId"`
-	Username   string           `json:"username"`
 	Body       string           `json:"body"`
 	CreatedAt  pgtype.Timestamp `json:"createdAt"`
 	Votes      int32            `json:"votes"`
@@ -31,7 +31,7 @@ type CommentResponse struct {
 type CommentsData struct {
 	ID              int64           `json:"id"`
 	SolutionId      int64           `json:"solutionId"`
-	Username        string          `json:"username"`
+	UserId          string          `json:"userId"`
 	Body            string          `json:"body"`
 	CreatedAt       time.Time       `json:"createdAt"`
 	Votes           int32           `json:"votes"`
@@ -46,17 +46,17 @@ type CommentsResponse struct {
 
 // GET: /comments
 func (h *Handler) GetComments(w http.ResponseWriter, r *http.Request) {
+	// Get userid from middleware context
+	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	if userId == "" {
+		http.Error(w, "Missing user id", http.StatusBadRequest)
+		return
+	}
+
 	// Get the solutionId from the query parameters
 	solutionId := r.URL.Query().Get("solutionId")
 	if solutionId == "" {
 		http.Error(w, "Missing solutionId", http.StatusBadRequest)
-		return
-	}
-
-	// Handle username
-	username := r.URL.Query().Get("username")
-	if username == "" {
-		http.Error(w, "username is required", http.StatusBadRequest)
 		return
 	}
 
@@ -107,7 +107,7 @@ func (h *Handler) GetComments(w http.ResponseWriter, r *http.Request) {
 		comment := &CommentsData{
 			ID:              dbComment.ID,
 			SolutionId:      dbComment.SolutionID,
-			Username:        dbComment.Username,
+			UserId:          userId,
 			Body:            dbComment.Body,
 			CreatedAt:       dbComment.CreatedAt.Time,
 			Votes:           dbComment.Votes.Int32,
@@ -139,8 +139,8 @@ func (h *Handler) GetComments(w http.ResponseWriter, r *http.Request) {
 
 	// Fetch votes for all comments in a single query
 	votes, err := h.PostgresQueries.GetCommentVotesBatch(r.Context(), sql.GetCommentVotesBatchParams{
-		Username: pgtype.Text{String: username, Valid: true},
-		Column2:  commentIds,
+		UserID:  pgtype.Text{String: userId, Valid: true},
+		Column2: commentIds,
 	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -165,6 +165,13 @@ func (h *Handler) GetComments(w http.ResponseWriter, r *http.Request) {
 
 // POST: /comments
 func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
+	// Get userid from middleware context
+	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	if userId == "" {
+		http.Error(w, "Missing user id", http.StatusBadRequest)
+		return
+	}
+
 	var comment Comment
 	err := json.NewDecoder(r.Body).Decode(&comment)
 	if err != nil {
@@ -173,8 +180,8 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate input
-	if comment.SolutionId == 0 || comment.Username == "" || comment.Body == "" {
-		http.Error(w, "SolutionId, Username, and Body are required", http.StatusBadRequest)
+	if comment.SolutionId == 0 || comment.Body == "" {
+		http.Error(w, "SolutionId and Body are required", http.StatusBadRequest)
 		return
 	}
 
@@ -202,7 +209,7 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 	_, err = h.PostgresQueries.CreateComment(r.Context(), sql.CreateCommentParams{
 		SolutionID: comment.SolutionId,
 		ParentID:   comment.ParentId,
-		Username:   comment.Username,
+		UserID:     userId,
 		Body:       comment.Body,
 	})
 	if err != nil {
@@ -216,16 +223,16 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 
 // GET: /comments/{commentId}
 func (h *Handler) GetComment(w http.ResponseWriter, r *http.Request) {
-	commentId := chi.URLParam(r, "commentId")
-	if commentId == "" {
-		http.Error(w, "Missing commentId", http.StatusBadRequest)
+	// Get userid from middleware context
+	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	if userId == "" {
+		http.Error(w, "Missing user id", http.StatusBadRequest)
 		return
 	}
 
-	// Handle username
-	username := r.URL.Query().Get("username")
-	if username == "" {
-		http.Error(w, "username is required", http.StatusBadRequest)
+	commentId := chi.URLParam(r, "commentId")
+	if commentId == "" {
+		http.Error(w, "Missing commentId", http.StatusBadRequest)
 		return
 	}
 
@@ -246,7 +253,7 @@ func (h *Handler) GetComment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	vote, err := h.PostgresQueries.GetCommentVote(r.Context(), sql.GetCommentVoteParams{
-		Username:  pgtype.Text{String: username, Valid: true},
+		UserID:    pgtype.Text{String: userId, Valid: true},
 		CommentID: pgtype.Int8{Int64: id, Valid: true},
 	})
 	if err != nil || vote == "" {
@@ -256,7 +263,7 @@ func (h *Handler) GetComment(w http.ResponseWriter, r *http.Request) {
 	commentData := CommentsData{
 		ID:              comment.ID,
 		SolutionId:      comment.SolutionID,
-		Username:        comment.Username,
+		UserId:          comment.UserID,
 		Body:            comment.Body,
 		CreatedAt:       comment.CreatedAt.Time,
 		Votes:           comment.Votes.Int32,
@@ -282,6 +289,13 @@ func (h *Handler) GetComment(w http.ResponseWriter, r *http.Request) {
 
 // PUT: /comments/{commentId}
 func (h *Handler) UpdateComment(w http.ResponseWriter, r *http.Request) {
+	// Get userid from middleware context
+	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	if userId == "" {
+		http.Error(w, "Missing user id", http.StatusBadRequest)
+		return
+	}
+
 	commentId := chi.URLParam(r, "commentId")
 	if commentId == "" {
 		http.Error(w, "Missing commentId", http.StatusBadRequest)
@@ -302,14 +316,15 @@ func (h *Handler) UpdateComment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate input
-	if comment.Username == "" || comment.Body == "" {
-		http.Error(w, "Username and Body are required", http.StatusBadRequest)
+	if comment.Body == "" {
+		http.Error(w, "Body is required", http.StatusBadRequest)
 		return
 	}
 
 	_, err = h.PostgresQueries.UpdateComment(r.Context(), sql.UpdateCommentParams{
-		ID:   id,
-		Body: comment.Body,
+		ID:     id,
+		Body:   comment.Body,
+		UserID: userId, // Check if the user is the owner of the comment
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -326,6 +341,13 @@ func (h *Handler) UpdateComment(w http.ResponseWriter, r *http.Request) {
 
 // DELETE: /comments/{commentId}
 func (h *Handler) DeleteComment(w http.ResponseWriter, r *http.Request) {
+	// Get userid from middleware context
+	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	if userId == "" {
+		http.Error(w, "Missing user id", http.StatusBadRequest)
+		return
+	}
+
 	commentId := chi.URLParam(r, "commentId")
 	if commentId == "" {
 		http.Error(w, "Missing commentId", http.StatusBadRequest)
@@ -338,7 +360,10 @@ func (h *Handler) DeleteComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.PostgresQueries.DeleteComment(r.Context(), id)
+	err = h.PostgresQueries.DeleteComment(r.Context(), sql.DeleteCommentParams{
+		ID:     id,
+		UserID: userId, // Check if the user is the owner of the comment
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			http.Error(w, "Comment not found", http.StatusNotFound)
@@ -354,6 +379,13 @@ func (h *Handler) DeleteComment(w http.ResponseWriter, r *http.Request) {
 
 // PATCH: /{commentId}/vote
 func (h *Handler) VoteComment(w http.ResponseWriter, r *http.Request) {
+	// Get userid from middleware context
+	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	if userId == "" {
+		http.Error(w, "Missing user id", http.StatusBadRequest)
+		return
+	}
+
 	// Extract commentId from URL parameters
 	commentId := chi.URLParam(r, "commentId")
 	if commentId == "" {
@@ -374,8 +406,8 @@ func (h *Handler) VoteComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Username == "" || req.Vote == "" {
-		http.Error(w, "username and vote are required", http.StatusBadRequest)
+	if req.Vote == "" {
+		http.Error(w, "vote is required", http.StatusBadRequest)
 		return
 	}
 
@@ -386,14 +418,6 @@ func (h *Handler) VoteComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate username and comment ID
-	// Check if the user exists
-	/*_, err = h.PostgresQueries.GetUserByUsername(r.Context(), req.Username)
-	if err != nil {
-		http.Error(w, "user not found", http.StatusBadRequest)
-		return
-	}*/
-
 	// Check if the comment exists
 	_, err = h.PostgresQueries.GetComment(r.Context(), id)
 	if err != nil {
@@ -403,8 +427,8 @@ func (h *Handler) VoteComment(w http.ResponseWriter, r *http.Request) {
 
 	// Prepare parameters to get the existing vote
 	commentArgs := sql.GetCommentVoteParams{
-		Username: pgtype.Text{
-			String: req.Username,
+		UserID: pgtype.Text{
+			String: userId,
 			Valid:  true,
 		},
 		CommentID: pgtype.Int8{
@@ -424,8 +448,8 @@ func (h *Handler) VoteComment(w http.ResponseWriter, r *http.Request) {
 		}
 		// Insert the new vote
 		insertArgs := sql.InsertCommentVoteParams{
-			Username: pgtype.Text{
-				String: req.Username,
+			UserID: pgtype.Text{
+				String: userId,
 				Valid:  true,
 			},
 			CommentID: pgtype.Int8{
@@ -443,8 +467,8 @@ func (h *Handler) VoteComment(w http.ResponseWriter, r *http.Request) {
 		if req.Vote == "none" {
 			// Delete the existing vote
 			deleteArgs := sql.DeleteCommentVoteParams{
-				Username: pgtype.Text{
-					String: req.Username,
+				UserID: pgtype.Text{
+					String: userId,
 					Valid:  true,
 				},
 				CommentID: pgtype.Int8{
@@ -459,8 +483,8 @@ func (h *Handler) VoteComment(w http.ResponseWriter, r *http.Request) {
 		} else if existingVote != sql.VoteType(req.Vote) {
 			// Update the vote if it's different
 			updateArgs := sql.UpdateCommentVoteParams{
-				Username: pgtype.Text{
-					String: req.Username,
+				UserID: pgtype.Text{
+					String: userId,
 					Valid:  true,
 				},
 				CommentID: pgtype.Int8{
