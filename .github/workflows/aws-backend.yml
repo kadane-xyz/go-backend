@@ -7,6 +7,7 @@ on:
       - 'openapi.yml'
       - 'docker-compose.yml'
       - 'README.md'
+      - 'docker/backend-doc'
 
 env:
   AWS_REGION: us-east-2                 # set this to your preferred AWS region, e.g. us-west-1
