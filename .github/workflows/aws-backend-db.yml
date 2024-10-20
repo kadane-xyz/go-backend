@@ -27,7 +27,7 @@ jobs:
       - name: Update Lambda Environment Variables
         run: |
           aws lambda update-function-configuration \
-            --function-name schema-deployer \
+            --function-name ${{ vars.AWS_BACKEND_DB_LAMBDA_FUNCTION }} \
             --environment "Variables={
                 DB_HOST=${{ secrets.AWS_DB_HOST }},
                 DB_PORT=${{ secrets.AWS_DB_PORT }},
