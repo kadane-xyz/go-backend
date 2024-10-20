@@ -68,12 +68,8 @@ jobs:
         container-name: ${{ env.CONTAINER_NAME }}
         image: ${{ steps.build-image.outputs.image }}
         environment-variables: |
-          PORT=${{ vars.SERVICE_PORT}}
-          POSTGRES_URL=${{ secrets.AWS_DB_HOST }}:${{ secrets.AWS_DB_PORT }}
-          POSTGRES_USER=${{ secrets.AWS_DB_USER }}
-          POSTGRES_PASSWORD=${{ secrets.AWS_DB_PASSWORD }}
-          POSTGRES_DB=${{ secrets.AWS_DB_NAME }}
-          FIREBASE_CRED=${{ secrets.AWS_FIREBASE_CRED }}
+            PAGE_TITLE=${{ vars.DOC_PAGE_TITLE }}
+            SPEC_URL=${{ vars.DOC_SPEC_URL }}
 
     - name: Deploy Amazon ECS task definition
       uses: aws-actions/amazon-ecs-deploy-task-definition@v2
