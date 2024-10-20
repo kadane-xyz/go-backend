@@ -10,7 +10,7 @@
                     "containerPort": 80,
                     "hostPort": 80,
                     "protocol": "tcp",
-                    "name": "kadane-backend-80-tcp",
+                    "name": "kadane-backend-doc-80-tcp",
                     "appProtocol": "http2"
                 }
             ],
@@ -44,8 +44,8 @@
     "executionRoleArn": "arn:aws:iam::905418014870:role/ecsTaskExecutionRole",
     "networkMode": "awsvpc",
     "requiresCompatibilities": ["FARGATE"],
-    "cpu": "512",
-    "memory": "1024",
+    "cpu": "256",
+    "memory": "512",
     "runtimePlatform": {
         "cpuArchitecture": "X86_64",
         "operatingSystemFamily": "LINUX"
