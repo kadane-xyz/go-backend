@@ -37,6 +37,9 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
+    - name: Lint OpenAPI spec
+      run: docker run --rm -v "${{ github.workspace }}:/local" openapitools/openapi-generator-cli:latest-release validate -i /local/openapi.yml
+
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
