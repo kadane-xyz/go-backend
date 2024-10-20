@@ -4,7 +4,7 @@ on:
   push:
     branches: [ "main" ]
     paths:
-      - 'docker/backend-doc'
+      - 'docker/backend-doc/**'
       - 'openapi.yml'
 
 env:
