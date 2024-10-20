@@ -9,7 +9,9 @@ on:
       - 'README.md'
       - 'docker/backend-doc/**'
       - '.github/workflows/aws-backend-doc.yml'
+      - '.github/workflows/aws-backend-db.yml'
       - '.github/workflows/task-definition-backend-doc.json'
+      - 'src/sql/schemas/**'
       - 'nginx.conf'
 
 env:
