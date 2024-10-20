@@ -54,6 +54,9 @@ jobs:
             --cli-binary-format raw-in-base64-out \
             response.json
 
+      - name: Print Lambda response
+        run: cat response.json
+
       - name: Check deployment status
         run: |
           STATUS=$(cat response.json | jq -r '.statusCode')
