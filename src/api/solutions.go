@@ -14,14 +14,14 @@ import (
 )
 
 type Solutions struct {
-	Id        int64       `json:"id"`
-	Username  string      `json:"username"`
-	Title     string      `json:"title"`
-	Date      string      `json:"date"`
-	Tags      []string    `json:"tags"`
-	Body      string      `json:"body"`
-	Votes     int         `json:"votes"`
-	ProblemId pgtype.Int8 `json:"problemId"`
+	Id        int64    `json:"id"`
+	Username  string   `json:"username"`
+	Title     string   `json:"title"`
+	Date      string   `json:"date"`
+	Tags      []string `json:"tags"`
+	Body      string   `json:"body"`
+	Votes     int      `json:"votes"`
+	ProblemId int64    `json:"problemId"`
 }
 
 type SolutionResponse struct {
@@ -246,7 +246,7 @@ func (h *Handler) CreateSolution(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if solution.Title == "" || solution.Body == "" || !solution.ProblemId.Valid {
+	if solution.Title == "" || solution.Body == "" || solution.ProblemId <= 0 {
 		http.Error(w, "title, body, and problemId are required", http.StatusBadRequest)
 		return
 	}
@@ -260,7 +260,7 @@ func (h *Handler) CreateSolution(w http.ResponseWriter, r *http.Request) {
 		Title:     solution.Title,
 		Tags:      solution.Tags,
 		Body:      solution.Body,
-		ProblemID: solution.ProblemId,
+		ProblemID: pgtype.Int8{Int64: solution.ProblemId, Valid: true},
 	})
 	if err != nil {
 		http.Error(w, "error creating solution", http.StatusInternalServerError)
