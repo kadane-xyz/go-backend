@@ -6,6 +6,7 @@ CREATE TABLE account_attributes (
     github_url TEXT,
     linkedin_url TEXT,
     facebook_url TEXT,
+    instagram_url TEXT,
     twitter_url TEXT,
     school TEXT
 );
