@@ -3,6 +3,10 @@ name: Deploy to Amazon ECS
 on:
   push:
     branches: [ "main" ]
+    paths-ignore:
+      - 'openapi.yml'
+      - 'docker-compose.yml'
+      - 'README.md'
 
 env:
   AWS_REGION: us-east-2                 # set this to your preferred AWS region, e.g. us-west-1
