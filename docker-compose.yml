@@ -18,7 +18,7 @@ services:
     environment:
       SPEC_URL: swagger.yaml
     volumes:
-      - ./openapi.yml:/usr/share/nginx/html/swagger.yaml
+      - ./openapi.yaml:/usr/share/nginx/html/swagger.yaml
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:80"]
       interval: 5s
