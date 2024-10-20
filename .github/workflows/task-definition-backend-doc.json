@@ -32,9 +32,9 @@
                 "logDriver": "awslogs",
                 "options": {
                     "awslogs-create-group": "true",
-                    "awslogs-group": "awslogs-kadane-backend",
+                    "awslogs-group": "awslogs-kadane-backend-doc",
                     "awslogs-region": "us-east-2",
-                    "awslogs-stream-prefix": "awslogs-kadane-backend",
+                    "awslogs-stream-prefix": "awslogs-kadane-backend-doc",
                     "mode": "non-blocking", 
                     "max-buffer-size": "25m" 
                 }
