@@ -15,13 +15,13 @@ import (
 )
 
 type Comment struct {
-	ID         pgtype.Int8      `json:"id"`
-	SolutionId int64            `json:"solutionId"`
-	Body       string           `json:"body"`
-	CreatedAt  pgtype.Timestamp `json:"createdAt"`
-	Votes      int32            `json:"votes"`
-	ParentId   pgtype.Int8      `json:"parentId,omitempty"`
-	Children   []*Comment       `json:"children,omitempty"` // For nested child comments
+	ID         int64      `json:"id"`
+	SolutionId int64      `json:"solutionId"`
+	Body       string     `json:"body"`
+	CreatedAt  time.Time  `json:"createdAt"`
+	Votes      int32      `json:"votes"`
+	ParentId   int64      `json:"parentId,omitempty"`
+	Children   []*Comment `json:"children,omitempty"` // For nested child comments
 }
 
 type CommentResponse struct {
@@ -193,8 +193,8 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if parent comment exists if ParentId is provided
-	if comment.ParentId.Valid {
-		_, err := h.PostgresQueries.GetComment(r.Context(), comment.ParentId.Int64)
+	if comment.ParentId != 0 {
+		_, err := h.PostgresQueries.GetComment(r.Context(), comment.ParentId)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				http.Error(w, "Parent comment not found", http.StatusNotFound)
@@ -208,7 +208,7 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 	// create comment
 	_, err = h.PostgresQueries.CreateComment(r.Context(), sql.CreateCommentParams{
 		SolutionID: comment.SolutionId,
-		ParentID:   comment.ParentId,
+		ParentID:   pgtype.Int8{Int64: comment.ParentId, Valid: true},
 		UserID:     userId,
 		Body:       comment.Body,
 	})
