@@ -1,0 +1,607 @@
+openapi: 3.1.0
+info:
+  title: Kadane Backend API
+  description: Kadane Backend API 
+  version: 1.0.0
+servers:
+  - url: https://api.kadane.xyz/v1
+    description: Main production server
+  - url: http://localhost:3000/v1
+    description: Local development server
+security: 
+  -  Authorization: []
+paths:
+  /health:
+    get: 
+      operationId: healthCheck
+      summary: Health check
+      description: Health check endpoint for the API
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "."
+  /accounts:
+    get:
+      tags:
+        - Accounts
+      summary: Get all accounts
+      description: Retrieve a list of all user accounts.
+      operationId: getAccounts
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Get Accounts
+                  
+    post:
+      tags:
+        - Accounts
+      summary: Create a new account
+      description: Create a new user account with an ID, username, and email.
+      operationId: createAccount
+      requestBody:
+        description: Account data to be created
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAccountRequest'
+      responses:
+        '201':
+          description: Account created successfully
+        '400':
+          description: Bad request (invalid input)
+        '500':
+          description: Internal server error
+                  
+  /accounts/avatar:
+    post:
+      tags:
+        - Accounts
+      summary: Upload an avatar image
+      description: Upload a base64-encoded avatar image to S3 and store the URL in the accounts table.
+      operationId: uploadAvatar
+      requestBody:
+        description: Base64-encoded avatar image content
+        required: true
+        content:
+          text/plain:
+            schema:
+              type: string
+              example: iVBORw0KGgoAAAANSUhEUgAA...
+      responses:
+        '201':
+          description: Avatar uploaded and URL updated successfully
+        '400':
+          description: Bad request (invalid input)
+        '500':
+          description: Internal server error                   
+  /comments:
+    get:
+      operationId: getComments
+      summary: Get comments
+      description: Get all comments for a solution.
+      tags: 
+        -  "Comments"
+      parameters:
+        - in: query
+          name: solutionId
+          required: true
+          schema:
+            type: integer
+          description: The ID of the solution for which to retrieve comments.
+        - in: query
+          name: sort
+          required: false
+          schema:
+            type: string
+            enum: [time, votes]
+          description: "Sort comments by time or votes (default: votes)."
+        - in: query
+          name: order
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+          description: "Order by ascending or descending (default: desc)."
+      responses:
+        '200':
+          description: A list of comments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CommentsData'
+        '400':
+          description: Bad request (missing or invalid parameters)
+        '500':
+          description: Internal server error
+    post:
+      operationId: createComment
+      summary: Create a new comment
+      description: Create a new comment for a solution.
+      tags: 
+        -  "Comments"
+      security: 
+        -  Authorization: []
+      requestBody:
+        description: Comment object to be created.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Comment'
+      responses:
+        '201':
+          description: Comment created successfully
+        '400':
+          description: Invalid input
+        '404':
+          description: Solution or parent comment not found
+        '500':
+          description: Internal server error
+
+  /comments/{commentId}:
+    get:
+      operationId: getComment
+      summary: Get a comment by ID
+      description: Retrieve a specific comment by its ID.
+      tags: 
+        -  "Comments"
+      parameters:
+        - in: path
+          name: commentId
+          required: true
+          schema:
+            type: integer
+          description: The ID of the comment to retrieve.
+      responses:
+        '200':
+          description: A comment object
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentsData'
+        '400':
+          description: Invalid comment ID
+        '404':
+          description: Comment not found
+        '500':
+          description: Internal server error
+    put:
+      operationId: updateComment
+      summary: Update a comment by ID
+      description: Update the content of a comment by its ID.
+      tags: 
+        -  "Comments"
+      parameters:
+        - in: path
+          name: commentId
+          required: true
+          schema:
+            type: integer
+          description: The ID of the comment to update.
+      requestBody:
+        description: Comment object with updated content.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Comment'
+      responses:
+        '204':
+          description: Comment updated successfully
+        '400':
+          description: Invalid input
+        '404':
+          description: Comment not found
+        '500':
+          description: Internal server error
+    delete:
+      operationId: deleteComment
+      summary: Delete a comment by ID
+      description: Delete a comment by its ID.
+      tags: 
+        -  "Comments"
+      parameters:
+        - in: path
+          name: commentId
+          required: true
+          schema:
+            type: integer
+          description: The ID of the comment to delete.
+      responses:
+        '204':
+          description: Comment deleted successfully
+        '400':
+          description: Invalid comment ID
+        '404':
+          description: Comment not found
+        '500':
+          description: Internal server error
+  /comments/{commentId}/vote:
+    patch:
+      operationId: voteComment
+      summary: Vote on a comment
+      description: Vote on a comment by its ID.
+      tags: 
+        -  "Comments"
+      parameters:
+        - in: path
+          name: commentId
+          required: true
+          schema:
+            type: integer
+          description: The ID of the comment to vote on.
+      requestBody:
+        description: Vote object for the comment.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VoteRequest'
+      responses:
+        '204':
+          description: Vote recorded successfully
+        '400':
+          description: Invalid vote or comment ID
+        '500':
+          description: Internal server error
+  /solutions:
+    get:
+      tags:
+        - Solutions
+      summary: Get all solutions
+      description: Fetch a list of solutions with optional filtering by problemId, title search, tags, and pagination.
+      operationId: getSolutions
+      parameters:
+        - in: query
+          name: problemId
+          required: true
+          schema:
+            type: integer
+          description: ID of the problem for which to fetch solutions.
+        - in: query
+          name: titleSearch
+          required: false
+          schema:
+            type: string
+          description: Search for solutions by title.
+        - in: query
+          name: tags
+          required: false
+          schema:
+            type: string
+            description: Comma-separated list of tags to filter solutions.
+        - in: query
+          name: page
+          required: false
+          schema:
+            type: integer
+            description: The page number to fetch.
+        - in: query
+          name: perPage
+          required: false
+          schema:
+            type: integer
+            description: "Number of items per page (default: 10)."
+        - in: query
+          name: sort
+          required: false
+          schema:
+            type: string
+            enum: [time, votes]
+            description: Sort solutions by time or votes.
+        - in: query
+          name: order
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            description: Order solutions in ascending or descending order.
+      responses:
+        '200':
+          description: A list of solutions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SolutionsResponse'
+        '400':
+          description: Bad request (invalid or missing parameters)
+        '404':
+          description: No solutions found
+        '500':
+          description: Internal server error
+      
+    post:
+      tags:
+        - Solutions
+      summary: Create a new solution
+      description: Create a new solution for a specific problem.
+      operationId: createSolution
+      requestBody:
+        description: Solution data to be created
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Solutions'
+      responses:
+        '201':
+          description: Solution created successfully
+        '400':
+          description: Invalid input
+        '500':
+          description: Internal server error
+      
+  /solutions/{solutionId}:
+    get:
+      tags:
+        - Solutions
+      summary: Get a solution by ID
+      description: Retrieve a solution by its unique ID.
+      operationId: getSolution
+      parameters:
+        - in: path
+          name: solutionId
+          required: true
+          schema:
+            type: integer
+          description: The ID of the solution to retrieve.
+      responses:
+        '200':
+          description: A solution object
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SolutionResponse'
+        '404':
+          description: Solution not found
+        '500':
+          description: Internal server error
+      
+    put:
+      tags:
+        - Solutions
+      summary: Update a solution by ID
+      description: Update the details of a specific solution.
+      operationId: updateSolution
+      parameters:
+        - in: path
+          name: solutionId
+          required: true
+          schema:
+            type: integer
+          description: The ID of the solution to update.
+      requestBody:
+        description: Solution data to be updated
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Solutions'
+      responses:
+        '204':
+          description: Solution updated successfully
+        '400':
+          description: Invalid input
+        '404':
+          description: Solution not found
+        '500':
+          description: Internal server error
+      
+    delete:
+      tags:
+        - Solutions
+      summary: Delete a solution by ID
+      description: Delete a specific solution.
+      operationId: deleteSolution
+      parameters:
+        - in: path
+          name: solutionId
+          required: true
+          schema:
+            type: integer
+          description: The ID of the solution to delete.
+      responses:
+        '204':
+          description: Solution deleted successfully
+        '404':
+          description: Solution not found
+        '500':
+          description: Internal server error
+      
+  /solutions/{solutionId}/vote:
+    patch:
+      tags:
+        - Solutions
+      summary: Vote on a solution
+      description: Vote on a specific solution (upvote, downvote, or remove vote).
+      operationId: voteSolution
+      parameters:
+        - in: path
+          name: solutionId
+          required: true
+          schema:
+            type: integer
+          description: The ID of the solution to vote on.
+      requestBody:
+        description: Vote data (up, down, or none)
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VoteRequest'
+      responses:
+        '204':
+          description: Vote recorded successfully
+        '400':
+          description: Invalid vote or solution ID
+        '500':
+          description: Internal server error          
+components:
+  securitySchemes: 
+    Authorization:
+      type: http
+      scheme: bearer
+      bearerFormat: jwt 
+  schemas:
+    CreateAccountRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The unique ID for the account.
+        username:
+          type: string
+          description: The username for the account.
+        email:
+          type: string
+          format: email
+          description: The email address for the account.
+      required:
+        - id
+        - username
+        - email
+      example:
+        id: "12345"
+        username: "john_doe"
+        email: "john@example.com"
+    Comment:
+      type: object
+      properties:
+        solutionId:
+          type: integer
+          description: The ID of the solution the comment belongs to.
+        body:
+          type: string
+          description: The content of the comment.
+        parentId:
+          oneOf: 
+            - type: integer
+            - type: "null"
+          description: The ID of the parent comment, if it is a reply.
+      required:
+        - solutionId
+        - body
+    CommentsData:
+      type: object
+      properties:
+        id:
+          type: integer
+        solutionId:
+          type: integer
+        userId:
+          type: string
+        body:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        votes:
+          type: integer
+        parentId:
+          oneOf: 
+            - type: integer
+            - type: "null"
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommentsData'
+        currentUserVote:
+          type: string
+          enum: [up, down, none]
+    VoteRequest:
+      type: object
+      properties:
+        vote:
+          type: string
+          enum: [up, down, none]
+      required:
+        - vote
+    Solutions:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        title:
+          type: string
+        date:
+          type: string
+          format: date-time
+        tags:
+          type: array
+          items:
+            type: string
+        body:
+          type: string
+        votes:
+          type: integer
+        problemId:
+          type: integer
+      required:
+        - title
+        - body
+        - problemId
+    SolutionsData:
+      type: object
+      properties:
+        id:
+          type: integer
+        body:
+          type: string
+        comments:
+          type: integer
+        date:
+          type: string
+          format: date-time
+        tags:
+          type: array
+          items:
+            type: string
+        title:
+          type: string
+        username:
+          type: string
+        votes:
+          type: integer
+        currentUserVote:
+          type: string
+          enum: [up, down, none]
+    SolutionsResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/SolutionsData'
+        pagination:
+          type: object
+          properties:
+            page:
+              type: integer
+            perPage:
+              type: integer
+            solutionCount:
+              type: integer
+            lastPage:
+              type: integer
+    SolutionResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/SolutionsData'
