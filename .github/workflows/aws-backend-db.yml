@@ -5,6 +5,7 @@ on:
     branches: [ "main" ]
     paths:
       - 'src/sql/schemas/**'
+      - '.github/workflows/aws-backend-db.yml'
 
 permissions:
   id-token: write
