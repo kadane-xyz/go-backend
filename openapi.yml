@@ -212,7 +212,7 @@ paths:
     delete:
       operationId: deleteComment
       summary: Delete a comment by ID
-      description: Delete a comment by its ID.
+      description: Delete a comment by its own ID.
       tags: 
         -  "Comments"
       parameters:
@@ -235,7 +235,7 @@ paths:
     patch:
       operationId: voteComment
       summary: Vote on a comment
-      description: Vote on a comment by its ID.
+      description: Vote on a comment by its own ID.
       tags: 
         -  "Comments"
       parameters:
