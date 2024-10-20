@@ -11,6 +11,20 @@ services:
     env_file: 
       - '.env'
     restart: unless-stopped
+  doc:
+    image: redocly/redoc
+    ports:
+      - 8080:80/tcp
+    environment:
+      SPEC_URL: swagger.yaml
+    volumes:
+      - ./openapi.yml:/usr/share/nginx/html/swagger.yaml
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
   db:
     container_name: postgres
     image: postgres:15
