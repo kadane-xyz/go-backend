@@ -1,5 +1,11 @@
 # Kadane.XYZ Go-Backend
 
+This repository contains the main backend for Kadane and also openapi documentation.
+
+[https://api.kadane.xyz](https://api.kadane.xyz)
+
+[https://doc.kadane.xyz](https://doc.kadane.xyz)
+
 ## Development:
 
 Install [golang](https://go.dev/doc/install) binaries
