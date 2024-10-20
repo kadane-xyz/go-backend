@@ -24,6 +24,14 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ vars.AWS_REGION }}
 
+      - name: Zip schema files
+        run: |
+          zip -r schema_files.zip src/sql/schemas
+
+      - name: Upload schema to S3
+        run: |
+          aws s3 cp schema_files.zip s3://${{ secrets.SCHEMA_S3_BUCKET }}/schemas/schema_files.zip
+
       - name: Update Lambda Environment Variables
         run: |
           aws lambda update-function-configuration \
@@ -34,21 +42,22 @@ jobs:
                 DB_USER=${{ secrets.AWS_DB_USER }},
                 DB_PASSWORD=${{ secrets.AWS_DB_PASSWORD }},
                 DB_NAME=${{ secrets.AWS_DB_NAME }},
+                SCHEMA_BUCKET=${{ secrets.SCHEMA_S3_BUCKET }},
+                SCHEMA_KEY=schema_files.zip
             }"
           
-      
-      - name: Get changed files
-        id: changed-files
-        uses: tj-actions/changed-files@v41
-        with:
-          files: src/sql/schemas/**
-      
       - name: Invoke Lambda
         run: |
-          for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
-            aws lambda invoke \
-              --function-name ${{ vars.AWS_BACKEND_DB_LAMBDA_FUNCTION }} \
-              --payload "{\"schema_file\": \"$file\"}" \
-              --cli-binary-format raw-in-base64-out \
-              response.json
-          done
+          aws lambda invoke \
+            --function-name ${{ vars.AWS_BACKEND_DB_LAMBDA_FUNCTION }} \
+            --payload '{}' \
+            --cli-binary-format raw-in-base64-out \
+            response.json
+
+      - name: Check deployment status
+        run: |
+          STATUS=$(cat response.json | jq -r '.statusCode')
+          if [ $STATUS -ne 200 ]; then
+            echo "Schema deployment failed"
+            exit 1
+          fi
