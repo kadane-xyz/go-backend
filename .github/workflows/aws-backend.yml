@@ -78,6 +78,10 @@ jobs:
           POSTGRES_PASSWORD=${{ secrets.AWS_DB_PASSWORD }}
           POSTGRES_DB=${{ secrets.AWS_DB_NAME }}
           FIREBASE_CRED=${{ secrets.AWS_FIREBASE_CRED }}
+          AWS_KEY=${{ secrets.AWS_KEY }}
+          AWS_SECRET=${{ secrets.AWS_SECRET }}
+          AWS_REGION=${{ vars.AWS_REGION }}
+          AWS_BUCKET_AVATAR=${{ secrets.AWS_BUCKET_AVATAR }}
 
     - name: Deploy Amazon ECS task definition
       uses: aws-actions/amazon-ecs-deploy-task-definition@v2
