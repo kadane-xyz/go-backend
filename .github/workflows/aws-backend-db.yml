@@ -16,6 +16,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          
+      - name: Create deployment package
+        run: |
+          # Create a directory for the deployment package
+          mkdir deployment-package
+          # Copy lambda function to deployment directory
+          cp lambda_function.py deployment-package/
+          # Install dependencies to the deployment directory
+          pip install --target ./deployment-package psycopg2-binary boto3
+          # Create deployment zip
+          cd deployment-package && zip -r ../lambda_deployment.zip .
+          cd .. && rm -r deployment-package
       
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
