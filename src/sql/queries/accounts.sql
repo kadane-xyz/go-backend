@@ -6,6 +6,9 @@ SELECT * FROM account WHERE id = $1;
 -- name: GetAccounts :many
 SELECT * FROM account;
 
+-- name: GetAccountUsername :one
+SELECT username from account WHERE id = $1; 
+
 -- POST --
 
 -- name: CreateAccount :exec

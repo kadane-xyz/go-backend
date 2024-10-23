@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -31,7 +32,7 @@ type CommentResponse struct {
 type CommentsData struct {
 	ID              int64           `json:"id"`
 	SolutionId      int64           `json:"solutionId"`
-	UserId          string          `json:"userId"`
+	Username        string          `json:"username"`
 	Body            string          `json:"body"`
 	CreatedAt       time.Time       `json:"createdAt"`
 	Votes           int32           `json:"votes"`
@@ -104,10 +105,16 @@ func (h *Handler) GetComments(w http.ResponseWriter, r *http.Request) {
 
 	// First pass: Create CommentsData objects
 	for _, dbComment := range dbComments {
+		username, err := h.PostgresQueries.GetAccountUsername(r.Context(), dbComment.UserID)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
 		comment := &CommentsData{
 			ID:              dbComment.ID,
 			SolutionId:      dbComment.SolutionID,
-			UserId:          userId,
+			Username:        username,
 			Body:            dbComment.Body,
 			CreatedAt:       dbComment.CreatedAt.Time,
 			Votes:           dbComment.Votes.Int32,
@@ -205,14 +212,22 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	var parentID pgtype.Int8
+	if comment.ParentId != 0 {
+		parentID = pgtype.Int8{Int64: comment.ParentId, Valid: true}
+	} else {
+		parentID = pgtype.Int8{Valid: false}
+	}
+
 	// create comment
 	_, err = h.PostgresQueries.CreateComment(r.Context(), sql.CreateCommentParams{
 		SolutionID: comment.SolutionId,
-		ParentID:   pgtype.Int8{Int64: comment.ParentId, Valid: true},
+		ParentID:   parentID,
 		UserID:     userId,
 		Body:       comment.Body,
 	})
 	if err != nil {
+		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -252,6 +267,12 @@ func (h *Handler) GetComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	username, err := h.PostgresQueries.GetAccountUsername(r.Context(), comment.UserID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	vote, err := h.PostgresQueries.GetCommentVote(r.Context(), sql.GetCommentVoteParams{
 		UserID:    pgtype.Text{String: userId, Valid: true},
 		CommentID: pgtype.Int8{Int64: id, Valid: true},
@@ -263,7 +284,7 @@ func (h *Handler) GetComment(w http.ResponseWriter, r *http.Request) {
 	commentData := CommentsData{
 		ID:              comment.ID,
 		SolutionId:      comment.SolutionID,
-		UserId:          comment.UserID,
+		Username:        username,
 		Body:            comment.Body,
 		CreatedAt:       comment.CreatedAt.Time,
 		Votes:           comment.Votes.Int32,
