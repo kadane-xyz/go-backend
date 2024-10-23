@@ -168,6 +168,12 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		username, err := h.PostgresQueries.GetAccountUsername(r.Context(), solution.UserID.String)
+		if err != nil {
+			http.Error(w, "error getting username", http.StatusInternalServerError)
+			return
+		}
+
 		vote, err := h.PostgresQueries.GetSolutionVote(r.Context(), sql.GetSolutionVoteParams{
 			UserID:     userId,
 			SolutionID: solution.ID,
@@ -187,7 +193,7 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 			Date:            solution.CreatedAt,
 			Tags:            solution.Tags,
 			Title:           solution.Title,
-			Username:        solution.UserID.String,
+			Username:        username,
 			Votes:           solution.Votes.Int32,
 			CurrentUserVote: vote,
 		}
@@ -309,6 +315,12 @@ func (h *Handler) GetSolution(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	username, err := h.PostgresQueries.GetAccountUsername(r.Context(), solution.UserID.String)
+	if err != nil {
+		http.Error(w, "error getting username", http.StatusInternalServerError)
+		return
+	}
+
 	vote, err := h.PostgresQueries.GetSolutionVote(r.Context(), sql.GetSolutionVoteParams{
 		UserID:     userId,
 		SolutionID: solution.ID,
@@ -328,6 +340,7 @@ func (h *Handler) GetSolution(w http.ResponseWriter, r *http.Request) {
 		Date:            solution.CreatedAt,
 		Tags:            solution.Tags,
 		Title:           solution.Title,
+		Username:        username,
 		Votes:           solution.Votes.Int32,
 		CurrentUserVote: vote,
 	}
