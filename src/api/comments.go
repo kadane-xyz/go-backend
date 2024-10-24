@@ -33,6 +33,8 @@ type CommentsData struct {
 	ID              int64           `json:"id"`
 	SolutionId      int64           `json:"solutionId"`
 	Username        string          `json:"username"`
+	AvatarUrl       string          `json:"avatarUrl"`
+	Level           int32           `json:"level"`
 	Body            string          `json:"body"`
 	CreatedAt       time.Time       `json:"createdAt"`
 	Votes           int32           `json:"votes"`
@@ -93,6 +95,7 @@ func (h *Handler) GetComments(w http.ResponseWriter, r *http.Request) {
 		PSortDirection: order,
 	})
 	if err != nil {
+		log.Printf("Error getting comments: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -107,7 +110,22 @@ func (h *Handler) GetComments(w http.ResponseWriter, r *http.Request) {
 	for _, dbComment := range dbComments {
 		username, err := h.PostgresQueries.GetAccountUsername(r.Context(), dbComment.UserID)
 		if err != nil {
+			log.Printf("Error getting comment username: %v", err)
+			http.Error(w, "Error getting comment username", http.StatusInternalServerError)
+			return
+		}
+
+		avatarUrl, err := h.PostgresQueries.GetAccountAvatarUrl(r.Context(), dbComment.UserID)
+		if err != nil {
+			log.Printf("Error getting comment avatar url: %v", err)
+			http.Error(w, "Error getting comment avatar url: %v", http.StatusInternalServerError)
+			return
+		}
+
+		level, err := h.PostgresQueries.GetAccountLevel(r.Context(), dbComment.UserID)
+		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, "Error getting comment user level", http.StatusInternalServerError)
 			return
 		}
 
@@ -115,6 +133,8 @@ func (h *Handler) GetComments(w http.ResponseWriter, r *http.Request) {
 			ID:              dbComment.ID,
 			SolutionId:      dbComment.SolutionID,
 			Username:        username,
+			AvatarUrl:       avatarUrl.String,
+			Level:           level.Int32,
 			Body:            dbComment.Body,
 			CreatedAt:       dbComment.CreatedAt.Time,
 			Votes:           dbComment.Votes.Int32,
@@ -273,6 +293,18 @@ func (h *Handler) GetComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	avatarUrl, err := h.PostgresQueries.GetAccountAvatarUrl(r.Context(), comment.UserID)
+	if err != nil {
+		http.Error(w, "Error getting comment avatar url", http.StatusInternalServerError)
+		return
+	}
+
+	level, err := h.PostgresQueries.GetAccountLevel(r.Context(), comment.UserID)
+	if err != nil {
+		http.Error(w, "Error getting comment user level", http.StatusInternalServerError)
+		return
+	}
+
 	vote, err := h.PostgresQueries.GetCommentVote(r.Context(), sql.GetCommentVoteParams{
 		UserID:    pgtype.Text{String: userId, Valid: true},
 		CommentID: pgtype.Int8{Int64: id, Valid: true},
@@ -285,6 +317,8 @@ func (h *Handler) GetComment(w http.ResponseWriter, r *http.Request) {
 		ID:              comment.ID,
 		SolutionId:      comment.SolutionID,
 		Username:        username,
+		AvatarUrl:       avatarUrl.String,
+		Level:           level.Int32,
 		Body:            comment.Body,
 		CreatedAt:       comment.CreatedAt.Time,
 		Votes:           comment.Votes.Int32,
