@@ -7,7 +7,13 @@ SELECT * FROM account WHERE id = $1;
 SELECT * FROM account;
 
 -- name: GetAccountUsername :one
-SELECT username from account WHERE id = $1; 
+SELECT username from account WHERE id = $1;
+
+-- name: GetAccountAvatarUrl :one
+SELECT avatar_url from account WHERE id = $1;
+
+-- name: GetAccountLevel :one
+SELECT level from account WHERE id = $1;
 
 -- POST --
 

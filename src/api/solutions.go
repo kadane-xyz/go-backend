@@ -36,6 +36,8 @@ type SolutionsData struct {
 	Tags            []string         `json:"tags"`
 	Title           string           `json:"title"`
 	Username        string           `json:"username,omitempty"`
+	Level           int32            `json:"level,omitempty"`
+	AvatarUrl       string           `json:"avatarUrl,omitempty"`
 	Votes           int32            `json:"votes"`
 	CurrentUserVote sql.VoteType     `json:"currentUserVote"`
 }
@@ -174,6 +176,18 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		avatarUrl, err := h.PostgresQueries.GetAccountAvatarUrl(r.Context(), solution.UserID.String)
+		if err != nil {
+			http.Error(w, "error getting avatar url", http.StatusInternalServerError)
+			return
+		}
+
+		level, err := h.PostgresQueries.GetAccountLevel(r.Context(), solution.UserID.String)
+		if err != nil {
+			http.Error(w, "error getting level", http.StatusInternalServerError)
+			return
+		}
+
 		vote, err := h.PostgresQueries.GetSolutionVote(r.Context(), sql.GetSolutionVoteParams{
 			UserID:     userId,
 			SolutionID: solution.ID,
@@ -194,6 +208,8 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 			Tags:            solution.Tags,
 			Title:           solution.Title,
 			Username:        username,
+			Level:           level.Int32,
+			AvatarUrl:       avatarUrl.String,
 			Votes:           solution.Votes.Int32,
 			CurrentUserVote: vote,
 		}
@@ -321,6 +337,18 @@ func (h *Handler) GetSolution(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	avatarUrl, err := h.PostgresQueries.GetAccountAvatarUrl(r.Context(), solution.UserID.String)
+	if err != nil {
+		http.Error(w, "error getting avatar url", http.StatusInternalServerError)
+		return
+	}
+
+	level, err := h.PostgresQueries.GetAccountLevel(r.Context(), solution.UserID.String)
+	if err != nil {
+		http.Error(w, "error getting level", http.StatusInternalServerError)
+		return
+	}
+
 	vote, err := h.PostgresQueries.GetSolutionVote(r.Context(), sql.GetSolutionVoteParams{
 		UserID:     userId,
 		SolutionID: solution.ID,
@@ -341,6 +369,8 @@ func (h *Handler) GetSolution(w http.ResponseWriter, r *http.Request) {
 		Tags:            solution.Tags,
 		Title:           solution.Title,
 		Username:        username,
+		Level:           level.Int32,
+		AvatarUrl:       avatarUrl.String,
 		Votes:           solution.Votes.Int32,
 		CurrentUserVote: vote,
 	}
