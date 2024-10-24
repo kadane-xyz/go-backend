@@ -33,7 +33,7 @@ type CommentsData struct {
 	ID              int64           `json:"id"`
 	SolutionId      int64           `json:"solutionId"`
 	Username        string          `json:"username"`
-	AvatarUrl       string          `json:"avatarUrl"`
+	AvatarUrl       string          `json:"avatarUrl,omitempty"`
 	Level           int32           `json:"level"`
 	Body            string          `json:"body"`
 	CreatedAt       time.Time       `json:"createdAt"`
@@ -110,23 +110,17 @@ func (h *Handler) GetComments(w http.ResponseWriter, r *http.Request) {
 	for _, dbComment := range dbComments {
 		username, err := h.PostgresQueries.GetAccountUsername(r.Context(), dbComment.UserID)
 		if err != nil {
-			log.Printf("Error getting comment username: %v", err)
-			http.Error(w, "Error getting comment username", http.StatusInternalServerError)
-			return
+			username = "unknown" // Fallback to a default value
 		}
 
 		avatarUrl, err := h.PostgresQueries.GetAccountAvatarUrl(r.Context(), dbComment.UserID)
 		if err != nil {
-			log.Printf("Error getting comment avatar url: %v", err)
-			http.Error(w, "Error getting comment avatar url: %v", http.StatusInternalServerError)
-			return
+			avatarUrl = pgtype.Text{String: ""} // Fallback to a default
 		}
 
 		level, err := h.PostgresQueries.GetAccountLevel(r.Context(), dbComment.UserID)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			http.Error(w, "Error getting comment user level", http.StatusInternalServerError)
-			return
+			level = pgtype.Int4{Int32: 1} // Fallback to a default value
 		}
 
 		comment := &CommentsData{
@@ -289,20 +283,17 @@ func (h *Handler) GetComment(w http.ResponseWriter, r *http.Request) {
 
 	username, err := h.PostgresQueries.GetAccountUsername(r.Context(), comment.UserID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		username = "unknown" // Fallback to a default value
 	}
 
 	avatarUrl, err := h.PostgresQueries.GetAccountAvatarUrl(r.Context(), comment.UserID)
 	if err != nil {
-		http.Error(w, "Error getting comment avatar url", http.StatusInternalServerError)
-		return
+		avatarUrl = pgtype.Text{String: ""} // Fallback to a default value
 	}
 
 	level, err := h.PostgresQueries.GetAccountLevel(r.Context(), comment.UserID)
 	if err != nil {
-		http.Error(w, "Error getting comment user level", http.StatusInternalServerError)
-		return
+		level = pgtype.Int4{Int32: 1} // Fallback to a default value
 	}
 
 	vote, err := h.PostgresQueries.GetCommentVote(r.Context(), sql.GetCommentVoteParams{
