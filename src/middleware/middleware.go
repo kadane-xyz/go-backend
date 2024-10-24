@@ -42,11 +42,29 @@ type FirebaseTokenInfo struct {
 func (h *Handler) FirebaseAuth() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Get the Firebase ID token from the Authorization header
-			idToken := r.Header.Get("Authorization")
+			// Skip auth for health check endpoint
+			if r.URL.Path == "/health" || r.Method == http.MethodOptions {
+				next.ServeHTTP(w, r)
+				return
+			}
 
+			// Get the Firebase ID token from the Authorization header
+			authHeader := r.Header.Get("Authorization")
+			if authHeader == "" {
+				http.Error(w, "Missing Authorization header", http.StatusUnauthorized)
+				return
+			}
+
+			const bearerPrefix = "Bearer "
+			if len(authHeader) <= len(bearerPrefix) || authHeader[:len(bearerPrefix)] != bearerPrefix {
+				http.Error(w, "Invalid Authorization header", http.StatusUnauthorized)
+				return
+			}
+
+			// Extract the ID token from the Authorization header
+			idToken := authHeader[len(bearerPrefix):]
 			if idToken == "" {
-				http.Error(w, "Authorization header with Firebase ID token is required", http.StatusUnauthorized)
+				http.Error(w, "Missing ID token", http.StatusUnauthorized)
 				return
 			}
 
@@ -68,9 +86,8 @@ func (h *Handler) FirebaseAuth() func(http.Handler) http.Handler {
 				Name:   token.Claims["name"].(string),
 			}
 
+			// Pass the claims to the next handler via the context
 			ctx := context.WithValue(r.Context(), FirebaseTokenKey, claims)
-
-			// Call the next handler with the updated context
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
