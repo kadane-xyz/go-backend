@@ -39,6 +39,15 @@ type FirebaseTokenInfo struct {
 	Name   string
 }
 
+func getStringClaim(claims map[string]interface{}, key string) string {
+	if val, ok := claims[key]; ok {
+		if strVal, ok := val.(string); ok {
+			return strVal
+		}
+	}
+	return "" // or handle missing/invalid claims as appropriate
+}
+
 func (h *Handler) FirebaseAuth() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -79,11 +88,10 @@ func (h *Handler) FirebaseAuth() func(http.Handler) http.Handler {
 				http.Error(w, "Invalid Firebase ID token", http.StatusUnauthorized)
 				return
 			}
-
 			claims := FirebaseTokenInfo{
 				UserID: token.UID,
-				Email:  token.Claims["email"].(string),
-				Name:   token.Claims["name"].(string),
+				Email:  getStringClaim(token.Claims, "email"),
+				Name:   getStringClaim(token.Claims, "name"),
 			}
 
 			// Pass the claims to the next handler via the context
