@@ -4,13 +4,11 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"kadane.xyz/go-backend/v2/src/apierror"
 )
 
 func RegisterApiRoutes(h *Handler, r chi.Router) {
 	r.Route("/v1", func(r chi.Router) {
-		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte("Welcome to the API"))
-		})
 		// solutions
 		r.Route("/solutions", func(r chi.Router) {
 			r.Get("/", h.GetSolutions)
@@ -48,6 +46,6 @@ func RegisterApiRoutes(h *Handler, r chi.Router) {
 	})
 	//generate a route to catch anything not defined and error/block spam
 	r.Get("/*", func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "Not Found", http.StatusNotFound)
+		apierror.SendError(w, http.StatusNotFound, "Not Found")
 	})
 }
