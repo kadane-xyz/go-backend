@@ -622,7 +622,8 @@ components:
           type: string
         email:
           type: string
-          format: email
+        avatar_url:
+          type: string
       required:
         - id
         - username
@@ -663,3 +664,4 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
+
