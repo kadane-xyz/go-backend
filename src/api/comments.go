@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx"
 	"github.com/jackc/pgx/v5/pgtype"
+	"kadane.xyz/go-backend/v2/src/apierror"
 	"kadane.xyz/go-backend/v2/src/middleware"
 	"kadane.xyz/go-backend/v2/src/sql/sql"
 )
@@ -52,21 +53,21 @@ func (h *Handler) GetComments(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
 	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
 	if userId == "" {
-		http.Error(w, "Missing user id", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for comment retrieval")
 		return
 	}
 
 	// Get the solutionId from the query parameters
 	solutionId := r.URL.Query().Get("solutionId")
 	if solutionId == "" {
-		http.Error(w, "Missing solutionId", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "Missing solutionId for comment retrieval")
 		return
 	}
 
 	// Convert solutionId to int64
 	id, err := strconv.ParseInt(solutionId, 10, 64)
 	if err != nil {
-		http.Error(w, "solutionId must be an integer", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "Invalid solutionId format for comment retrieval")
 		return
 	}
 
@@ -95,8 +96,7 @@ func (h *Handler) GetComments(w http.ResponseWriter, r *http.Request) {
 		PSortDirection: order,
 	})
 	if err != nil {
-		log.Printf("Error getting comments: %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		apierror.SendError(w, http.StatusInternalServerError, "Error retrieving comments from database")
 		return
 	}
 
@@ -189,20 +189,20 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
 	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
 	if userId == "" {
-		http.Error(w, "Missing user id", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for comment creation")
 		return
 	}
 
 	var comment Comment
 	err := json.NewDecoder(r.Body).Decode(&comment)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "Invalid comment data format")
 		return
 	}
 
 	// Validate input
 	if comment.SolutionId == 0 || comment.Body == "" {
-		http.Error(w, "SolutionId and Body are required", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "Missing required fields for comment creation")
 		return
 	}
 
@@ -242,7 +242,7 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		log.Println(err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		apierror.SendError(w, http.StatusInternalServerError, "Error creating comment in database")
 		return
 	}
 
@@ -255,28 +255,28 @@ func (h *Handler) GetComment(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
 	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
 	if userId == "" {
-		http.Error(w, "Missing user id", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for comment retrieval")
 		return
 	}
 
 	commentId := chi.URLParam(r, "commentId")
 	if commentId == "" {
-		http.Error(w, "Missing commentId", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "Missing commentId for comment retrieval")
 		return
 	}
 
 	id, err := strconv.ParseInt(commentId, 10, 64)
 	if err != nil {
-		http.Error(w, "commentId must be an integer", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "Invalid commentId format for comment retrieval")
 		return
 	}
 
 	comment, err := h.PostgresQueries.GetComment(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			http.Error(w, "Comment not found", http.StatusNotFound)
+			apierror.SendError(w, http.StatusNotFound, "Comment not found")
 		} else {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			apierror.SendError(w, http.StatusInternalServerError, "Error retrieving comment from database")
 		}
 		return
 	}

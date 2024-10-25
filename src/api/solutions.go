@@ -2,13 +2,15 @@ package api
 
 import (
 	"encoding/json"
-	"log"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx"
 	"github.com/jackc/pgx/v5/pgtype"
+	"kadane.xyz/go-backend/v2/src/apierror"
 	"kadane.xyz/go-backend/v2/src/middleware"
 	"kadane.xyz/go-backend/v2/src/sql/sql"
 )
@@ -56,28 +58,22 @@ type SolutionsResponse struct {
 
 // GET: /solutions
 func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
-	// Get userid from middleware context
 	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
 	if userId == "" {
-		http.Error(w, "Missing user id", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for solutions retrieval")
 		return
 	}
 
-	var id int64 // Problem ID
-
-	// Handle problemId query parameter
 	problemId := r.URL.Query().Get("problemId")
-	// If problemId is empty, set idPg as NULL
 	if problemId == "" {
-		http.Error(w, "problemId is required", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "Missing problemId for solutions retrieval")
 		return
-	} else {
-		parsedId, err := strconv.ParseInt(problemId, 10, 64)
-		if err != nil {
-			http.Error(w, "problemId must be an integer", http.StatusBadRequest)
-			return
-		}
-		id = parsedId
+	}
+
+	id, err := strconv.ParseInt(problemId, 10, 64)
+	if err != nil {
+		apierror.SendError(w, http.StatusBadRequest, "Invalid problemId format for solutions retrieval")
+		return
 	}
 
 	titleSearch := r.URL.Query().Get("titleSearch")
@@ -135,18 +131,12 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 		POrderBy:       sort,
 	})
 	if err != nil {
-		http.Error(w, "error getting solutions", http.StatusInternalServerError)
+		apierror.SendError(w, http.StatusInternalServerError, "Error retrieving solutions from database")
 		return
 	}
 
-	// Handle if no solutions are found
 	if len(solutions) == 0 {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusNotFound)
-		response := map[string]string{
-			"error": "No solutions found for the given page or problemId",
-		}
-		json.NewEncoder(w).Encode(response)
+		apierror.SendError(w, http.StatusNotFound, "No solutions found for the given problem")
 		return
 	}
 
@@ -156,7 +146,7 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 		Column3:   tagsArray,
 	})
 	if err != nil {
-		http.Error(w, "error getting total count", http.StatusInternalServerError)
+		apierror.SendError(w, http.StatusInternalServerError, "error getting total count")
 		return
 	}
 
@@ -166,25 +156,25 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 		// Get comments from db by idPg
 		comment, err := h.PostgresQueries.GetCommentCount(r.Context(), solution.ID)
 		if err != nil {
-			http.Error(w, "error getting comments", http.StatusInternalServerError)
+			apierror.SendError(w, http.StatusInternalServerError, "error getting comments")
 			return
 		}
 
 		username, err := h.PostgresQueries.GetAccountUsername(r.Context(), solution.UserID.String)
 		if err != nil {
-			http.Error(w, "error getting username", http.StatusInternalServerError)
+			apierror.SendError(w, http.StatusInternalServerError, "error getting username")
 			return
 		}
 
 		avatarUrl, err := h.PostgresQueries.GetAccountAvatarUrl(r.Context(), solution.UserID.String)
 		if err != nil {
-			http.Error(w, "error getting avatar url", http.StatusInternalServerError)
+			apierror.SendError(w, http.StatusInternalServerError, "error getting avatar url")
 			return
 		}
 
 		level, err := h.PostgresQueries.GetAccountLevel(r.Context(), solution.UserID.String)
 		if err != nil {
-			http.Error(w, "error getting level", http.StatusInternalServerError)
+			apierror.SendError(w, http.StatusInternalServerError, "error getting level")
 			return
 		}
 
@@ -239,8 +229,7 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 	// Marshal solutions to JSON
 	responseJSON, err := json.Marshal(finalResponse)
 	if err != nil {
-		http.Error(w, "error marshalling solutions", http.StatusInternalServerError)
-		w.Write([]byte(err.Error()))
+		apierror.SendError(w, http.StatusInternalServerError, "error marshalling solutions")
 		return
 	}
 
@@ -252,24 +241,21 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 
 // POST: /
 func (h *Handler) CreateSolution(w http.ResponseWriter, r *http.Request) {
-	// Get userid from middleware context
 	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
 	if userId == "" {
-		http.Error(w, "Missing user id", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for solution creation")
 		return
 	}
 
-	// Parse request body
 	var solution Solutions
 	err := json.NewDecoder(r.Body).Decode(&solution)
 	if err != nil {
-		log.Println(err)
-		http.Error(w, "error decoding request body", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "Invalid solution data format")
 		return
 	}
 
 	if solution.Title == "" || solution.Body == "" || solution.ProblemId <= 0 {
-		http.Error(w, "title, body, and problemId are required", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "Missing required fields for solution creation")
 		return
 	}
 
@@ -285,7 +271,7 @@ func (h *Handler) CreateSolution(w http.ResponseWriter, r *http.Request) {
 		ProblemID: pgtype.Int8{Int64: solution.ProblemId, Valid: true},
 	})
 	if err != nil {
-		http.Error(w, "error creating solution", http.StatusInternalServerError)
+		apierror.SendError(w, http.StatusInternalServerError, "Error creating solution in database")
 		return
 	}
 
@@ -296,31 +282,32 @@ func (h *Handler) CreateSolution(w http.ResponseWriter, r *http.Request) {
 
 // GET: /{solutionId}
 func (h *Handler) GetSolution(w http.ResponseWriter, r *http.Request) {
-	// Get userid from middleware context
 	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
 	if userId == "" {
-		http.Error(w, "Missing user id", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for solution retrieval")
 		return
 	}
 
-	// Handle problemId query parameter
 	solutionId := chi.URLParam(r, "solutionId")
-	// If problemId is empty, set idPg as NULL
 	if solutionId == "" {
-		http.Error(w, "solutionId is required", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "Missing solutionId for solution retrieval")
 		return
 	}
 
 	id, err := strconv.ParseInt(solutionId, 10, 64)
 	if err != nil {
-		http.Error(w, "solutionId must be an integer", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "Invalid solutionId format for solution retrieval")
 		return
 	}
 
 	// Get solutions from db by idPg
 	solution, err := h.PostgresQueries.GetSolution(r.Context(), id)
 	if err != nil {
-		http.Error(w, "error getting solutions", http.StatusInternalServerError)
+		if errors.Is(err, pgx.ErrNoRows) {
+			apierror.SendError(w, http.StatusNotFound, "Solution not found")
+		} else {
+			apierror.SendError(w, http.StatusInternalServerError, "Error retrieving solution from database")
+		}
 		return
 	}
 
