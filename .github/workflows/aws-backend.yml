@@ -10,16 +10,6 @@ on:
       - 'Dockerfile'
       - '.github/workflows/aws-backend.yml'
       - '.github/workflows/task-definition-backend.json'
-    paths-ignore:
-      - 'openapi.yaml'
-      - 'src/sql/schemas/**'
-      - 'docker/backend-doc/**'
-      - '.github/workflows/aws-backend-doc.yml'
-      - '.github/workflows/task-definition-backend-doc.json'
-      - '.github/workflows/aws-backend-db.yml'
-      - '.github/workflows/task-definition-backend-db.json'
-      - 'README.md'
-      - 'nginx.conf'
 
 env:
   DOCKERFILE: docker/backend/Dockerfile
