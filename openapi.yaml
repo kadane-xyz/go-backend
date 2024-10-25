@@ -10,6 +10,7 @@ servers:
     description: Local development server
 security: 
   -  Authorization: []
+
 paths:
   /health:
     get: 
@@ -28,6 +29,7 @@ paths:
                   status:
                     type: string
                     example: "."
+
   /accounts:
     get:
       tags:
@@ -39,10 +41,13 @@ paths:
         '200':
           description: Successful operation
           content:
-            text/plain:
+            application/json:
               schema:
-                type: string
-                example: Get Accounts
+                type: array
+                items:
+                  $ref: '#/components/schemas/Account'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
                   
     post:
       tags:
@@ -61,9 +66,9 @@ paths:
         '201':
           description: Account created successfully
         '400':
-          description: Bad request (invalid input)
+          $ref: '#/components/responses/BadRequest'
         '500':
-          description: Internal server error
+          $ref: '#/components/responses/InternalServerError'
                   
   /accounts/avatar:
     post:
@@ -84,9 +89,10 @@ paths:
         '201':
           description: Avatar uploaded and URL updated successfully
         '400':
-          description: Bad request (invalid input)
+          $ref: '#/components/responses/BadRequest'
         '500':
-          description: Internal server error                   
+          $ref: '#/components/responses/InternalServerError'
+
   /comments:
     get:
       operationId: getComments
@@ -125,9 +131,9 @@ paths:
                 items:
                   $ref: '#/components/schemas/CommentsData'
         '400':
-          description: Bad request (missing or invalid parameters)
+          $ref: '#/components/responses/BadRequest'
         '500':
-          description: Internal server error
+          $ref: '#/components/responses/InternalServerError'
     post:
       operationId: createComment
       summary: Create a new comment
@@ -147,11 +153,11 @@ paths:
         '201':
           description: Comment created successfully
         '400':
-          description: Invalid input
+          $ref: '#/components/responses/BadRequest'
         '404':
-          description: Solution or parent comment not found
+          $ref: '#/components/responses/NotFound'
         '500':
-          description: Internal server error
+          $ref: '#/components/responses/InternalServerError'
 
   /comments/{commentId}:
     get:
@@ -175,11 +181,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/CommentsData'
         '400':
-          description: Invalid comment ID
+          $ref: '#/components/responses/BadRequest'
         '404':
-          description: Comment not found
+          $ref: '#/components/responses/NotFound'
         '500':
-          description: Internal server error
+          $ref: '#/components/responses/InternalServerError'
     put:
       operationId: updateComment
       summary: Update a comment by ID
@@ -204,11 +210,11 @@ paths:
         '204':
           description: Comment updated successfully
         '400':
-          description: Invalid input
+          $ref: '#/components/responses/BadRequest'
         '404':
-          description: Comment not found
+          $ref: '#/components/responses/NotFound'
         '500':
-          description: Internal server error
+          $ref: '#/components/responses/InternalServerError'
     delete:
       operationId: deleteComment
       summary: Delete a comment by ID
@@ -226,11 +232,11 @@ paths:
         '204':
           description: Comment deleted successfully
         '400':
-          description: Invalid comment ID
+          $ref: '#/components/responses/BadRequest'
         '404':
-          description: Comment not found
+          $ref: '#/components/responses/NotFound'
         '500':
-          description: Internal server error
+          $ref: '#/components/responses/InternalServerError'
   /comments/{commentId}/vote:
     patch:
       operationId: voteComment
@@ -256,9 +262,10 @@ paths:
         '204':
           description: Vote recorded successfully
         '400':
-          description: Invalid vote or comment ID
+          $ref: '#/components/responses/BadRequest'
         '500':
-          description: Internal server error
+          $ref: '#/components/responses/InternalServerError'
+
   /solutions:
     get:
       tags:
@@ -319,11 +326,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/SolutionsResponse'
         '400':
-          description: Bad request (invalid or missing parameters)
+          $ref: '#/components/responses/BadRequest'
         '404':
-          description: No solutions found
+          $ref: '#/components/responses/NotFound'
         '500':
-          description: Internal server error
+          $ref: '#/components/responses/InternalServerError'
       
     post:
       tags:
@@ -342,9 +349,9 @@ paths:
         '201':
           description: Solution created successfully
         '400':
-          description: Invalid input
+          $ref: '#/components/responses/BadRequest'
         '500':
-          description: Internal server error
+          $ref: '#/components/responses/InternalServerError'
       
   /solutions/{solutionId}:
     get:
@@ -368,9 +375,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/SolutionResponse'
         '404':
-          description: Solution not found
+          $ref: '#/components/responses/NotFound'
         '500':
-          description: Internal server error
+          $ref: '#/components/responses/InternalServerError'
       
     put:
       tags:
@@ -396,11 +403,11 @@ paths:
         '204':
           description: Solution updated successfully
         '400':
-          description: Invalid input
+          $ref: '#/components/responses/BadRequest'
         '404':
-          description: Solution not found
+          $ref: '#/components/responses/NotFound'
         '500':
-          description: Internal server error
+          $ref: '#/components/responses/InternalServerError'
       
     delete:
       tags:
@@ -419,9 +426,9 @@ paths:
         '204':
           description: Solution deleted successfully
         '404':
-          description: Solution not found
+          $ref: '#/components/responses/NotFound'
         '500':
-          description: Internal server error
+          $ref: '#/components/responses/InternalServerError'
       
   /solutions/{solutionId}/vote:
     patch:
@@ -448,9 +455,10 @@ paths:
         '204':
           description: Vote recorded successfully
         '400':
-          description: Invalid vote or solution ID
+          $ref: '#/components/responses/BadRequest'
         '500':
-          description: Internal server error          
+          $ref: '#/components/responses/InternalServerError'
+
 components:
   securitySchemes: 
     Authorization:
@@ -605,3 +613,53 @@ components:
       properties:
         data:
           $ref: '#/components/schemas/SolutionsData'
+    Account:
+      type: object
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        email:
+          type: string
+          format: email
+      required:
+        - id
+        - username
+        - email
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: integer
+          format: int32
+        message:
+          type: string
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Error:
+      description: Error response
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
