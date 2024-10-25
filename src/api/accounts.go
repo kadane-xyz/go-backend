@@ -11,14 +11,35 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/jackc/pgx/v5/pgtype"
+	"kadane.xyz/go-backend/v2/src/apierror"
 	"kadane.xyz/go-backend/v2/src/middleware"
 	"kadane.xyz/go-backend/v2/src/sql/sql"
 )
 
+type Account struct {
+	ID        string `json:"id"`
+	Username  string `json:"username"`
+	Email     string `json:"email"`
+	AvatarUrl string `json:"avatar_url"`
+}
+
+type AccountResponse struct {
+	Data Account `json:"data"`
+}
+
+type AccountsResponse struct {
+	Data []Account `json:"data"`
+}
+
 // GET: /accounts
 func (h *Handler) GetAccounts(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("Get Accounts"))
-	return
+	_, err := h.PostgresQueries.GetAccounts(r.Context())
+	if err != nil {
+		log.Println("Error getting accounts: ", err)
+		apierror.SendError(w, http.StatusInternalServerError, "Error getting accounts")
+	}
+
+	w.Header().Set("Content-Type", "application/json")
 }
 
 func GetS3PublicURL(bucketName, region, objectKey string) string {
@@ -43,7 +64,7 @@ func (h *Handler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 	var createAccountRequest CreateAccountRequest
 	err = json.Unmarshal(body, &createAccountRequest)
 	if err != nil {
-		http.Error(w, "Error unmarshalling request body", http.StatusInternalServerError)
+		apierror.SendError(w, http.StatusInternalServerError, "Error unmarshalling request body")
 		return
 	}
 
@@ -53,8 +74,7 @@ func (h *Handler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 		Email:    createAccountRequest.Email,
 	})
 	if err != nil {
-		log.Println("Error creating account: ", err)
-		http.Error(w, "Error creating account", http.StatusInternalServerError)
+		apierror.SendError(w, http.StatusInternalServerError, "Error creating account")
 		return
 	}
 
@@ -67,20 +87,20 @@ func (h *Handler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
 	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
 	if userId == "" {
-		http.Error(w, "Missing user id", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "Missing user id")
 		return
 	}
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(w, "Error reading request body", http.StatusInternalServerError)
+		apierror.SendError(w, http.StatusInternalServerError, "Error reading request body")
 		return
 	}
 	defer r.Body.Close()
 
 	decodedContent, err := base64.StdEncoding.DecodeString(string(body))
 	if err != nil {
-		http.Error(w, "Error decoding base64 string", http.StatusInternalServerError)
+		apierror.SendError(w, http.StatusInternalServerError, "Error decoding base64 string")
 		return
 	}
 
@@ -91,8 +111,7 @@ func (h *Handler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 		Body:   bytes.NewReader(decodedContent),
 	})
 	if err != nil {
-		log.Println("Error uploading avatar: ", err)
-		http.Error(w, "Error uploading avatar", http.StatusInternalServerError)
+		apierror.SendError(w, http.StatusInternalServerError, "Error uploading avatar")
 		return
 	}
 
@@ -106,8 +125,7 @@ func (h *Handler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 		AvatarUrl: pgtype.Text{String: url, Valid: true},
 	})
 	if err != nil {
-		log.Println("Error updating avatar url: ", err)
-		http.Error(w, "Error updating avatar url", http.StatusInternalServerError)
+		apierror.SendError(w, http.StatusInternalServerError, "Error updating avatar url")
 		return
 	}
 

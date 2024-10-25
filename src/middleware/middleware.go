@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/go-chi/httprate"
+	"kadane.xyz/go-backend/v2/src/apierror"
 )
 
 type ContextKey string
@@ -26,7 +27,7 @@ func BlockConnectMethod(next http.Handler) http.Handler {
 				r.URL.Path,
 				r.RemoteAddr,
 			)
-			http.Error(w, "CONNECT method is not allowed", http.StatusMethodNotAllowed)
+			apierror.SendError(w, http.StatusMethodNotAllowed, "CONNECT method is not allowed")
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -60,20 +61,23 @@ func (h *Handler) FirebaseAuth() func(http.Handler) http.Handler {
 			// Get the Firebase ID token from the Authorization header
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
-				http.Error(w, "Missing Authorization header", http.StatusUnauthorized)
+				log.Printf("Missing Authorization header: %s\n", r.URL.Path)
+				apierror.SendError(w, http.StatusUnauthorized, "Missing Authorization header")
 				return
 			}
 
 			const bearerPrefix = "Bearer "
 			if len(authHeader) <= len(bearerPrefix) || authHeader[:len(bearerPrefix)] != bearerPrefix {
-				http.Error(w, "Invalid Authorization header", http.StatusUnauthorized)
+				log.Printf("Invalid Authorization header: %s\n", r.URL.Path)
+				apierror.SendError(w, http.StatusUnauthorized, "Invalid Authorization header")
 				return
 			}
 
 			// Extract the ID token from the Authorization header
 			idToken := authHeader[len(bearerPrefix):]
 			if idToken == "" {
-				http.Error(w, "Missing ID token", http.StatusUnauthorized)
+				log.Printf("Missing ID token: %s\n", r.URL.Path)
+				apierror.SendError(w, http.StatusUnauthorized, "Missing ID token")
 				return
 			}
 
@@ -85,7 +89,8 @@ func (h *Handler) FirebaseAuth() func(http.Handler) http.Handler {
 			// Verify the ID token
 			token, err := client.VerifyIDToken(r.Context(), idToken)
 			if err != nil {
-				http.Error(w, "Invalid Firebase ID token", http.StatusUnauthorized)
+				log.Println("Error verifying ID token: ", err)
+				apierror.SendError(w, http.StatusUnauthorized, "Invalid Firebase ID token")
 				return
 			}
 			claims := FirebaseTokenInfo{
