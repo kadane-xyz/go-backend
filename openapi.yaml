@@ -622,6 +622,7 @@ components:
           type: string
         email:
           type: string
+          format: email
         avatar_url:
           type: string
       required:
