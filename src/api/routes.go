@@ -43,6 +43,11 @@ func RegisterApiRoutes(h *Handler, r chi.Router) {
 				r.Post("/", h.UploadAvatar)
 			})
 		})
+		//submissions
+		r.Route("/submissions", func(r chi.Router) {
+			r.Get("/{token}", h.GetSubmission)
+			r.Post("/", h.CreateSubmission)
+		})
 	})
 	//generate a route to catch anything not defined and error/block spam
 	r.Get("/*", func(w http.ResponseWriter, r *http.Request) {

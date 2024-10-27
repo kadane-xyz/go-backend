@@ -15,6 +15,7 @@ import (
 	"kadane.xyz/go-backend/v2/src/aws"
 	"kadane.xyz/go-backend/v2/src/config"
 	"kadane.xyz/go-backend/v2/src/db"
+	"kadane.xyz/go-backend/v2/src/judge0"
 	"kadane.xyz/go-backend/v2/src/middleware"
 	"kadane.xyz/go-backend/v2/src/sql/sql"
 
@@ -29,6 +30,7 @@ type Server struct {
 	PostgresQueries *sql.Queries
 	firebaseApp     *firebase.App
 	awsClient       *s3.Client
+	judge0Client    *judge0.Judge0Client
 }
 
 func NewServer(config *config.Config) (*Server, error) {
@@ -61,13 +63,23 @@ func NewServer(config *config.Config) (*Server, error) {
 	}
 	log.Println("AWS connection established")
 
-	return &Server{
+	// Initialize Judge0 client
+	judge0Client := judge0.NewJudge0Client(config)
+	if judge0Client == nil {
+		return nil, fmt.Errorf("failed to initialize Judge0 client")
+	}
+	log.Println("Judge0 initialized")
+
+	server := &Server{
 		config:         config,
 		postgresClient: postgresClient,
 		closeFunc:      closeFunc,
 		firebaseApp:    firebaseApp,
 		awsClient:      awsClient,
-	}, nil
+		judge0Client:   judge0Client,
+	}
+
+	return server, nil
 }
 
 func (s *Server) Run() error {
@@ -91,6 +103,7 @@ func (s *Server) Run() error {
 		AWSClient:       s.awsClient,
 		AWSBucketAvatar: s.config.AWSBucketAvatar,
 		AWSRegion:       s.config.AWSRegion,
+		Judge0Client:    s.judge0Client,
 	}
 
 	// HTTP router
