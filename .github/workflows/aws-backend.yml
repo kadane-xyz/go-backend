@@ -78,6 +78,8 @@ jobs:
           AWS_SECRET=${{ secrets.AWS_SECRET }}
           AWS_REGION=${{ vars.AWS_REGION }}
           AWS_BUCKET_AVATAR=${{ secrets.AWS_BUCKET_AVATAR }}
+          JUDGE0_TOKEN=${{ secrets.JUDGE0_TOKEN }}
+          JUDGE0_URL=${{ secrets.JUDGE0_URL }}
 
     - name: Deploy Amazon ECS task definition
       uses: aws-actions/amazon-ecs-deploy-task-definition@v2
