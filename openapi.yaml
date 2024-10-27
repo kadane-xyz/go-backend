@@ -459,6 +459,66 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /submissions/{token}:
+    get:
+      tags:
+        - Submissions
+      summary: Get a submission
+      description: Retrieve a submission by its token and problem ID.
+      operationId: getSubmission
+      parameters:
+        - in: path
+          name: token
+          required: true
+          schema:
+            type: string
+          description: The token of the submission to retrieve.
+        - in: query
+          name: problemId
+          required: true
+          schema:
+            type: integer
+          description: The ID of the problem associated with the submission.
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmissionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /submissions:
+    post:
+      tags:
+        - Submissions
+      summary: Create a new submission
+      description: Submit a solution for a specific problem.
+      operationId: createSubmission
+      requestBody:
+        description: Submission data
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmissionRequest'
+      responses:
+        '201':
+          description: Submission created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmissionCreatedResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
 components:
   securitySchemes: 
     Authorization:
@@ -640,6 +700,36 @@ components:
           format: int32
         message:
           type: string
+    SubmissionResponse:
+      type: object
+      properties:
+        data:
+          type: string
+          enum: [correct answer, wrong answer]
+          description: The result of the submission evaluation.
+    SubmissionRequest:
+      type: object
+      properties:
+        problemId:
+          type: integer
+          description: The ID of the problem being submitted for.
+        code:
+          type: string
+          description: The code submitted as a solution.
+        language:
+          type: string
+          description: The programming language of the submitted code.
+      required:
+        - problemId
+        - code
+        - language
+    SubmissionCreatedResponse:
+      type: object
+      properties:
+        data:
+          type: string
+          description: The token of the created submission.
+          example: "token: caccd998-4e5c-48ee-bce1-30b77b15bc6d"
   responses:
     BadRequest:
       description: Bad request
