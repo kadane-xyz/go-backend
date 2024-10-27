@@ -472,6 +472,7 @@ paths:
           required: true
           schema:
             type: string
+            format: uuid
           description: The token of the submission to retrieve.
         - in: query
           name: problemId
@@ -713,21 +714,27 @@ components:
         problemId:
           type: integer
           description: The ID of the problem being submitted for.
+        language:
+          type: integer 
+          description: The programming language of the submitted code.
         code:
           type: string
+          format: base64
           description: The code submitted as a solution.
-        language:
+        stdin:
           type: string
-          description: The programming language of the submitted code.
+          format: base64
+          description: The input to the problem.
       required:
         - problemId
-        - code
         - language
+        - code
     SubmissionCreatedResponse:
       type: object
       properties:
         data:
           type: string
+          format: uuid
           description: The token of the created submission.
           example: "token: caccd998-4e5c-48ee-bce1-30b77b15bc6d"
   responses:
