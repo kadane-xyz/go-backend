@@ -23,6 +23,9 @@ type Config struct {
 	AWSSecret       string
 	AWSBucketAvatar string
 	AWSRegion       string
+	// Judge0
+	Judge0Url   string
+	Judge0Token string
 }
 
 // Fetch environment variables
@@ -84,6 +87,16 @@ func LoadConfig() (*Config, error) {
 		return nil, fmt.Errorf("AWS_REGION is not set")
 	}
 
+	judge0Url := os.Getenv("JUDGE0_URL")
+	if judge0Url == "" {
+		return nil, fmt.Errorf("JUDGE0_URL is not set")
+	}
+
+	judge0Token := os.Getenv("JUDGE0_TOKEN")
+	if judge0Token == "" {
+		return nil, fmt.Errorf("JUDGE0_TOKEN is not set")
+	}
+
 	// Return the configuration by fetching environment variables
 	config := &Config{
 		//Postgres
@@ -100,6 +113,9 @@ func LoadConfig() (*Config, error) {
 		AWSSecret:       awsSecret,
 		AWSBucketAvatar: awsBucketAvatar,
 		AWSRegion:       awsRegion,
+		//Judge0
+		Judge0Url:   judge0Url,
+		Judge0Token: judge0Token,
 	}
 
 	log.Println("Configuration loaded")
