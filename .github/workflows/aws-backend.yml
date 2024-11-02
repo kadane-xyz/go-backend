@@ -13,13 +13,13 @@ on:
 
 env:
   DOCKERFILE: docker/backend/Dockerfile
-  ECR_REPOSITORY: kadane-backend             # set this to your Amazon ECR repository name
-  ECS_SERVICE: KadaneBackendService    # set this to your Amazon ECS service name
-  ECS_CLUSTER: KadaneBackend         # set this to your Amazon ECS cluster name
+  ECR_REPOSITORY: kadane/backend             # set this to your Amazon ECR repository name
+  ECS_SERVICE: KadaneProdBackendService    # set this to your Amazon ECS service name
+  ECS_CLUSTER: KadaneProdBackendCluster         # set this to your Amazon ECS cluster name
   ECS_TASK_DEFINITION: .github/workflows/task-definition-backend.json # set this to the path to your Amazon ECS task definition
   CONTAINER_NAME: kadane-backend             # set this to the name of the container in the
   APP_PORT: 80 # set this to the port your application listens on
-  TARGET_GROUP_ARN: arn:aws:elasticloadbalancing:us-east-2:905418014870:targetgroup/KadaneBackendECSCluster/0a76c7dc2d0480de 
+  TARGET_GROUP_ARN: arn:aws:elasticloadbalancing:us-east-2:905418014870:targetgroup/kadane-prod-backend-target/2540c60e1be5d8b6 
   CONTAINER_PORT: 80 # Port inside your container where the app is running
 
 permissions:
