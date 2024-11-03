@@ -1,22 +1,22 @@
-name: Deploy Kadane-Backend-Docs to Amazon ECS
+name: Deploy Kadane-Docs to Amazon ECS
 
 on:
   push:
     branches: [ "main" ]
     paths:
-      - 'docker/backend-docs/**'
+      - 'docker/docs/**'
       - 'openapi.yml'
-      - '.github/workflows/aws-backend-docs.yml'
-      - '.github/workflows/task-definition-backend-docs.json'
+      - '.github/workflows/aws-docs.yml'
+      - '.github/workflows/task-definition-docs.json'
       - 'nginx.conf'
 
 env:
-  DOCKERFILE: docker/backend-docs/Dockerfile
+  DOCKERFILE: docker/docs/Dockerfile
   ECR_REPOSITORY: kadane/docs             # set this to your Amazon ECR repository name
-  ECS_SERVICE: KadaneProdBackendDocsService # set this to your Amazon ECS service name
-  ECS_CLUSTER: KadaneProdBackendCluster # set this to your Amazon ECS cluster name
-  ECS_TASK_DEFINITION: .github/workflows/task-definition-backend-docs.json # set this to the path to your Amazon ECS task definition
-  CONTAINER_NAME: kadane-backend-docs # set this to the name of the container in the
+  ECS_SERVICE: KadaneProdDocsService # set this to your Amazon ECS service name
+  ECS_CLUSTER: KadaneProdDocsCluster # set this to your Amazon ECS cluster name
+  ECS_TASK_DEFINITION: .github/workflows/task-definition-docs.json # set this to the path to your Amazon ECS task definition
+  CONTAINER_NAME: kadane-docs # set this to the name of the container in the
   APP_PORT: 80 # set this to the port your application listens on
   TARGET_GROUP_ARN:  
   CONTAINER_PORT: 80 # Port inside your container where the app is running
