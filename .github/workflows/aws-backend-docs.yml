@@ -13,8 +13,8 @@ on:
 env:
   DOCKERFILE: docker/backend-docs/Dockerfile
   ECR_REPOSITORY: kadane/docs             # set this to your Amazon ECR repository name
-  ECS_SERVICE: KadaneBackendDocsService # set this to your Amazon ECS service name
-  ECS_CLUSTER: KadaneBackendDocsCluster # set this to your Amazon ECS cluster name
+  ECS_SERVICE: KadaneProdBackendDocsService # set this to your Amazon ECS service name
+  ECS_CLUSTER: KadaneProdBackendCluster # set this to your Amazon ECS cluster name
   ECS_TASK_DEFINITION: .github/workflows/task-definition-backend-docs.json # set this to the path to your Amazon ECS task definition
   CONTAINER_NAME: kadane-backend-docs # set this to the name of the container in the
   APP_PORT: 80 # set this to the port your application listens on
