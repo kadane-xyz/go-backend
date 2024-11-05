@@ -10,7 +10,9 @@
                 {
                     "containerPort": 2358,
                     "hostPort": 2358,
-                    "protocol": "tcp"
+                    "protocol": "tcp",
+                    "name": "kadane-judge0-server-2358-tcp",
+                    "appProtocol": "http"
                 }
             ],
             "essential": true,
