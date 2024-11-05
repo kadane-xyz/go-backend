@@ -2,7 +2,7 @@
     "family": "Judge0Task",
     "containerDefinitions": [
         {
-            "name": "judge0-server",
+            "name": "kadane-judge0-server",
             "image": "905418014870.dkr.ecr.us-east-2.amazonaws.com/kadane/judge0:latest",
             "cpu": 256,
             "memory": 512,
@@ -25,7 +25,7 @@
             }
         },
         {
-            "name": "judge0-worker",
+            "name": "kadane-judge0-worker",
             "image": "905418014870.dkr.ecr.us-east-2.amazonaws.com/kadane/judge0:latest",
             "cpu": 256,
             "memory": 512,
