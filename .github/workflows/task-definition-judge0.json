@@ -1,0 +1,49 @@
+{
+    "family": "Judge0Task",
+    "containerDefinitions": [
+        {
+            "name": "judge0-server",
+            "image": "905418014870.dkr.ecr.us-east-2.amazonaws.com/kadane/judge0:latest",
+            "cpu": 256,
+            "memory": 512,
+            "portMappings": [
+                {
+                    "containerPort": 2358,
+                    "hostPort": 2358,
+                    "protocol": "tcp"
+                }
+            ],
+            "essential": true,
+            "privileged": true,
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "judge0-server-logs",
+                    "awslogs-region": "us-east-2",
+                    "awslogs-stream-prefix": "judge0-server"
+                }
+            }
+        },
+        {
+            "name": "judge0-worker",
+            "image": "905418014870.dkr.ecr.us-east-2.amazonaws.com/kadane/judge0:latest",
+            "cpu": 256,
+            "memory": 512,
+            "essential": false,
+            "privileged": true,
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "judge0-worker-logs",
+                    "awslogs-region": "us-east-2",
+                    "awslogs-stream-prefix": "judge0-worker"
+                }
+            }
+        }
+    ],
+    "executionRoleArn": "arn:aws:iam::905418014870:role/ecsTaskExecutionRole",
+    "networkMode": "awsvpc",
+    "requiresCompatibilities": ["FARGATE"],
+    "cpu": "512",
+    "memory": "1024"
+}
