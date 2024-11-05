@@ -14,7 +14,7 @@
                 }
             ],
             "essential": true,
-            "privileged": true,
+            "privileged": false,
             "logConfiguration": {
                 "logDriver": "awslogs",
                 "options": {
@@ -30,7 +30,7 @@
             "cpu": 256,
             "memory": 512,
             "essential": false,
-            "privileged": true,
+            "privileged": false,
             "logConfiguration": {
                 "logDriver": "awslogs",
                 "options": {
