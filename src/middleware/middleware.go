@@ -106,11 +106,21 @@ func (h *Handler) FirebaseAuth() func(http.Handler) http.Handler {
 	}
 }
 
+func CustomLogger(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/health" {
+			next.ServeHTTP(w, r)
+			return
+		}
+		middleware.Logger(next).ServeHTTP(w, r)
+	})
+}
+
 func Middleware(m *Handler, r chi.Router) {
 	r.Use(middleware.RealIP)
 	//r.Use(routeValidator)
 	r.Use(httprate.LimitByIP(10, 1*time.Second)) // LimitByIP middleware will limit the number of requests per IP address
-	r.Use(middleware.Logger)
+	r.Use(CustomLogger)
 	r.Use(BlockConnectMethod)                                 // BlockConnectMethod middleware will block any request using the CONNECT method
 	r.Use(middleware.AllowContentEncoding("deflate", "gzip")) // AllowContentEncoding middleware will allow the client to request compressed content
 	r.Use(middleware.NoCache)
