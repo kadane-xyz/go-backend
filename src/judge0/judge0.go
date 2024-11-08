@@ -23,6 +23,7 @@ type Submission struct {
 	LanguageID     int    `json:"language_id"`
 	Stdin          string `json:"stdin,omitempty"`
 	ExpectedOutput string `json:"expected_output,omitempty"`
+	Wait           bool   `json:"wait,omitempty"`
 }
 
 type SubmissionResponse struct {
@@ -43,6 +44,19 @@ type SubmissionResult struct {
 	} `json:"status"`
 }
 
+var languageIDMap = map[string]int{
+	"cpp":        54,
+	"go":         60,
+	"java":       62,
+	"javascript": 63,
+	"python":     71,
+	"typescript": 74,
+}
+
+func LanguageToLanguageID(language string) int {
+	return languageIDMap[language]
+}
+
 func NewJudge0Client(cfg *config.Config) *Judge0Client {
 	return &Judge0Client{
 		BaseURL: cfg.Judge0Url,
@@ -52,7 +66,7 @@ func NewJudge0Client(cfg *config.Config) *Judge0Client {
 }
 
 func (c *Judge0Client) CreateSubmission(submission Submission) (*SubmissionResponse, error) {
-	url := fmt.Sprintf("%s/submissions?base64_encoded=true", c.BaseURL)
+	url := fmt.Sprintf("%s/submissions?base64_encoded=true&wait=%v", c.BaseURL, submission.Wait)
 
 	jsonData, err := json.Marshal(submission)
 	if err != nil {
