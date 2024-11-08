@@ -120,6 +120,7 @@ func Middleware(m *Handler, r chi.Router) {
 	r.Use(middleware.RealIP)
 	//r.Use(routeValidator)
 	r.Use(httprate.LimitByIP(10, 1*time.Second)) // LimitByIP middleware will limit the number of requests per IP address
+	r.Use(middleware.Heartbeat("/health"))       // Heartbeat middleware will create a simple health check endpoint
 	r.Use(CustomLogger)
 	r.Use(BlockConnectMethod)                                 // BlockConnectMethod middleware will block any request using the CONNECT method
 	r.Use(middleware.AllowContentEncoding("deflate", "gzip")) // AllowContentEncoding middleware will allow the client to request compressed content
@@ -135,6 +136,5 @@ func Middleware(m *Handler, r chi.Router) {
 		MaxAge:           300,              // Max age for preflight requests
 	}))
 	r.Use(middleware.Recoverer)
-	r.Use(middleware.Heartbeat("/health")) // Heartbeat middleware will create a simple health check endpoint
-	r.Use(m.FirebaseAuth())                // Firebase Auth middleware
+	r.Use(m.FirebaseAuth()) // Firebase Auth middleware
 }
