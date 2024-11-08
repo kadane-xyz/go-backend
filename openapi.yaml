@@ -715,9 +715,9 @@ components:
           type: integer
           description: The ID of the problem being submitted for.
         language:
-          type: integer 
+          type: string 
           description: The programming language of the submitted code.
-        code:
+        sourceCode:
           type: string
           format: base64
           description: The code submitted as a solution.
@@ -725,6 +725,9 @@ components:
           type: string
           format: base64
           description: The input to the problem.
+        wait:
+          type: boolean
+          description: Whether to wait for the submission to complete or not.
       required:
         - problemId
         - language
