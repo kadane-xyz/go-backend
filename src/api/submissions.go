@@ -15,10 +15,11 @@ import (
 )
 
 type Submission struct {
-	LanguageID int    `json:"languageId"`
+	Language   string `json:"language"`
 	SourceCode string `json:"sourceCode"`
 	Stdin      string `json:"stdin"`
 	ProblemID  int    `json:"problemId"`
+	Wait       bool   `json:"wait"`
 }
 
 type SubmissionResponse struct {
@@ -44,8 +45,10 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	languageID := judge0.LanguageToLanguageID(submissionRequest.Language)
+
 	submission := judge0.Submission{
-		LanguageID: submissionRequest.LanguageID,
+		LanguageID: languageID,
 		SourceCode: submissionRequest.SourceCode,
 		Stdin:      submissionRequest.Stdin,
 	}
