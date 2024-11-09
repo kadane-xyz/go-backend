@@ -58,7 +58,9 @@ services:
     restart: unless-stopped
   # CGROUP v1 required for now
   judge0-server:
-    image: judge0/judge0:latest 
+    build:
+      context: .
+      dockerfile: ./docker/judge0/Dockerfile
     volumes:
       - ./judge0.conf:/judge0.conf:ro
     ports:
@@ -66,7 +68,9 @@ services:
     privileged: true
     restart: unless-stopped
   judge0-worker:
-    image: judge0/judge0:latest 
+    build:
+      context: .
+      dockerfile: ./docker/judge0/Dockerfile
     command: ["./scripts/workers"]
     volumes:
       - ./judge0.conf:/judge0.conf:ro

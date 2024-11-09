@@ -33,12 +33,29 @@
             "memory": 512,
             "essential": false,
             "privileged": false,
+            "command": ["./scripts/workers"],
             "logConfiguration": {
                 "logDriver": "awslogs",
                 "options": {
                     "awslogs-group": "judge0-worker-logs",
                     "awslogs-region": "us-east-2",
                     "awslogs-stream-prefix": "judge0-worker"
+                }
+            }
+        },
+        {
+            "name": "redis",
+            "image": "redis:7.2.4",
+            "cpu": 256,
+            "memory": 512,
+            "essential": true,
+            "privileged": false,
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "redis-logs",
+                    "awslogs-region": "us-east-2",
+                    "awslogs-stream-prefix": "redis"
                 }
             }
         }
