@@ -29,7 +29,7 @@
         {
             "name": "kadane-judge0-worker",
             "image": "905418014870.dkr.ecr.us-east-2.amazonaws.com/kadane/judge0:latest",
-            "cpu": 256,
+            "cpu": 512,
             "memory": 512,
             "essential": false,
             "privileged": false,
@@ -63,6 +63,6 @@
     "executionRoleArn": "arn:aws:iam::905418014870:role/ecsTaskExecutionRole",
     "networkMode": "awsvpc",
     "requiresCompatibilities": ["FARGATE"],
-    "cpu": "512",
+    "cpu": "1024",
     "memory": "1024"
 }
