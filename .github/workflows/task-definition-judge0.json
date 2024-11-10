@@ -55,12 +55,18 @@
                 "-c",
                 "docker-entrypoint.sh --appendonly no --requirepass \"$$REDIS_PASSWORD\""
             ],
-            "secrets": [
+            "environment": [
                 {
-                    "valueFrom": "arn:aws:secretsmanager:us-east-2:905418014870:secret:kadane-prod-ecs-redis-password-SVGQVD",
-                    "name": "REDIS_PASSWORD"
+                  "name": "REDIS_PASSWORD",
+                  "value": "${REDIS_PASSWORD}"
                 }
             ],
+            "healthCheck": {
+                "command": [ "CMD-SHELL", "redis-cli ping" ],
+                "retries": 3,
+                "timeout": 5,
+                "interval": 30
+            },
             "logConfiguration": {
                 "logDriver": "awslogs",
                 "options": {
