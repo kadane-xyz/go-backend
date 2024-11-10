@@ -17,12 +17,6 @@
             ],
             "essential": true,
             "privileged": false,
-            "environmentFiles": [
-                {
-                    "value": "arn:aws:s3:::kadane-ecs-env/judge0.conf",
-                    "type": "s3"
-                }
-            ],
             "logConfiguration": {
                 "logDriver": "awslogs",
                 "options": {
@@ -40,12 +34,6 @@
             "essential": false,
             "privileged": false,
             "command": ["./scripts/workers"],
-            "environmentFiles": [
-                {
-                    "value": "arn:aws:s3:::kadane-ecs-env/judge0.conf",
-                    "type": "s3"
-                }
-            ],
             "logConfiguration": {
                 "logDriver": "awslogs",
                 "options": {
