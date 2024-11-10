@@ -34,6 +34,13 @@
             "essential": false,
             "privileged": false,
             "command": ["./scripts/workers"],
+            "healthCheck": {
+                "command": [ "CMD-SHELL", "curl -f http://localhost:2358/health" ],
+                "interval": 5,
+                "timeout": 5,
+                "retries": 5,
+                "startPeriod": 60
+            },
             "logConfiguration": {
                 "logDriver": "awslogs",
                 "options": {
@@ -45,7 +52,7 @@
         },
         {
             "name": "redis",
-            "image": "redis:7.2.4",
+            "image": "905418014870.dkr.ecr.us-east-2.amazonaws.com/kadane/redis:latest",
             "cpu": 256,
             "memory": 512,
             "essential": true,
