@@ -64,7 +64,7 @@ jobs:
 
     - name: Upload environment file to S3
       run: |
-        aws s3 cp ${{ env.JUDGE0_CONF_PATH }} s3://${{ env.ECS_ENV_BUCKET }}/judge0.conf
+        aws s3 cp ${{ env.JUDGE0_CONF_PATH }} s3://${{ env.ECS_ENV_BUCKET }}/judge0.conf.env
 
     - name: Deploy Amazon ECS task definition
       uses: aws-actions/amazon-ecs-deploy-task-definition@v2
