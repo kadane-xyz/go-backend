@@ -3,7 +3,7 @@
     "containerDefinitions": [
         {
             "name": "kadane-judge0-server",
-            "image": "905418014870.dkr.ecr.us-east-2.amazonaws.com/kadane/judge0:latest",
+            "image": "judge0/judge0:1.13.1",
             "cpu": 256,
             "memory": 512,
             "portMappings": [
@@ -34,7 +34,7 @@
         },
         {
             "name": "kadane-judge0-worker",
-            "image": "905418014870.dkr.ecr.us-east-2.amazonaws.com/kadane/judge0:latest",
+            "image": "judge0/judge0:1.13.1",
             "cpu": 256,
             "memory": 512,
             "essential": false,
