@@ -16,8 +16,6 @@ env:
   ECS_CLUSTER: KadaneProdBackendCluster         # set this to your Amazon ECS cluster name
   ECS_TASK_DEFINITION: .github/workflows/task-definition-judge0.json # set this to the path to your Amazon ECS task definition
   CONTAINER_NAME: kadane-judge0-server             # set this to the name of the container in the
-  ECS_ENV_BUCKET: kadane-ecs-env
-  JUDGE0_CONF_PATH: judge0.conf
 
 permissions:
   contents: write
@@ -61,10 +59,6 @@ jobs:
         task-definition: ${{ env.ECS_TASK_DEFINITION }}
         container-name: ${{ env.CONTAINER_NAME }}
         image: ${{ steps.build-image.outputs.image }}
-
-    - name: Upload environment file to S3
-      run: |
-        aws s3 cp ${{ env.JUDGE0_CONF_PATH }} s3://${{ env.ECS_ENV_BUCKET }}/judge0.conf.env
 
     - name: Deploy Amazon ECS task definition
       uses: aws-actions/amazon-ecs-deploy-task-definition@v2
