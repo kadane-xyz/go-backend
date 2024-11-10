@@ -17,7 +17,6 @@ env:
   ECS_TASK_DEFINITION: .github/workflows/task-definition-judge0.json # set this to the path to your Amazon ECS task definition
   CONTAINER_NAME: kadane-judge0-server             # set this to the name of the container in the
   ECS_ENV_BUCKET: kadane-ecs-env
-  JUDGE0_IMAGE: judge0/judge0:1.13.1
   JUDGE0_CONF_PATH: judge0.conf
 
 permissions:
@@ -45,13 +44,26 @@ jobs:
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v2
 
+    - name: Build, tag, and push image to Amazon ECR
+      id: build-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        # Build a docker container and
+        # push it to ECR so that it can
+        # be deployed to ECS.
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f $DOCKERFILE .
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
     - name: Fill in the new image ID in the Amazon ECS task definition
       id: task-def
       uses: aws-actions/amazon-ecs-render-task-definition@v1
       with:
         task-definition: ${{ env.ECS_TASK_DEFINITION }}
         container-name: ${{ env.CONTAINER_NAME }}
-        image: ${{ env.JUDGE0_IMAGE }}
+        image: ${{ steps.build-image.outputs.image }}
 
     - name: Upload environment file to S3
       run: |
