@@ -55,10 +55,10 @@
                 "-c",
                 "docker-entrypoint.sh --appendonly no --requirepass \"$$REDIS_PASSWORD\""
             ],
-            "environmentFiles": [
+            "secrets": [
                 {
-                    "value": "arn:aws:s3:::kadane-ecs-env/judge0.conf",
-                    "type": "s3"
+                    "valueFrom": "arn:aws:secretsmanager:us-east-2:905418014870:secret:kadane-prod-ecs-redis-password-SVGQVD",
+                    "name": "REDIS_PASSWORD"
                 }
             ],
             "logConfiguration": {
