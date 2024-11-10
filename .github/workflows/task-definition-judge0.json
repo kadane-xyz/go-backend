@@ -17,6 +17,12 @@
             ],
             "essential": true,
             "privileged": false,
+            "environmentFiles": [
+                {
+                    "value": "arn:aws:s3:::kadane-ecs-env/judge0.conf",
+                    "type": "s3"
+                }
+            ],
             "logConfiguration": {
                 "logDriver": "awslogs",
                 "options": {
@@ -34,6 +40,12 @@
             "essential": false,
             "privileged": false,
             "command": ["./scripts/workers"],
+            "environmentFiles": [
+                {
+                    "value": "arn:aws:s3:::kadane-ecs-env/judge0.conf",
+                    "type": "s3"
+                }
+            ],
             "logConfiguration": {
                 "logDriver": "awslogs",
                 "options": {
@@ -50,6 +62,17 @@
             "memory": 512,
             "essential": true,
             "privileged": false,
+            "command": [
+                "bash",
+                "-c",
+                "docker-entrypoint.sh --appendonly no --requirepass \"$$REDIS_PASSWORD\""
+            ],
+            "environmentFiles": [
+                {
+                    "value": "arn:aws:s3:::kadane-ecs-env/judge0.conf",
+                    "type": "s3"
+                }
+            ],
             "logConfiguration": {
                 "logDriver": "awslogs",
                 "options": {
