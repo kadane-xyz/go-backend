@@ -15,7 +15,8 @@ env:
   ECS_SERVICE: KadaneProdJudge0Service    # set this to your Amazon ECS service name
   ECS_CLUSTER: KadaneProdBackendCluster         # set this to your Amazon ECS cluster name
   ECS_TASK_DEFINITION: .github/workflows/task-definition-judge0.json # set this to the path to your Amazon ECS task definition
-  CONTAINER_NAME: kadane-judge0-server             # set this to the name of the container in the
+  CONTAINER_SERVER_NAME: kadane-judge0-server             # set this to the name of the container in the
+  CONTAINER_WORKER_NAME: kadane-judge0-worker             # set this to the name of the container in the
 
 permissions:
   contents: write
@@ -53,12 +54,22 @@ jobs:
         echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
     - name: Fill in the new image ID in the Amazon ECS task definition
-      id: task-def
+      id: task-def-server
       uses: aws-actions/amazon-ecs-render-task-definition@v1
       with:
         task-definition: ${{ env.ECS_TASK_DEFINITION }}
-        container-name: ${{ env.CONTAINER_NAME }}
+        container-name: ${{ env.CONTAINER_SERVER_NAME }}
         image: ${{ steps.build-image.outputs.image }}
+
+
+    - name: Fill in the new image ID in the Amazon ECS task definition
+      id: task-def-worker
+      uses: aws-actions/amazon-ecs-render-task-definition@v1
+      with:
+        task-definition: ${{ env.ECS_TASK_DEFINITION }}
+        container-name: ${{ env.CONTAINER_WORKER_NAME }}
+        image: ${{ steps.build-image.outputs.image }}
+
 
     - name: Fill in the Redis password
       id: fill-redis-password
