@@ -55,6 +55,15 @@
             "image": "905418014870.dkr.ecr.us-east-2.amazonaws.com/kadane/redis:latest",
             "cpu": 256,
             "memory": 512,
+            "portMappings": [
+                {
+                    "containerPort": 6379,
+                    "hostPort": 6379,
+                    "protocol": "tcp",
+                    "name": "kadane-judge0-redis-6379-tcp",
+                    "appProtocol": "tcp"
+                }
+            ],
             "essential": true,
             "privileged": false,
             "command": [
