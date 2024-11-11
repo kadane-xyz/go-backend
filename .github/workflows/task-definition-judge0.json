@@ -11,10 +11,25 @@
                     "containerPort": 2358,
                     "hostPort": 2358,
                     "protocol": "tcp",
-                    "name": "kadane-judge0-server-2358-tcp",
+                    "name": "judge0",
                     "appProtocol": "http"
                 }
             ],
+            "serviceConnectConfiguration": {
+                "enabled": true,
+                "namespace": "KadaneProdBackendCluster",
+                "services": [
+                    { 
+                        "portName": "judge0",
+                        "discoveryName": "judge0",
+                        "clientAliases": [
+                            { 
+                                "port": 2358 
+                            }
+                        ]
+                    }
+                ]
+            },
             "essential": true,
             "privileged": false,
             "logConfiguration": {
@@ -33,6 +48,10 @@
             "memory": 512,
             "essential": false,
             "privileged": false,
+            "serviceConnectConfiguration": {
+                "enabled": true,
+                "namespace": "KadaneProdBackendCluster"
+            },
             "command": ["./scripts/workers"],
             "healthCheck": {
                 "command": [ "CMD-SHELL", "curl -f http://localhost:2358/health" ],
@@ -60,9 +79,24 @@
                     "containerPort": 6379,
                     "hostPort": 6379,
                     "protocol": "tcp",
-                    "name": "kadane-judge0-redis-6379-tcp"
+                    "name": "redis"
                 }
             ],
+            "serviceConnectConfiguration": {
+                "enabled": true,
+                "namespace": "KadaneProdBackendCluster",
+                "services": [
+                    {
+                        "portName": "redis",
+                        "discoveryName": "redis",
+                        "clientAliases": [
+                            {
+                                "port": 6379
+                            }
+                        ]
+                    }
+                ]
+            },
             "essential": true,
             "privileged": false,
             "command": [
