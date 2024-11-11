@@ -61,7 +61,6 @@
                     "hostPort": 6379,
                     "protocol": "tcp",
                     "name": "kadane-judge0-redis-6379-tcp",
-                    "appProtocol": "tcp"
                 }
             ],
             "essential": true,
