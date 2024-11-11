@@ -61,25 +61,23 @@ jobs:
         container-name: ${{ env.CONTAINER_SERVER_NAME }}
         image: ${{ steps.build-image.outputs.image }}
 
-
-    - name: Fill in the new image ID in the Amazon ECS task definition
+    - name: Fill in the new image ID in the Amazon ECS task definition for the worker
       id: task-def-worker
       uses: aws-actions/amazon-ecs-render-task-definition@v1
       with:
-        task-definition: ${{ env.ECS_TASK_DEFINITION }}
+        task-definition: ${{ steps.task-def-server.outputs.task-definition }}  # Use the output of the previous step
         container-name: ${{ env.CONTAINER_WORKER_NAME }}
         image: ${{ steps.build-image.outputs.image }}
-
 
     - name: Fill in the Redis password
       id: fill-redis-password
       run: |
-        sed -i 's|${REDIS_PASSWORD}|${{ secrets.REDIS_PASSWORD }}|g' ${{ steps.task-def.outputs.task-definition }}
+        sed -i 's|${REDIS_PASSWORD}|${{ secrets.REDIS_PASSWORD }}|g' ${{ steps.task-def-worker.outputs.task-definition }}
 
     - name: Deploy Amazon ECS task definition
       uses: aws-actions/amazon-ecs-deploy-task-definition@v2
       with:
-        task-definition: ${{ steps.task-def.outputs.task-definition }}
+        task-definition: ${{ steps.task-def-worker.outputs.task-definition }}
         service: ${{ env.ECS_SERVICE }}
         cluster: ${{ env.ECS_CLUSTER }}
         wait-for-service-stability: false 
