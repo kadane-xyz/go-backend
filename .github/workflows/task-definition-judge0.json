@@ -11,7 +11,7 @@
                     "containerPort": 2358,
                     "hostPort": 2358,
                     "protocol": "tcp",
-                    "name": "judge0",
+                    "name": "kadane-judge0-server-2358-tcp",
                     "appProtocol": "http"
                 }
             ],
@@ -20,7 +20,7 @@
                 "namespace": "KadaneProdBackendCluster",
                 "services": [
                     { 
-                        "portName": "judge0",
+                        "portName": "kadane-judge0-server-2358-tcp",
                         "discoveryName": "judge0",
                         "clientAliases": [
                             { 
@@ -79,7 +79,7 @@
                     "containerPort": 6379,
                     "hostPort": 6379,
                     "protocol": "tcp",
-                    "name": "redis"
+                    "name": "kadane-judge0-redis-6379-tcp"
                 }
             ],
             "serviceConnectConfiguration": {
@@ -87,7 +87,7 @@
                 "namespace": "KadaneProdBackendCluster",
                 "services": [
                     {
-                        "portName": "redis",
+                        "portName": "kadane-judge0-redis-6379-tcp",
                         "discoveryName": "redis",
                         "clientAliases": [
                             {
