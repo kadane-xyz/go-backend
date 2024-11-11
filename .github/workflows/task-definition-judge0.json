@@ -60,7 +60,7 @@
                     "containerPort": 6379,
                     "hostPort": 6379,
                     "protocol": "tcp",
-                    "name": "kadane-judge0-redis-6379-tcp",
+                    "name": "kadane-judge0-redis-6379-tcp"
                 }
             ],
             "essential": true,
