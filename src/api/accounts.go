@@ -203,7 +203,7 @@ func (h *Handler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filename := generateUniqueFilename(userId, getImageFormat(imageData))
+	filename := generateUniqueFilename(userId)
 
 	// s3 bucket upload file and return url
 	_, err = h.AWSClient.PutObject(r.Context(), &s3.PutObjectInput{
@@ -278,20 +278,7 @@ func validateImage(data []byte) error {
 	return nil
 }
 
-// getImageFormat determines the file extension based on image format
-func getImageFormat(data []byte) string {
-	contentType := http.DetectContentType(data)
-	switch contentType {
-	case "image/jpeg":
-		return ".jpg"
-	case "image/png":
-		return ".png"
-	default:
-		return ".jpg" // default to jpg
-	}
-}
-
 // generateUniqueFilename creates a unique filename for S3
-func generateUniqueFilename(userID, extension string) string {
-	return fmt.Sprintf("avatars/%s-%s%s", userID, uuid.New().String(), extension)
+func generateUniqueFilename(userID string) string {
+	return fmt.Sprintf("avatars/%s-%s", userID, uuid.New().String())
 }
