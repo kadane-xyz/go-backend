@@ -102,7 +102,7 @@
             "command": [
                 "bash",
                 "-c",
-                "docker-entrypoint.sh --appendonly no --requirepass \"$$REDIS_PASSWORD\""
+                "docker-entrypoint.sh --appendonly no --requirepass \"$REDIS_PASSWORD\""
             ],
             "environment": [
                 {
