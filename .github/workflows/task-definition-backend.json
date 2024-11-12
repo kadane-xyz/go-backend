@@ -3,7 +3,7 @@
     "containerDefinitions": [
         {
             "name": "kadane-backend",
-            "image": "905418014870.dkr.ecr.us-east-2.amazonaws.com/kadane-backend:latest",
+            "image": "905418014870.dkr.ecr.us-east-2.amazonaws.com/kadane/backend:latest",
             "cpu": 0,
             "portMappings": [
                 {
