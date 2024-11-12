@@ -8,7 +8,6 @@ import (
 	"image"
 	"io"
 	"log"
-	"mime/multipart"
 	"net/http"
 	"regexp"
 	"strings"
@@ -185,16 +184,27 @@ func (h *Handler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.MultipartForm.RemoveAll()
 
-	image, header, err := r.FormFile("image")
+	file, _, err := r.FormFile("image")
 	if err != nil {
 		apierror.SendError(w, http.StatusBadRequest, "Error getting image file")
 		return
 	}
-	defer image.Close()
+	defer file.Close()
 
-	imageData, err := readFileContent(image, header)
+	imageData, err := io.ReadAll(file)
 	if err != nil {
-		apierror.SendError(w, http.StatusBadRequest, "Error reading image file")
+		apierror.SendError(w, http.StatusInternalServerError, "Error reading image file")
+		return
+	}
+
+	if len(imageData) > int(maxFileSize) {
+		apierror.SendError(w, http.StatusBadRequest, "File too large. Maximum size is 1MB")
+		return
+	}
+
+	contentType := http.DetectContentType(imageData)
+	if !strings.HasPrefix(contentType, "image/") {
+		apierror.SendError(w, http.StatusBadRequest, "File type not allowed. Only images are permitted")
 		return
 	}
 
@@ -237,32 +247,11 @@ func (h *Handler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-// readFileContent reads and validates the uploaded file
-func readFileContent(file multipart.File, header *multipart.FileHeader) ([]byte, error) {
-	// Check file size
-	if header.Size > maxFileSize {
-		return nil, fmt.Errorf("file too large. Maximum size is 1MB")
-	}
-
-	// Read file content
-	buffer := bytes.NewBuffer(nil)
-	if _, err := io.Copy(buffer, file); err != nil {
-		return nil, fmt.Errorf("error reading file: %w", err)
-	}
-
-	return buffer.Bytes(), nil
-}
-
 // validateImage checks image type and dimensions
-func validateImage(data []byte) error {
-	// Validate content type
-	contentType := http.DetectContentType(data)
-	if !strings.HasPrefix(contentType, "image/") {
-		return fmt.Errorf("file type not allowed. Only images are permitted")
-	}
+func validateImage(imageData []byte) error {
+	reader := bytes.NewReader(imageData)
 
-	// Validate image dimensions
-	img, _, err := image.DecodeConfig(bytes.NewReader(data))
+	img, _, err := image.DecodeConfig(reader)
 	if err != nil {
 		return fmt.Errorf("invalid image format")
 	}
