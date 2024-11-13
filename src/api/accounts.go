@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	_ "image/jpeg" // Register JPEG format
+	_ "image/png"  // Register PNG format
 	"io"
 	"log"
 	"net/http"
@@ -13,7 +15,6 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -178,33 +179,28 @@ func (h *Handler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 
 	// Limit the max file size
 	r.Body = http.MaxBytesReader(w, r.Body, maxFileSize)
+
 	if err := r.ParseMultipartForm(maxFileSize); err != nil {
 		apierror.SendError(w, http.StatusBadRequest, "File too large. Maximum size is 1MB")
 		return
 	}
 	defer r.MultipartForm.RemoveAll()
 
-	file, _, err := r.FormFile("image")
+	file, fileHeader, err := r.FormFile("image")
 	if err != nil {
 		apierror.SendError(w, http.StatusBadRequest, "Error getting image file")
 		return
 	}
 	defer file.Close()
 
-	imageData, err := io.ReadAll(file)
-	if err != nil {
-		apierror.SendError(w, http.StatusInternalServerError, "Error reading image file")
-		return
-	}
-
-	if len(imageData) > int(maxFileSize) {
+	if fileHeader.Size > maxFileSize {
 		apierror.SendError(w, http.StatusBadRequest, "File too large. Maximum size is 1MB")
 		return
 	}
 
-	contentType := http.DetectContentType(imageData)
-	if !strings.HasPrefix(contentType, "image/") {
-		apierror.SendError(w, http.StatusBadRequest, "File type not allowed. Only images are permitted")
+	imageData, err := io.ReadAll(file)
+	if err != nil {
+		apierror.SendError(w, http.StatusInternalServerError, "Error reading image file")
 		return
 	}
 
@@ -213,15 +209,14 @@ func (h *Handler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filename := generateUniqueFilename(userId)
-
 	// s3 bucket upload file and return url
 	_, err = h.AWSClient.PutObject(r.Context(), &s3.PutObjectInput{
 		Bucket: &h.AWSBucketAvatar,
-		Key:    &filename,
+		Key:    &userId,
 		Body:   bytes.NewReader(imageData),
 	})
 	if err != nil {
+		log.Println("Error uploading avatar: ", err)
 		apierror.SendError(w, http.StatusInternalServerError, "Error uploading avatar")
 		return
 	}
@@ -249,11 +244,13 @@ func (h *Handler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 
 // validateImage checks image type and dimensions
 func validateImage(imageData []byte) error {
-	reader := bytes.NewReader(imageData)
-
-	img, _, err := image.DecodeConfig(reader)
+	img, format, err := image.DecodeConfig(bytes.NewReader(imageData))
 	if err != nil {
 		return fmt.Errorf("invalid image format")
+	}
+
+	if format != "jpeg" && format != "png" {
+		return fmt.Errorf("unsupported image format. Only JPEG and PNG are supported")
 	}
 
 	if img.Width > maxDimension || img.Height > maxDimension {
@@ -265,9 +262,4 @@ func validateImage(imageData []byte) error {
 	}
 
 	return nil
-}
-
-// generateUniqueFilename creates a unique filename for S3
-func generateUniqueFilename(userID string) string {
-	return fmt.Sprintf("avatars/%s-%s", userID, uuid.New().String())
 }
