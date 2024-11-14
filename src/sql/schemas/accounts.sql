@@ -1,14 +1,15 @@
 CREATE TABLE account_attributes (
-    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    bio TEXT,
-    location TEXT,
-    realName TEXT NOT NULL,
-    github_url TEXT,
-    linkedin_url TEXT,
-    facebook_url TEXT,
-    instagram_url TEXT,
-    twitter_url TEXT,
-    school TEXT
+    id TEXT PRIMARY KEY REFERENCES account(id) ON DELETE CASCADE,
+    contact_email TEXT DEFAULT '',
+    bio TEXT DEFAULT '',
+    location TEXT DEFAULT '',
+    real_name TEXT DEFAULT '',
+    github_url TEXT DEFAULT '',
+    linkedin_url TEXT DEFAULT '',
+    facebook_url TEXT DEFAULT '',
+    instagram_url TEXT DEFAULT '',
+    twitter_url TEXT DEFAULT '',
+    school TEXT DEFAULT ''
 );
 
 CREATE TABLE account (
@@ -17,7 +18,6 @@ CREATE TABLE account (
     email TEXT NOT NULL UNIQUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     avatar_url TEXT,
-    attributesId BIGINT REFERENCES account_attributes(id) ON DELETE CASCADE,
     level INTEGER DEFAULT 1
 );
 

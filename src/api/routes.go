@@ -42,6 +42,10 @@ func RegisterApiRoutes(h *Handler, r chi.Router) {
 			r.Route("/avatar", func(r chi.Router) {
 				r.Post("/", h.UploadAvatar)
 			})
+			r.Route("/{id}", func(r chi.Router) {
+				r.Get("/", h.GetAccount)
+				r.Put("/", h.UpdateAccount)
+			})
 		})
 		//submissions
 		r.Route("/submissions", func(r chi.Router) {

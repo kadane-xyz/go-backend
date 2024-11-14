@@ -11,10 +11,12 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"regexp"
+	"net/mail"
+	neturl "net/url"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -33,7 +35,8 @@ type Account struct {
 	ID        string `json:"id"`
 	Username  string `json:"username"`
 	Email     string `json:"email"`
-	AvatarUrl string `json:"avatar_url"`
+	AvatarUrl string `json:"avatarUrl"`
+	Level     int    `json:"level"`
 }
 
 type AccountResponse struct {
@@ -42,6 +45,37 @@ type AccountResponse struct {
 
 type AccountsResponse struct {
 	Data []Account `json:"data"`
+}
+
+type AccountAttributes struct {
+	ID           string `json:"id,omitempty"`
+	Bio          string `json:"bio,omitempty"`
+	ContactEmail string `json:"contactEmail,omitempty"`
+	Location     string `json:"location,omitempty"`
+	RealName     string `json:"realName,omitempty"`
+	GithubUrl    string `json:"githubUrl,omitempty"`
+	LinkedinUrl  string `json:"linkedinUrl,omitempty"`
+	FacebookUrl  string `json:"facebookUrl,omitempty"`
+	InstagramUrl string `json:"instagramUrl,omitempty"`
+	TwitterUrl   string `json:"twitterUrl,omitempty"`
+	School       string `json:"school,omitempty"`
+}
+
+type AccountAttributesWithAccount struct {
+	ID         string            `json:"id"`
+	Username   string            `json:"username"`
+	Email      string            `json:"email"`
+	AvatarUrl  string            `json:"avatarUrl,omitempty"`
+	Level      int               `json:"level"`
+	Attributes AccountAttributes `json:"attributes,omitempty"`
+}
+
+type AccountAttributesResponse struct {
+	Data AccountAttributesWithAccount `json:"data"`
+}
+
+type AccountAttributesUpdateResponse struct {
+	Data AccountAttributes `json:"data"`
 }
 
 type AvatarResponse struct {
@@ -78,7 +112,7 @@ type CreateAccountRequest struct {
 	Email    string `json:"email"`
 }
 
-// Post: /accounts
+// POST: /accounts
 func (h *Handler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 	var createAccountRequest CreateAccountRequest
 	err := json.NewDecoder(r.Body).Decode(&createAccountRequest)
@@ -141,6 +175,27 @@ func (h *Handler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Create account attributes in the database
+	id, err := h.PostgresQueries.CreateAccountAttributes(r.Context(), sql.CreateAccountAttributesParams{
+		ID:           createAccountRequest.ID,
+		Bio:          pgtype.Text{String: "", Valid: true},
+		Location:     pgtype.Text{String: "", Valid: true},
+		RealName:     pgtype.Text{String: "", Valid: true},
+		GithubUrl:    pgtype.Text{String: "", Valid: true},
+		LinkedinUrl:  pgtype.Text{String: "", Valid: true},
+		FacebookUrl:  pgtype.Text{String: "", Valid: true},
+		InstagramUrl: pgtype.Text{String: "", Valid: true},
+		TwitterUrl:   pgtype.Text{String: "", Valid: true},
+		School:       pgtype.Text{String: "", Valid: true},
+	})
+	if err != nil {
+		log.Println("Error creating account attributes: ", err)
+		apierror.SendError(w, http.StatusInternalServerError, "Error creating account attributes")
+		return
+	}
+
+	log.Println("Account attributes id: ", id)
+
 	// Prepare response
 	response := AccountResponse{
 		Data: Account{
@@ -154,12 +209,6 @@ func (h *Handler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(response)
-}
-
-// Helper function to validate email format
-func isValidEmail(email string) bool {
-	emailRegex := regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,4}$`)
-	return emailRegex.MatchString(email)
 }
 
 // POST: /accounts/avatar
@@ -223,7 +272,6 @@ func (h *Handler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 
 	// Get image url
 	url := GetS3PublicURL(h.AWSBucketAvatar, h.AWSRegion, userId)
-	log.Println("Avatar URL: ", url)
 
 	// store image url in accounts table
 	err = h.PostgresQueries.UpdateAvatar(r.Context(), sql.UpdateAvatarParams{
@@ -262,4 +310,230 @@ func validateImage(imageData []byte) error {
 	}
 
 	return nil
+}
+
+// GET: /accounts/id
+func (h *Handler) GetAccount(w http.ResponseWriter, r *http.Request) {
+	accountId := chi.URLParam(r, "id")
+	if accountId == "" {
+		apierror.SendError(w, http.StatusBadRequest, "Missing account id")
+		return
+	}
+
+	account, err := h.PostgresQueries.GetAccountAttributesWithAccount(r.Context(), accountId)
+	if err != nil {
+		log.Println("Error getting account: ", err)
+		apierror.SendError(w, http.StatusInternalServerError, "Error getting account")
+		return
+	}
+
+	response := AccountAttributesResponse{Data: AccountAttributesWithAccount{
+		ID:        account.ID,
+		Username:  account.Username,
+		Email:     account.Email,
+		AvatarUrl: account.AvatarUrl.String,
+		Level:     int(account.Level.Int32),
+		Attributes: AccountAttributes{
+			Bio:          account.Bio.String,
+			Location:     account.Location.String,
+			RealName:     account.RealName.String,
+			GithubUrl:    account.GithubUrl.String,
+			LinkedinUrl:  account.LinkedinUrl.String,
+			FacebookUrl:  account.FacebookUrl.String,
+			InstagramUrl: account.InstagramUrl.String,
+			TwitterUrl:   account.TwitterUrl.String,
+			School:       account.School.String,
+		},
+	}}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// PUT: /accounts/id
+func (h *Handler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
+	// Get account ID from URL parameters
+	accountID := chi.URLParam(r, "id")
+	if accountID == "" {
+		apierror.SendError(w, http.StatusBadRequest, "Missing account ID")
+		return
+	}
+
+	// Decode request body
+	var requestAttrs AccountAttributes
+	if err := json.NewDecoder(r.Body).Decode(&requestAttrs); err != nil {
+		apierror.SendError(w, http.StatusBadRequest, "Invalid JSON format in request body")
+		return
+	}
+	defer r.Body.Close()
+
+	// Validate input fields
+	if err := validateAccountAttributes(requestAttrs); err != nil {
+		apierror.SendError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// Get current account attributes
+	currentAttrs, err := h.PostgresQueries.GetAccountAttributes(r.Context(), accountID)
+	if err != nil {
+		apierror.SendError(w, http.StatusInternalServerError, "Error retrieving account attributes")
+		return
+	}
+
+	newCurrentAttrs := AccountAttributes{
+		ID:           currentAttrs.ID,
+		Bio:          currentAttrs.Bio.String,
+		ContactEmail: currentAttrs.ContactEmail.String,
+		Location:     currentAttrs.Location.String,
+		RealName:     currentAttrs.RealName.String,
+		GithubUrl:    currentAttrs.GithubUrl.String,
+		LinkedinUrl:  currentAttrs.LinkedinUrl.String,
+		FacebookUrl:  currentAttrs.FacebookUrl.String,
+		InstagramUrl: currentAttrs.InstagramUrl.String,
+		TwitterUrl:   currentAttrs.TwitterUrl.String,
+		School:       currentAttrs.School.String,
+	}
+
+	// Build update parameters
+	updateParams := buildUpdateParams(requestAttrs, newCurrentAttrs)
+	if !updateParams.HasChanges {
+		apierror.SendError(w, http.StatusBadRequest, "No changes detected")
+		return
+	}
+
+	// Update account in database
+	_, err = h.PostgresQueries.UpdateAccountAttributes(r.Context(), updateParams.Params)
+	if err != nil {
+		apierror.SendError(w, http.StatusInternalServerError, "Failed to update account")
+		return
+	}
+
+	account, err := h.PostgresQueries.GetAccountAttributesWithAccount(r.Context(), accountID)
+	if err != nil {
+		apierror.SendError(w, http.StatusInternalServerError, "Error getting account")
+		return
+	}
+
+	response := AccountAttributesResponse{Data: AccountAttributesWithAccount{
+		ID:        account.ID,
+		Username:  account.Username,
+		Email:     account.Email,
+		AvatarUrl: account.AvatarUrl.String,
+		Level:     int(account.Level.Int32),
+		Attributes: AccountAttributes{
+			Bio:          account.Bio.String,
+			Location:     account.Location.String,
+			RealName:     account.RealName.String,
+			GithubUrl:    account.GithubUrl.String,
+			LinkedinUrl:  account.LinkedinUrl.String,
+			FacebookUrl:  account.FacebookUrl.String,
+			InstagramUrl: account.InstagramUrl.String,
+			TwitterUrl:   account.TwitterUrl.String,
+			School:       account.School.String,
+		},
+	}}
+
+	// Send response
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+}
+
+// AccountUpdates tracks which fields are being updated
+type AccountUpdates struct {
+	Bio          pgtype.Text
+	ContactEmail pgtype.Text
+	Location     pgtype.Text
+	RealName     pgtype.Text
+	GithubUrl    pgtype.Text
+	LinkedinUrl  pgtype.Text
+	FacebookUrl  pgtype.Text
+	InstagramUrl pgtype.Text
+	TwitterUrl   pgtype.Text
+	School       pgtype.Text
+	changes      bool
+}
+
+func (u *AccountUpdates) HasChanges() bool {
+	return u.changes
+}
+
+type UpdateParamsResult struct {
+	Params     sql.UpdateAccountAttributesParams
+	HasChanges bool
+}
+
+// buildAccountUpdates compares request attributes with current attributes
+// and returns an AccountUpdates with only the changed fields
+func buildUpdateParams(req AccountAttributes, current AccountAttributes) UpdateParamsResult {
+	result := UpdateParamsResult{
+		Params: sql.UpdateAccountAttributesParams{
+			ID: current.ID,
+		},
+		HasChanges: false,
+	}
+
+	// Helper function to check and set pgtype.Text fields
+	setField := func(newVal, currentVal string) pgtype.Text {
+		if newVal != "" { // If field is provided in request
+			result.HasChanges = result.HasChanges || (newVal != currentVal)
+			return pgtype.Text{String: newVal, Valid: true}
+		}
+		// Keep current value if no new value provided
+		return pgtype.Text{String: currentVal, Valid: true}
+	}
+
+	// Update all fields, tracking changes
+	result.Params.Bio = setField(req.Bio, current.Bio)
+	result.Params.ContactEmail = setField(req.ContactEmail, current.ContactEmail)
+	result.Params.Location = setField(req.Location, current.Location)
+	result.Params.RealName = setField(req.RealName, current.RealName)
+	result.Params.GithubUrl = setField(req.GithubUrl, current.GithubUrl)
+	result.Params.LinkedinUrl = setField(req.LinkedinUrl, current.LinkedinUrl)
+	result.Params.FacebookUrl = setField(req.FacebookUrl, current.FacebookUrl)
+	result.Params.InstagramUrl = setField(req.InstagramUrl, current.InstagramUrl)
+	result.Params.TwitterUrl = setField(req.TwitterUrl, current.TwitterUrl)
+	result.Params.School = setField(req.School, current.School)
+
+	return result
+}
+
+// validateAccountAttributes performs validation on account attributes
+func validateAccountAttributes(attrs AccountAttributes) error {
+	// Add any validation rules here, for example:
+	if attrs.ContactEmail != "" {
+		if !isValidEmail(attrs.ContactEmail) {
+			return fmt.Errorf("invalid email format")
+		}
+	}
+
+	// URL validation
+	urls := map[string]string{
+		"GitHub":    attrs.GithubUrl,
+		"LinkedIn":  attrs.LinkedinUrl,
+		"Facebook":  attrs.FacebookUrl,
+		"Instagram": attrs.InstagramUrl,
+		"Twitter":   attrs.TwitterUrl,
+	}
+
+	for platform, url := range urls {
+		if url != "" && !isValidURL(url) {
+			return fmt.Errorf("invalid %s URL format", platform)
+		}
+	}
+
+	return nil
+}
+
+// Helper functions for validation
+func isValidEmail(email string) bool {
+	// Basic email validation
+	_, err := mail.ParseAddress(email)
+	return err == nil
+}
+
+func isValidURL(url string) bool {
+	// Basic URL validation
+	_, err := neturl.ParseRequestURI(url)
+	return err == nil
 }

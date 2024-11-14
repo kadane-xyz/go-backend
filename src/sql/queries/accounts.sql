@@ -15,11 +15,23 @@ SELECT avatar_url from account WHERE id = $1;
 -- name: GetAccountLevel :one
 SELECT level from account WHERE id = $1;
 
+-- name: GetAccountAttributes :one
+SELECT * FROM account_attributes WHERE id = $1;
+
+-- name: GetAccountAttributesWithAccount :one
+SELECT * FROM account_attributes
+JOIN account ON account_attributes.id = account.id
+WHERE account.id = $1;
+
 -- POST --
 
 -- name: CreateAccount :exec
-INSERT INTO account (id, username, email)
-VALUES ($1, $2, $3);
+INSERT INTO account (id, username, email) VALUES ($1, $2, $3);
+
+-- name: CreateAccountAttributes :one
+INSERT INTO account_attributes (id, bio, location, real_name, github_url, linkedin_url, facebook_url, instagram_url, twitter_url, school)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING id;
 
 -- PUT --
 
@@ -27,6 +39,11 @@ VALUES ($1, $2, $3);
 UPDATE account
 SET avatar_url = $1
 WHERE id = $2;
+
+-- name: UpdateAccountAttributes :one
+UPDATE account_attributes
+SET bio = $1, contact_email = $2, location = $3, real_name = $4, github_url = $5, linkedin_url = $6, facebook_url = $7, instagram_url = $8, twitter_url = $9, school = $10
+WHERE id = $11 RETURNING *;
 
 -- DELETE --
 
