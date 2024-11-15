@@ -46,6 +46,9 @@ func RegisterApiRoutes(h *Handler, r chi.Router) {
 				r.Get("/", h.GetAccount)
 				r.Put("/", h.UpdateAccount)
 			})
+			r.Route("/username/{username}", func(r chi.Router) {
+				r.Get("/", h.GetAccountByUsername)
+			})
 		})
 		//submissions
 		r.Route("/submissions", func(r chi.Router) {
