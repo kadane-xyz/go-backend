@@ -23,6 +23,9 @@ SELECT * FROM account_attributes
 JOIN account ON account_attributes.id = account.id
 WHERE account.id = $1;
 
+-- name: GetAccountByUsername :one
+SELECT * FROM account WHERE username = $1;
+
 -- POST --
 
 -- name: CreateAccount :exec
