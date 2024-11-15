@@ -525,7 +525,7 @@ paths:
       summary: Get account by ID
       description: Retrieves an account and its attributes by account ID
       tags:
-        - accounts
+        - Accounts
       parameters:
         - name: id
           in: path
@@ -586,7 +586,7 @@ paths:
       summary: Update account attributes
       description: Updates an account's attributes
       tags:
-        - accounts
+        - Accounts
       parameters:
         - name: id
           in: path
@@ -675,7 +675,7 @@ paths:
       summary: Get account by username
       description: Retrieves an account by username
       tags:
-        - accounts
+        - Accounts
       parameters:
         - name: username
           in: path
