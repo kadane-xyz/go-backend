@@ -537,3 +537,28 @@ func isValidURL(url string) bool {
 	_, err := neturl.ParseRequestURI(url)
 	return err == nil
 }
+
+// GET: /accounts/username
+func (h *Handler) GetAccountByUsername(w http.ResponseWriter, r *http.Request) {
+	username := chi.URLParam(r, "username")
+	if username == "" {
+		apierror.SendError(w, http.StatusBadRequest, "Missing username")
+		return
+	}
+
+	account, err := h.PostgresQueries.GetAccountByUsername(r.Context(), username)
+	if err != nil {
+		apierror.SendError(w, http.StatusInternalServerError, "Error getting account")
+		return
+	}
+
+	response := AccountResponse{Data: Account{
+		ID:       account.ID,
+		Username: account.Username,
+		Email:    account.Email,
+	}}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+}

@@ -520,6 +520,191 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /accounts/{id}:
+    get:
+      summary: Get account by ID
+      description: Retrieves an account and its attributes by account ID
+      tags:
+        - accounts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Account ID
+      responses:
+        '200':
+          description: Account found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      username:
+                        type: string
+                      email:
+                        type: string
+                      avatarUrl:
+                        type: string
+                      level:
+                        type: integer
+                      attributes:
+                        type: object
+                        properties:
+                          bio:
+                            type: string
+                          location:
+                            type: string
+                          realName:
+                            type: string
+                          githubUrl:
+                            type: string
+                          linkedinUrl:
+                            type: string
+                          facebookUrl:
+                            type: string
+                          instagramUrl:
+                            type: string
+                          twitterUrl:
+                            type: string
+                          school:
+                            type: string
+        '400':
+          description: Missing account ID
+        '404':
+          description: Account not found
+        '500':
+          description: Internal server error
+
+    put:
+      summary: Update account attributes
+      description: Updates an account's attributes
+      tags:
+        - accounts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Account ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                bio:
+                  type: string
+                contactEmail:
+                  type: string
+                location:
+                  type: string
+                realName:
+                  type: string
+                githubUrl:
+                  type: string
+                linkedinUrl:
+                  type: string
+                facebookUrl:
+                  type: string
+                instagramUrl:
+                  type: string
+                twitterUrl:
+                  type: string
+                school:
+                  type: string
+      responses:
+        '200':
+          description: Account updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      username:
+                        type: string
+                      email:
+                        type: string
+                      avatarUrl:
+                        type: string
+                      level:
+                        type: integer
+                      attributes:
+                        type: object
+                        properties:
+                          bio:
+                            type: string
+                          location:
+                            type: string
+                          realName:
+                            type: string
+                          githubUrl:
+                            type: string
+                          linkedinUrl:
+                            type: string
+                          facebookUrl:
+                            type: string
+                          instagramUrl:
+                            type: string
+                          twitterUrl:
+                            type: string
+                          school:
+                            type: string
+        '400':
+          description: Invalid request body or no changes detected
+        '404':
+          description: Account not found
+        '500':
+          description: Internal server error
+
+  /accounts/username/{username}:
+    get:
+      summary: Get account by username
+      description: Retrieves an account by username
+      tags:
+        - accounts
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Account username
+      responses:
+        '200':
+          description: Account found successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      username:
+                        type: string
+                      email:
+                        type: string
+        '400':
+          description: Missing username
+        '500':
+          description: Error getting account
+
 components:
   securitySchemes: 
     Authorization:
