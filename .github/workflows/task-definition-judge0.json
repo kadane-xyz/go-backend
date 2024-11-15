@@ -99,11 +99,7 @@
             },
             "essential": true,
             "privileged": false,
-            "command": [
-                "bash",
-                "-c",
-                "docker-entrypoint.sh --appendonly no --requirepass \"$REDIS_PASSWORD\""
-            ],
+            "command": ["redis-server", "--requirepass", "${REDIS_PASSWORD}", "--appendonly", "no"],
             "environment": [
                 {
                   "name": "REDIS_PASSWORD",
