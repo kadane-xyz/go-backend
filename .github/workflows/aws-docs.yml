@@ -5,7 +5,7 @@ on:
     branches: [ "main" ]
     paths:
       - 'docker/docs/**'
-      - 'openapi.yml'
+      - 'openapi.yaml'
       - '.github/workflows/aws-docs.yml'
       - '.github/workflows/task-definition-docs.json'
       - 'nginx.conf'
