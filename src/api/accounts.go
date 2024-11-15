@@ -552,10 +552,23 @@ func (h *Handler) GetAccountByUsername(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := AccountResponse{Data: Account{
-		ID:       account.ID,
-		Username: account.Username,
-		Email:    account.Email,
+	accountAttributes, err := h.PostgresQueries.GetAccountAttributes(r.Context(), account.ID)
+	if err != nil {
+		apierror.SendError(w, http.StatusInternalServerError, "Error getting account attributes")
+		return
+	}
+
+	response := AccountAttributesResponse{Data: AccountAttributesWithAccount{
+		ID:        account.ID,
+		Username:  account.Username,
+		Email:     account.Email,
+		AvatarUrl: account.AvatarUrl.String,
+		Level:     int(account.Level.Int32),
+		Attributes: AccountAttributes{
+			Bio:      accountAttributes.Bio.String,
+			Location: accountAttributes.Location.String,
+			RealName: accountAttributes.RealName.String,
+		},
 	}}
 
 	w.Header().Set("Content-Type", "application/json")
