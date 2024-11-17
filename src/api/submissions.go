@@ -1,15 +1,11 @@
 package api
 
 import (
-	"bytes"
-	"crypto/sha256"
 	"encoding/json"
 	"log"
 	"net/http"
-	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"kadane.xyz/go-backend/v2/src/apierror"
 	"kadane.xyz/go-backend/v2/src/judge0"
 )
@@ -27,7 +23,7 @@ type SubmissionResponse struct {
 }
 
 type SubmissionResultResponse struct {
-	Data string `json:"data"`
+	Data *judge0.SubmissionResult `json:"data"`
 }
 
 func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
@@ -81,11 +77,11 @@ func (h *Handler) GetSubmission(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	problemId, err := strconv.Atoi(r.URL.Query().Get("problemId"))
+	/*problemId, err := strconv.Atoi(r.URL.Query().Get("problemId"))
 	if err != nil {
 		apierror.SendError(w, http.StatusBadRequest, "Invalid problem ID")
 		return
-	}
+	}*/
 
 	result, err := h.Judge0Client.GetSubmission(token)
 	if err != nil {
@@ -94,7 +90,7 @@ func (h *Handler) GetSubmission(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hash := sha256.Sum256([]byte(result.Stdout))
+	/*hash := sha256.Sum256([]byte(result.Stdout))
 
 	expectedOutputHash, err := h.PostgresQueries.GetProblemSolutionExpectedOutputHash(r.Context(), pgtype.Int8{Int64: int64(problemId), Valid: true})
 	if err != nil {
@@ -117,5 +113,10 @@ func (h *Handler) GetSubmission(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(SubmissionResultResponse{Data: response})
 	} else {
 		apierror.SendError(w, http.StatusBadRequest, "Wrong answer")
-	}
+	}*/
+
+	response := SubmissionResultResponse{Data: result}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
