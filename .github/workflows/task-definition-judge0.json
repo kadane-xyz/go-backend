@@ -8,29 +8,17 @@
             "memory": 512,
             "portMappings": [
                 {
+                    "name": "judge0",
                     "containerPort": 2358,
                     "hostPort": 2358,
                     "protocol": "tcp",
-                    "name": "kadane-judge0-server-2358-tcp",
                     "appProtocol": "http"
                 }
             ],
-            "serviceConnectConfiguration": {
-                "enabled": true,
-                "namespace": "KadaneProdBackendCluster",
-                "services": [
-                    { 
-                        "portName": "kadane-judge0-server-2358-tcp",
-                        "discoveryName": "judge0",
-                        "clientAliases": [
-                            { 
-                                "port": 2358 
-                            }
-                        ]
-                    }
-                ]
-            },
             "essential": true,
+            "environment": [],
+            "mountPoints": [],
+            "volumesFrom": [],
             "privileged": false,
             "logConfiguration": {
                 "logDriver": "awslogs",
@@ -48,18 +36,7 @@
             "memory": 512,
             "essential": false,
             "privileged": false,
-            "serviceConnectConfiguration": {
-                "enabled": true,
-                "namespace": "KadaneProdBackendCluster"
-            },
             "command": ["./scripts/workers"],
-            "healthCheck": {
-                "command": [ "CMD-SHELL", "curl -f http://localhost:2358/health" ],
-                "interval": 5,
-                "timeout": 5,
-                "retries": 5,
-                "startPeriod": 60
-            },
             "logConfiguration": {
                 "logDriver": "awslogs",
                 "options": {
@@ -74,29 +51,6 @@
             "image": "905418014870.dkr.ecr.us-east-2.amazonaws.com/kadane/redis:latest",
             "cpu": 256,
             "memory": 512,
-            "portMappings": [
-                {
-                    "containerPort": 6379,
-                    "hostPort": 6379,
-                    "protocol": "tcp",
-                    "name": "kadane-judge0-redis-6379-tcp"
-                }
-            ],
-            "serviceConnectConfiguration": {
-                "enabled": true,
-                "namespace": "KadaneProdBackendCluster",
-                "services": [
-                    {
-                        "portName": "kadane-judge0-redis-6379-tcp",
-                        "discoveryName": "redis",
-                        "clientAliases": [
-                            {
-                                "port": 6379
-                            }
-                        ]
-                    }
-                ]
-            },
             "essential": true,
             "privileged": false,
             "command": ["redis-server", "--requirepass", "${REDIS_PASSWORD}", "--appendonly", "no"],
