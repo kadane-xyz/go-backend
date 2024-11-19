@@ -14,6 +14,7 @@ import (
 	"net/mail"
 	neturl "net/url"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/go-chi/chi/v5"
@@ -37,6 +38,7 @@ type Account struct {
 	Email     string `json:"email"`
 	AvatarUrl string `json:"avatarUrl"`
 	Level     int    `json:"level"`
+	CreatedAt string `json:"created"`
 }
 
 type AccountResponse struct {
@@ -67,6 +69,7 @@ type AccountAttributesWithAccount struct {
 	Email      string            `json:"email"`
 	AvatarUrl  string            `json:"avatarUrl,omitempty"`
 	Level      int               `json:"level"`
+	CreatedAt  string            `json:"created"`
 	Attributes AccountAttributes `json:"attributes,omitempty"`
 }
 
@@ -93,9 +96,10 @@ func (h *Handler) GetAccounts(w http.ResponseWriter, r *http.Request) {
 	accountsResponse := AccountsResponse{Data: []Account{}}
 	for _, account := range accounts {
 		accountsResponse.Data = append(accountsResponse.Data, Account{
-			ID:       account.ID,
-			Username: account.Username,
-			Email:    account.Email,
+			ID:        account.ID,
+			Username:  account.Username,
+			Email:     account.Email,
+			CreatedAt: account.CreatedAt.Time.Format(time.RFC3339),
 		})
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -333,6 +337,7 @@ func (h *Handler) GetAccount(w http.ResponseWriter, r *http.Request) {
 		Email:     account.Email,
 		AvatarUrl: account.AvatarUrl.String,
 		Level:     int(account.Level.Int32),
+		CreatedAt: account.CreatedAt.Time.Format(time.RFC3339),
 		Attributes: AccountAttributes{
 			Bio:          account.Bio.String,
 			Location:     account.Location.String,
@@ -420,6 +425,7 @@ func (h *Handler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 		Email:     account.Email,
 		AvatarUrl: account.AvatarUrl.String,
 		Level:     int(account.Level.Int32),
+		CreatedAt: account.CreatedAt.Time.Format(time.RFC3339),
 		Attributes: AccountAttributes{
 			Bio:          account.Bio.String,
 			Location:     account.Location.String,
