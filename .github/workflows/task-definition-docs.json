@@ -27,17 +27,6 @@
                 "timeout": 5,
                 "retries": 5,
                 "startPeriod": 60
-            },
-            "logConfiguration": {
-                "logDriver": "awslogs",
-                "options": {
-                    "awslogs-create-group": "true",
-                    "awslogs-group": "awslogs-kadane-prod-docs",
-                    "awslogs-region": "us-east-2",
-                    "awslogs-stream-prefix": "awslogs-kadane-prod-docs",
-                    "mode": "non-blocking", 
-                    "max-buffer-size": "25m" 
-                }
             }
         }
     ],

@@ -1,6 +1,6 @@
 CREATE TYPE submission_status AS ENUM ('pending', 'running', 'completed', 'failed');
 
-CREATE TABLE submissions (
+CREATE TABLE submission (
     id SERIAL PRIMARY KEY,
     stdout TEXT,
     execution_time DECIMAL(10,3),
@@ -14,10 +14,10 @@ CREATE TABLE submissions (
     status_description VARCHAR(255),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    user_id INTEGER REFERENCES users(id),
-    problem_id INTEGER REFERENCES problems(id)
+    account_id TEXT REFERENCES account(id),
+    problem_id INTEGER REFERENCES problem(id)
 );
 
 -- Add indexes for commonly queried fields
-CREATE INDEX idx_submissions_token ON submissions(token);
-CREATE INDEX idx_submissions_status_id ON submissions(status_id);
+CREATE INDEX idx_submission_token ON submission(token);
+CREATE INDEX idx_submission_status_id ON submission(status_id);
