@@ -45,6 +45,7 @@ func RegisterApiRoutes(h *Handler, r chi.Router) {
 			r.Route("/{id}", func(r chi.Router) {
 				r.Get("/", h.GetAccount)
 				r.Put("/", h.UpdateAccount)
+				r.Delete("/", h.DeleteAccount)
 			})
 			r.Route("/username/{username}", func(r chi.Router) {
 				r.Get("/", h.GetAccountByUsername)
