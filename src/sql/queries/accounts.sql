@@ -16,11 +16,11 @@ SELECT avatar_url from account WHERE id = $1;
 SELECT level from account WHERE id = $1;
 
 -- name: GetAccountAttributes :one
-SELECT * FROM account_attributes WHERE id = $1;
+SELECT * FROM account_attribute WHERE id = $1;
 
 -- name: GetAccountAttributesWithAccount :one
-SELECT * FROM account_attributes
-JOIN account ON account_attributes.id = account.id
+SELECT * FROM account_attribute
+JOIN account ON account_attribute.id = account.id
 WHERE account.id = $1;
 
 -- name: GetAccountByUsername :one
@@ -32,8 +32,8 @@ SELECT * FROM account WHERE username = $1;
 INSERT INTO account (id, username, email, created_at) VALUES ($1, $2, $3, $4);
 
 -- name: CreateAccountAttributes :one
-INSERT INTO account_attributes (id, bio, location, real_name, github_url, linkedin_url, facebook_url, instagram_url, twitter_url, school)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+INSERT INTO account_attribute (id, bio, contact_email, location, real_name, github_url, linkedin_url, facebook_url, instagram_url, twitter_url, school, public_email, website_url)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 RETURNING id;
 
 -- PUT --
@@ -44,9 +44,9 @@ SET avatar_url = $1
 WHERE id = $2;
 
 -- name: UpdateAccountAttributes :one
-UPDATE account_attributes
-SET bio = $1, contact_email = $2, location = $3, real_name = $4, github_url = $5, linkedin_url = $6, facebook_url = $7, instagram_url = $8, twitter_url = $9, school = $10
-WHERE id = $11 RETURNING *;
+UPDATE account_attribute
+SET bio = $1, contact_email = $2, location = $3, real_name = $4, github_url = $5, linkedin_url = $6, facebook_url = $7, instagram_url = $8, twitter_url = $9, school = $10, website_url = $11, public_email = $12
+WHERE id = $13 RETURNING *;
 
 -- DELETE --
 

@@ -49,6 +49,21 @@ type AccountsResponse struct {
 	Data []Account `json:"data"`
 }
 
+type AccountAttributesInput struct {
+	Bio          string `json:"bio,omitempty"`
+	ContactEmail string `json:"contactEmail,omitempty"`
+	Location     string `json:"location,omitempty"`
+	RealName     string `json:"realName,omitempty"`
+	GithubUrl    string `json:"githubUrl,omitempty"`
+	LinkedinUrl  string `json:"linkedinUrl,omitempty"`
+	FacebookUrl  string `json:"facebookUrl,omitempty"`
+	InstagramUrl string `json:"instagramUrl,omitempty"`
+	TwitterUrl   string `json:"twitterUrl,omitempty"`
+	School       string `json:"school,omitempty"`
+	WebsiteUrl   string `json:"websiteUrl,omitempty"`
+	PublicEmail  string `json:"publicEmail,omitempty"`
+}
+
 type AccountAttributes struct {
 	ID           string `json:"id,omitempty"`
 	Bio          string `json:"bio,omitempty"`
@@ -61,6 +76,8 @@ type AccountAttributes struct {
 	InstagramUrl string `json:"instagramUrl,omitempty"`
 	TwitterUrl   string `json:"twitterUrl,omitempty"`
 	School       string `json:"school,omitempty"`
+	WebsiteUrl   string `json:"websiteUrl,omitempty"`
+	PublicEmail  string `json:"publicEmail,omitempty"`
 }
 
 type AccountAttributesWithAccount struct {
@@ -183,6 +200,7 @@ func (h *Handler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 	id, err := h.PostgresQueries.CreateAccountAttributes(r.Context(), sql.CreateAccountAttributesParams{
 		ID:           createAccountRequest.ID,
 		Bio:          pgtype.Text{String: "", Valid: true},
+		ContactEmail: pgtype.Text{String: "", Valid: true},
 		Location:     pgtype.Text{String: "", Valid: true},
 		RealName:     pgtype.Text{String: "", Valid: true},
 		GithubUrl:    pgtype.Text{String: "", Valid: true},
@@ -191,6 +209,8 @@ func (h *Handler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 		InstagramUrl: pgtype.Text{String: "", Valid: true},
 		TwitterUrl:   pgtype.Text{String: "", Valid: true},
 		School:       pgtype.Text{String: "", Valid: true},
+		WebsiteUrl:   pgtype.Text{String: "", Valid: true},
+		PublicEmail:  pgtype.Text{String: "", Valid: true},
 	})
 	if err != nil {
 		log.Println("Error creating account attributes: ", err)
@@ -340,6 +360,7 @@ func (h *Handler) GetAccount(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: account.CreatedAt.Time.Format(time.RFC3339),
 		Attributes: AccountAttributes{
 			Bio:          account.Bio.String,
+			ContactEmail: account.ContactEmail.String,
 			Location:     account.Location.String,
 			RealName:     account.RealName.String,
 			GithubUrl:    account.GithubUrl.String,
@@ -348,6 +369,8 @@ func (h *Handler) GetAccount(w http.ResponseWriter, r *http.Request) {
 			InstagramUrl: account.InstagramUrl.String,
 			TwitterUrl:   account.TwitterUrl.String,
 			School:       account.School.String,
+			WebsiteUrl:   account.WebsiteUrl.String,
+			PublicEmail:  account.PublicEmail.String,
 		},
 	}}
 
@@ -365,7 +388,7 @@ func (h *Handler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Decode request body
-	var requestAttrs AccountAttributes
+	var requestAttrs AccountAttributesInput
 	if err := json.NewDecoder(r.Body).Decode(&requestAttrs); err != nil {
 		apierror.SendError(w, http.StatusBadRequest, "Invalid JSON format in request body")
 		return
@@ -378,13 +401,13 @@ func (h *Handler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get current account attributes
+	// Get current account attributes or create new relation if none exist
 	currentAttrs, err := h.PostgresQueries.GetAccountAttributes(r.Context(), accountID)
 	if err != nil {
-		apierror.SendError(w, http.StatusInternalServerError, "Error retrieving account attributes")
-		return
+		h.PostgresQueries.CreateAccountAttributes(r.Context(), sql.CreateAccountAttributesParams{
+			ID: accountID,
+		})
 	}
-
 	newCurrentAttrs := AccountAttributes{
 		ID:           currentAttrs.ID,
 		Bio:          currentAttrs.Bio.String,
@@ -397,6 +420,8 @@ func (h *Handler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 		InstagramUrl: currentAttrs.InstagramUrl.String,
 		TwitterUrl:   currentAttrs.TwitterUrl.String,
 		School:       currentAttrs.School.String,
+		WebsiteUrl:   currentAttrs.WebsiteUrl.String,
+		PublicEmail:  currentAttrs.PublicEmail.String,
 	}
 
 	// Build update parameters
@@ -409,16 +434,20 @@ func (h *Handler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	// Update account in database
 	_, err = h.PostgresQueries.UpdateAccountAttributes(r.Context(), updateParams.Params)
 	if err != nil {
+		log.Println("Error updating account attributes: ", err)
 		apierror.SendError(w, http.StatusInternalServerError, "Failed to update account")
 		return
 	}
 
+	// Get updated account attributes
 	account, err := h.PostgresQueries.GetAccountAttributesWithAccount(r.Context(), accountID)
 	if err != nil {
+		log.Println("Error getting account: ", err)
 		apierror.SendError(w, http.StatusInternalServerError, "Error getting account")
 		return
 	}
 
+	// Prepare response
 	response := AccountAttributesResponse{Data: AccountAttributesWithAccount{
 		ID:        account.ID,
 		Username:  account.Username,
@@ -428,6 +457,7 @@ func (h *Handler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: account.CreatedAt.Time.Format(time.RFC3339),
 		Attributes: AccountAttributes{
 			Bio:          account.Bio.String,
+			ContactEmail: account.ContactEmail.String,
 			Location:     account.Location.String,
 			RealName:     account.RealName.String,
 			GithubUrl:    account.GithubUrl.String,
@@ -436,6 +466,8 @@ func (h *Handler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 			InstagramUrl: account.InstagramUrl.String,
 			TwitterUrl:   account.TwitterUrl.String,
 			School:       account.School.String,
+			WebsiteUrl:   account.WebsiteUrl.String,
+			PublicEmail:  account.PublicEmail.String,
 		},
 	}}
 
@@ -457,6 +489,8 @@ type AccountUpdates struct {
 	InstagramUrl pgtype.Text
 	TwitterUrl   pgtype.Text
 	School       pgtype.Text
+	WebsiteUrl   pgtype.Text
+	PublicEmail  pgtype.Text
 	changes      bool
 }
 
@@ -471,7 +505,7 @@ type UpdateParamsResult struct {
 
 // buildAccountUpdates compares request attributes with current attributes
 // and returns an AccountUpdates with only the changed fields
-func buildUpdateParams(req AccountAttributes, current AccountAttributes) UpdateParamsResult {
+func buildUpdateParams(req AccountAttributesInput, current AccountAttributes) UpdateParamsResult {
 	result := UpdateParamsResult{
 		Params: sql.UpdateAccountAttributesParams{
 			ID: current.ID,
@@ -500,15 +534,21 @@ func buildUpdateParams(req AccountAttributes, current AccountAttributes) UpdateP
 	result.Params.InstagramUrl = setField(req.InstagramUrl, current.InstagramUrl)
 	result.Params.TwitterUrl = setField(req.TwitterUrl, current.TwitterUrl)
 	result.Params.School = setField(req.School, current.School)
+	result.Params.WebsiteUrl = setField(req.WebsiteUrl, current.WebsiteUrl)
+	result.Params.PublicEmail = setField(req.PublicEmail, current.PublicEmail)
 
 	return result
 }
 
 // validateAccountAttributes performs validation on account attributes
-func validateAccountAttributes(attrs AccountAttributes) error {
+func validateAccountAttributes(attrs AccountAttributesInput) error {
 	// Add any validation rules here, for example:
 	if attrs.ContactEmail != "" {
 		if !isValidEmail(attrs.ContactEmail) {
+			return fmt.Errorf("invalid email format")
+		}
+	} else if attrs.PublicEmail != "" {
+		if !isValidEmail(attrs.PublicEmail) {
 			return fmt.Errorf("invalid email format")
 		}
 	}
@@ -520,6 +560,7 @@ func validateAccountAttributes(attrs AccountAttributes) error {
 		"Facebook":  attrs.FacebookUrl,
 		"Instagram": attrs.InstagramUrl,
 		"Twitter":   attrs.TwitterUrl,
+		"Website":   attrs.WebsiteUrl,
 	}
 
 	for platform, url := range urls {
@@ -544,6 +585,23 @@ func isValidURL(url string) bool {
 	return err == nil
 }
 
+// DELETE: /accounts/id
+func (h *Handler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
+	accountId := chi.URLParam(r, "id")
+	if accountId == "" {
+		apierror.SendError(w, http.StatusBadRequest, "Missing account ID")
+		return
+	}
+
+	err := h.PostgresQueries.DeleteAccount(r.Context(), accountId)
+	if err != nil {
+		apierror.SendError(w, http.StatusInternalServerError, "Error deleting account")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // GET: /accounts/username
 func (h *Handler) GetAccountByUsername(w http.ResponseWriter, r *http.Request) {
 	username := chi.URLParam(r, "username")
@@ -552,29 +610,59 @@ func (h *Handler) GetAccountByUsername(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	attributes := r.URL.Query().Get("attributes")
+	if attributes == "" {
+		attributes = "false"
+	}
+
 	account, err := h.PostgresQueries.GetAccountByUsername(r.Context(), username)
 	if err != nil {
 		apierror.SendError(w, http.StatusInternalServerError, "Error getting account")
 		return
 	}
 
-	accountAttributes, err := h.PostgresQueries.GetAccountAttributes(r.Context(), account.ID)
-	if err != nil {
-		apierror.SendError(w, http.StatusInternalServerError, "Error getting account attributes")
-		return
+	var response AccountAttributesResponse
+	if attributes == "true" {
+		accountAttributes, err := h.PostgresQueries.GetAccountAttributes(r.Context(), account.ID)
+		if err != nil {
+			apierror.SendError(w, http.StatusInternalServerError, "Error getting account attributes")
+			return
+		}
+
+		response = AccountAttributesResponse{Data: AccountAttributesWithAccount{
+			ID:        account.ID,
+			Username:  account.Username,
+			Email:     account.Email,
+			AvatarUrl: account.AvatarUrl.String,
+			Level:     int(account.Level.Int32),
+			CreatedAt: account.CreatedAt.Time.Format(time.RFC3339),
+			Attributes: AccountAttributes{
+				Bio:          accountAttributes.Bio.String,
+				ContactEmail: accountAttributes.ContactEmail.String,
+				Location:     accountAttributes.Location.String,
+				RealName:     accountAttributes.RealName.String,
+				GithubUrl:    accountAttributes.GithubUrl.String,
+				LinkedinUrl:  accountAttributes.LinkedinUrl.String,
+				FacebookUrl:  accountAttributes.FacebookUrl.String,
+				InstagramUrl: accountAttributes.InstagramUrl.String,
+				TwitterUrl:   accountAttributes.TwitterUrl.String,
+				School:       accountAttributes.School.String,
+				WebsiteUrl:   accountAttributes.WebsiteUrl.String,
+				PublicEmail:  accountAttributes.PublicEmail.String,
+			},
+		}}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(response)
 	}
 
-	response := AccountAttributesResponse{Data: AccountAttributesWithAccount{
+	response = AccountAttributesResponse{Data: AccountAttributesWithAccount{
 		ID:        account.ID,
 		Username:  account.Username,
 		Email:     account.Email,
 		AvatarUrl: account.AvatarUrl.String,
 		Level:     int(account.Level.Int32),
-		Attributes: AccountAttributes{
-			Bio:      accountAttributes.Bio.String,
-			Location: accountAttributes.Location.String,
-			RealName: accountAttributes.RealName.String,
-		},
+		CreatedAt: account.CreatedAt.Time.Format(time.RFC3339),
 	}}
 
 	w.Header().Set("Content-Type", "application/json")
