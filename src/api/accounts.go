@@ -123,10 +123,6 @@ func (h *Handler) GetAccounts(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(accountsResponse)
 }
 
-func GetS3PublicURL(bucketName, region, objectKey string) string {
-	return fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", bucketName, region, objectKey)
-}
-
 type CreateAccountRequest struct {
 	ID       string `json:"id"`
 	Username string `json:"username"`
@@ -294,8 +290,8 @@ func (h *Handler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get image url
-	url := GetS3PublicURL(h.AWSBucketAvatar, h.AWSRegion, userId)
+	// Use CloudFront URL instead of S3 public URL
+	url := h.CloudFrontUrl + "/" + userId
 
 	// store image url in accounts table
 	err = h.PostgresQueries.UpdateAvatar(r.Context(), sql.UpdateAvatarParams{

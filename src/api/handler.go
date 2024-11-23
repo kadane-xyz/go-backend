@@ -11,7 +11,8 @@ type Handler struct {
 	PostgresClient  *pgxpool.Pool
 	PostgresQueries *sql.Queries
 	AWSClient       *s3.Client
-	AWSBucketAvatar string
 	AWSRegion       string
+	AWSBucketAvatar string
+	CloudFrontUrl   string
 	Judge0Client    *judge0.Judge0Client
 }
