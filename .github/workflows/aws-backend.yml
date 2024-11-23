@@ -78,6 +78,7 @@ jobs:
           AWS_SECRET=${{ secrets.AWS_SECRET }}
           AWS_REGION=${{ vars.AWS_REGION }}
           AWS_BUCKET_AVATAR=${{ secrets.AWS_BUCKET_AVATAR }}
+          CLOUD_FRONT_URL=${{ secrets.CLOUD_FRONT_URL }}
           JUDGE0_TOKEN=${{ secrets.JUDGE0_TOKEN }}
           JUDGE0_URL=${{ secrets.JUDGE0_URL }}
 

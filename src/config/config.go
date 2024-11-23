@@ -23,6 +23,7 @@ type Config struct {
 	AWSSecret       string
 	AWSBucketAvatar string
 	AWSRegion       string
+	CloudFrontUrl   string
 	// Judge0
 	Judge0Url   string
 	Judge0Token string
@@ -87,6 +88,11 @@ func LoadConfig() (*Config, error) {
 		return nil, fmt.Errorf("AWS_REGION is not set")
 	}
 
+	cloudFrontUrl := os.Getenv("CLOUD_FRONT_URL")
+	if cloudFrontUrl == "" {
+		return nil, fmt.Errorf("CLOUD_FRONT_URL is not set")
+	}
+
 	judge0Url := os.Getenv("JUDGE0_URL")
 	if judge0Url == "" {
 		return nil, fmt.Errorf("JUDGE0_URL is not set")
@@ -113,6 +119,7 @@ func LoadConfig() (*Config, error) {
 		AWSSecret:       awsSecret,
 		AWSBucketAvatar: awsBucketAvatar,
 		AWSRegion:       awsRegion,
+		CloudFrontUrl:   cloudFrontUrl,
 		//Judge0
 		Judge0Url:   judge0Url,
 		Judge0Token: judge0Token,

@@ -27,18 +27,7 @@
                 "timeout": 5,
                 "retries": 5,
                 "startPeriod": 60
-            },
-            "logConfiguration": {
-                "logDriver": "awslogs",
-                "options": {
-                    "awslogs-create-group": "true",
-                    "awslogs-group": "awslogs-kadane-backend",
-                    "awslogs-region": "us-east-2",
-                    "awslogs-stream-prefix": "awslogs-kadane-backend",
-                    "mode": "non-blocking", 
-                    "max-buffer-size": "25m" 
-                }
-            }
+           }
         }
     ],
     "executionRoleArn": "arn:aws:iam::905418014870:role/ecsTaskExecutionRole",

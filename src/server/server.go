@@ -103,6 +103,7 @@ func (s *Server) Run() error {
 		AWSClient:       s.awsClient,
 		AWSBucketAvatar: s.config.AWSBucketAvatar,
 		AWSRegion:       s.config.AWSRegion,
+		CloudFrontUrl:   s.config.CloudFrontUrl,
 		Judge0Client:    s.judge0Client,
 	}
 
