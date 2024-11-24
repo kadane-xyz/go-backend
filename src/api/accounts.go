@@ -49,17 +49,17 @@ type AccountsResponse struct {
 }
 
 type AccountAttributesInput struct {
-	Bio          string `json:"bio,omitempty"`
-	ContactEmail string `json:"contactEmail,omitempty"`
-	Location     string `json:"location,omitempty"`
-	RealName     string `json:"realName,omitempty"`
-	GithubUrl    string `json:"githubUrl,omitempty"`
-	LinkedinUrl  string `json:"linkedinUrl,omitempty"`
-	FacebookUrl  string `json:"facebookUrl,omitempty"`
-	InstagramUrl string `json:"instagramUrl,omitempty"`
-	TwitterUrl   string `json:"twitterUrl,omitempty"`
-	School       string `json:"school,omitempty"`
-	WebsiteUrl   string `json:"websiteUrl,omitempty"`
+	Bio          *string `json:"bio,omitempty"`
+	ContactEmail *string `json:"contactEmail,omitempty"`
+	Location     *string `json:"location,omitempty"`
+	RealName     *string `json:"realName,omitempty"`
+	GithubUrl    *string `json:"githubUrl,omitempty"`
+	LinkedinUrl  *string `json:"linkedinUrl,omitempty"`
+	FacebookUrl  *string `json:"facebookUrl,omitempty"`
+	InstagramUrl *string `json:"instagramUrl,omitempty"`
+	TwitterUrl   *string `json:"twitterUrl,omitempty"`
+	School       *string `json:"school,omitempty"`
+	WebsiteUrl   *string `json:"websiteUrl,omitempty"`
 }
 
 type AccountAttributes struct {
@@ -518,8 +518,8 @@ type UpdateParamsResult struct {
 	HasChanges bool
 }
 
-// buildAccountUpdates compares request attributes with current attributes
-// and returns an AccountUpdates with only the changed fields
+// buildUpdateParams compares request attributes with current attributes
+// and returns an UpdateParamsResult with all provided fields, including empty strings
 func buildUpdateParams(req AccountAttributesInput, current AccountAttributes) UpdateParamsResult {
 	result := UpdateParamsResult{
 		Params: sql.UpdateAccountAttributesParams{
@@ -529,12 +529,12 @@ func buildUpdateParams(req AccountAttributesInput, current AccountAttributes) Up
 	}
 
 	// Helper function to check and set pgtype.Text fields
-	setField := func(newVal, currentVal string) pgtype.Text {
-		if newVal != "" { // If field is provided in request
-			result.HasChanges = result.HasChanges || (newVal != currentVal)
-			return pgtype.Text{String: newVal, Valid: true}
+	setField := func(newVal *string, currentVal string) pgtype.Text {
+		if newVal != nil { // If field was provided in request (including empty string)
+			result.HasChanges = result.HasChanges || (*newVal != currentVal)
+			return pgtype.Text{String: *newVal, Valid: true}
 		}
-		// Keep current value if no new value provided
+		// Keep current value if field not provided in request
 		return pgtype.Text{String: currentVal, Valid: true}
 	}
 
@@ -556,30 +556,47 @@ func buildUpdateParams(req AccountAttributesInput, current AccountAttributes) Up
 
 // validateAccountAttributes performs validation on account attributes
 func validateAccountAttributes(attrs AccountAttributesInput) error {
-	// Add any validation rules here, for example:
-	if attrs.ContactEmail != "" {
-		if !isValidEmail(attrs.ContactEmail) {
+	// Only validate non-empty email addresses
+	if attrs.ContactEmail != nil && *attrs.ContactEmail != "" {
+		if !isValidEmail(*attrs.ContactEmail) {
 			return fmt.Errorf("invalid email format")
 		}
 	}
 
-	if len(attrs.Location) > 2 {
+	// Only validate non-empty locations
+	if attrs.Location != nil && *attrs.Location != "" && len(*attrs.Location) > 2 {
 		return fmt.Errorf("location field too long")
 	}
 
-	// Validate all fields that have a length limit
-	for _, field := range []string{attrs.Bio, attrs.ContactEmail, attrs.RealName, attrs.GithubUrl, attrs.LinkedinUrl, attrs.TwitterUrl,
-		attrs.FacebookUrl, attrs.InstagramUrl, attrs.School, attrs.WebsiteUrl} {
-		if !isStringValid(field) {
-			return fmt.Errorf("%s field too long", field)
+	// Helper function to check string length
+	checkLength := func(value *string, fieldName string) error {
+		if value != nil && len(*value) > 50 {
+			return fmt.Errorf("%s field too long", fieldName)
+		}
+		return nil
+	}
+
+	// Validate length limits for provided fields
+	fields := map[string]*string{
+		"Bio":          attrs.Bio,
+		"ContactEmail": attrs.ContactEmail,
+		"RealName":     attrs.RealName,
+		"GithubUrl":    attrs.GithubUrl,
+		"LinkedinUrl":  attrs.LinkedinUrl,
+		"TwitterUrl":   attrs.TwitterUrl,
+		"FacebookUrl":  attrs.FacebookUrl,
+		"InstagramUrl": attrs.InstagramUrl,
+		"School":       attrs.School,
+		"WebsiteUrl":   attrs.WebsiteUrl,
+	}
+
+	for fieldName, value := range fields {
+		if err := checkLength(value, fieldName); err != nil {
+			return err
 		}
 	}
 
 	return nil
-}
-
-func isStringValid(str string) bool {
-	return len(str) <= 50
 }
 
 // Helper functions for validation
