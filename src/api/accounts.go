@@ -379,26 +379,26 @@ func (h *Handler) GetAccount(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(response)
+	} else {
+		account, err := h.PostgresQueries.GetAccount(r.Context(), accountId)
+		if err != nil {
+			apierror.SendError(w, http.StatusInternalServerError, "Error getting account")
+			return
+		}
+
+		response := AccountResponse{Data: Account{
+			ID:        account.ID,
+			AvatarUrl: account.AvatarUrl.String,
+			CreatedAt: account.CreatedAt.Time.Format(time.RFC3339),
+			Email:     account.Email,
+			Level:     int(account.Level.Int32),
+			Username:  account.Username,
+		}}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(response)
 	}
-
-	account, err := h.PostgresQueries.GetAccount(r.Context(), accountId)
-	if err != nil {
-		apierror.SendError(w, http.StatusInternalServerError, "Error getting account")
-		return
-	}
-
-	response := AccountResponse{Data: Account{
-		ID:        account.ID,
-		AvatarUrl: account.AvatarUrl.String,
-		CreatedAt: account.CreatedAt.Time.Format(time.RFC3339),
-		Email:     account.Email,
-		Level:     int(account.Level.Int32),
-		Username:  account.Username,
-	}}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
 }
 
 // PUT: /accounts/id
@@ -644,7 +644,6 @@ func (h *Handler) GetAccountByUsername(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var response AccountAttributesResponse
 	if attributes == "true" {
 		accountAttributes, err := h.PostgresQueries.GetAccountAttributes(r.Context(), account.ID)
 		if err != nil {
@@ -652,7 +651,7 @@ func (h *Handler) GetAccountByUsername(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		response = AccountAttributesResponse{Data: AccountAttributesWithAccount{
+		response := AccountAttributesResponse{Data: AccountAttributesWithAccount{
 			ID:        account.ID,
 			Username:  account.Username,
 			Email:     account.Email,
@@ -677,18 +676,18 @@ func (h *Handler) GetAccountByUsername(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(response)
+	} else {
+		response := AccountResponse{Data: Account{
+			ID:        account.ID,
+			AvatarUrl: account.AvatarUrl.String,
+			CreatedAt: account.CreatedAt.Time.Format(time.RFC3339),
+			Email:     account.Email,
+			Level:     int(account.Level.Int32),
+			Username:  account.Username,
+		}}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(response)
 	}
-
-	response = AccountAttributesResponse{Data: AccountAttributesWithAccount{
-		ID:        account.ID,
-		Username:  account.Username,
-		Email:     account.Email,
-		AvatarUrl: account.AvatarUrl.String,
-		Level:     int(account.Level.Int32),
-		CreatedAt: account.CreatedAt.Time.Format(time.RFC3339),
-	}}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
 }
