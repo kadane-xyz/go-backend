@@ -32,8 +32,8 @@ SELECT * FROM account WHERE username = $1;
 INSERT INTO account (id, username, email) VALUES ($1, $2, $3);
 
 -- name: CreateAccountAttributes :one
-INSERT INTO account_attribute (id, bio, contact_email, location, real_name, github_url, linkedin_url, facebook_url, instagram_url, twitter_url, school, public_email, website_url)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+INSERT INTO account_attribute (id, bio, contact_email, location, real_name, github_url, linkedin_url, facebook_url, instagram_url, twitter_url, school, website_url)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 RETURNING id;
 
 -- PUT --
@@ -45,8 +45,8 @@ WHERE id = $2;
 
 -- name: UpdateAccountAttributes :one
 UPDATE account_attribute
-SET bio = $1, contact_email = $2, location = $3, real_name = $4, github_url = $5, linkedin_url = $6, facebook_url = $7, instagram_url = $8, twitter_url = $9, school = $10, website_url = $11, public_email = $12
-WHERE id = $13 RETURNING *;
+SET bio = $1, contact_email = $2, location = $3, real_name = $4, github_url = $5, linkedin_url = $6, facebook_url = $7, instagram_url = $8, twitter_url = $9, school = $10, website_url = $11
+WHERE id = $12 RETURNING *;
 
 -- DELETE --
 
