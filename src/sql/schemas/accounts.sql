@@ -11,7 +11,6 @@ CREATE TABLE account_attribute (
     twitter_url TEXT DEFAULT '',
     school TEXT DEFAULT '',
     website_url TEXT DEFAULT '',
-    public_email TEXT DEFAULT ''
 );
 
 CREATE TABLE account (

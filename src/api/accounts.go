@@ -12,7 +12,6 @@ import (
 	"log"
 	"net/http"
 	"net/mail"
-	neturl "net/url"
 	"strings"
 	"time"
 
@@ -61,7 +60,6 @@ type AccountAttributesInput struct {
 	TwitterUrl   string `json:"twitterUrl,omitempty"`
 	School       string `json:"school,omitempty"`
 	WebsiteUrl   string `json:"websiteUrl,omitempty"`
-	PublicEmail  string `json:"publicEmail,omitempty"`
 }
 
 type AccountAttributes struct {
@@ -77,7 +75,6 @@ type AccountAttributes struct {
 	TwitterUrl   string `json:"twitterUrl,omitempty"`
 	School       string `json:"school,omitempty"`
 	WebsiteUrl   string `json:"websiteUrl,omitempty"`
-	PublicEmail  string `json:"publicEmail,omitempty"`
 }
 
 type AccountAttributesWithAccount struct {
@@ -206,7 +203,6 @@ func (h *Handler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 		TwitterUrl:   pgtype.Text{String: "", Valid: true},
 		School:       pgtype.Text{String: "", Valid: true},
 		WebsiteUrl:   pgtype.Text{String: "", Valid: true},
-		PublicEmail:  pgtype.Text{String: "", Valid: true},
 	})
 	if err != nil {
 		log.Println("Error creating account attributes: ", err)
@@ -372,7 +368,6 @@ func (h *Handler) GetAccount(w http.ResponseWriter, r *http.Request) {
 				TwitterUrl:   account.TwitterUrl.String,
 				School:       account.School.String,
 				WebsiteUrl:   account.WebsiteUrl.String,
-				PublicEmail:  account.PublicEmail.String,
 			},
 		}}
 
@@ -444,7 +439,6 @@ func (h *Handler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 		TwitterUrl:   currentAttrs.TwitterUrl.String,
 		School:       currentAttrs.School.String,
 		WebsiteUrl:   currentAttrs.WebsiteUrl.String,
-		PublicEmail:  currentAttrs.PublicEmail.String,
 	}
 
 	// Build update parameters
@@ -490,7 +484,6 @@ func (h *Handler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 			TwitterUrl:   account.TwitterUrl.String,
 			School:       account.School.String,
 			WebsiteUrl:   account.WebsiteUrl.String,
-			PublicEmail:  account.PublicEmail.String,
 		},
 	}}
 
@@ -513,7 +506,6 @@ type AccountUpdates struct {
 	TwitterUrl   pgtype.Text
 	School       pgtype.Text
 	WebsiteUrl   pgtype.Text
-	PublicEmail  pgtype.Text
 	changes      bool
 }
 
@@ -558,7 +550,6 @@ func buildUpdateParams(req AccountAttributesInput, current AccountAttributes) Up
 	result.Params.TwitterUrl = setField(req.TwitterUrl, current.TwitterUrl)
 	result.Params.School = setField(req.School, current.School)
 	result.Params.WebsiteUrl = setField(req.WebsiteUrl, current.WebsiteUrl)
-	result.Params.PublicEmail = setField(req.PublicEmail, current.PublicEmail)
 
 	return result
 }
@@ -570,41 +561,31 @@ func validateAccountAttributes(attrs AccountAttributesInput) error {
 		if !isValidEmail(attrs.ContactEmail) {
 			return fmt.Errorf("invalid email format")
 		}
-	} else if attrs.PublicEmail != "" {
-		if !isValidEmail(attrs.PublicEmail) {
-			return fmt.Errorf("invalid email format")
-		}
 	}
 
-	// URL validation
-	urls := map[string]string{
-		"GitHub":    attrs.GithubUrl,
-		"LinkedIn":  attrs.LinkedinUrl,
-		"Facebook":  attrs.FacebookUrl,
-		"Instagram": attrs.InstagramUrl,
-		"Twitter":   attrs.TwitterUrl,
-		"Website":   attrs.WebsiteUrl,
+	if len(attrs.Location) > 2 {
+		return fmt.Errorf("location field too long")
 	}
 
-	for platform, url := range urls {
-		if url != "" && !isValidURL(url) {
-			return fmt.Errorf("invalid %s URL format", platform)
+	// Validate all fields that have a length limit
+	for _, field := range []string{attrs.Bio, attrs.ContactEmail, attrs.RealName, attrs.GithubUrl, attrs.LinkedinUrl, attrs.TwitterUrl,
+		attrs.FacebookUrl, attrs.InstagramUrl, attrs.School, attrs.WebsiteUrl} {
+		if !isStringValid(field) {
+			return fmt.Errorf("%s field too long", field)
 		}
 	}
 
 	return nil
 }
 
+func isStringValid(str string) bool {
+	return len(str) <= 50
+}
+
 // Helper functions for validation
 func isValidEmail(email string) bool {
 	// Basic email validation
 	_, err := mail.ParseAddress(email)
-	return err == nil
-}
-
-func isValidURL(url string) bool {
-	// Basic URL validation
-	_, err := neturl.ParseRequestURI(url)
 	return err == nil
 }
 
@@ -670,7 +651,6 @@ func (h *Handler) GetAccountByUsername(w http.ResponseWriter, r *http.Request) {
 				TwitterUrl:   accountAttributes.TwitterUrl.String,
 				School:       accountAttributes.School.String,
 				WebsiteUrl:   accountAttributes.WebsiteUrl.String,
-				PublicEmail:  accountAttributes.PublicEmail.String,
 			},
 		}}
 		w.Header().Set("Content-Type", "application/json")
