@@ -340,37 +340,64 @@ func (h *Handler) GetAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	account, err := h.PostgresQueries.GetAccountAttributesWithAccount(r.Context(), accountId)
+	attributes := r.URL.Query().Get("attributes")
+	if attributes == "" {
+		attributes = "false"
+	}
+
+	if attributes == "true" {
+		account, err := h.PostgresQueries.GetAccountAttributesWithAccount(r.Context(), accountId)
+		if err != nil {
+			log.Println("Error getting account: ", err)
+			apierror.SendError(w, http.StatusInternalServerError, "Error getting account")
+			return
+		}
+
+		response := AccountAttributesResponse{Data: AccountAttributesWithAccount{
+			ID:        account.ID,
+			Username:  account.Username,
+			Email:     account.Email,
+			AvatarUrl: account.AvatarUrl.String,
+			Level:     int(account.Level.Int32),
+			CreatedAt: account.CreatedAt.Time.Format(time.RFC3339),
+			Attributes: AccountAttributes{
+				Bio:          account.Bio.String,
+				ContactEmail: account.ContactEmail.String,
+				Location:     account.Location.String,
+				RealName:     account.RealName.String,
+				GithubUrl:    account.GithubUrl.String,
+				LinkedinUrl:  account.LinkedinUrl.String,
+				FacebookUrl:  account.FacebookUrl.String,
+				InstagramUrl: account.InstagramUrl.String,
+				TwitterUrl:   account.TwitterUrl.String,
+				School:       account.School.String,
+				WebsiteUrl:   account.WebsiteUrl.String,
+				PublicEmail:  account.PublicEmail.String,
+			},
+		}}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(response)
+	}
+
+	account, err := h.PostgresQueries.GetAccount(r.Context(), accountId)
 	if err != nil {
-		log.Println("Error getting account: ", err)
 		apierror.SendError(w, http.StatusInternalServerError, "Error getting account")
 		return
 	}
 
-	response := AccountAttributesResponse{Data: AccountAttributesWithAccount{
+	response := AccountResponse{Data: Account{
 		ID:        account.ID,
-		Username:  account.Username,
-		Email:     account.Email,
 		AvatarUrl: account.AvatarUrl.String,
-		Level:     int(account.Level.Int32),
 		CreatedAt: account.CreatedAt.Time.Format(time.RFC3339),
-		Attributes: AccountAttributes{
-			Bio:          account.Bio.String,
-			ContactEmail: account.ContactEmail.String,
-			Location:     account.Location.String,
-			RealName:     account.RealName.String,
-			GithubUrl:    account.GithubUrl.String,
-			LinkedinUrl:  account.LinkedinUrl.String,
-			FacebookUrl:  account.FacebookUrl.String,
-			InstagramUrl: account.InstagramUrl.String,
-			TwitterUrl:   account.TwitterUrl.String,
-			School:       account.School.String,
-			WebsiteUrl:   account.WebsiteUrl.String,
-			PublicEmail:  account.PublicEmail.String,
-		},
+		Email:     account.Email,
+		Level:     int(account.Level.Int32),
+		Username:  account.Username,
 	}}
 
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
 }
 
