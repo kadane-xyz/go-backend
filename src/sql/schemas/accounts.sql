@@ -10,7 +10,7 @@ CREATE TABLE account_attribute (
     instagram_url TEXT DEFAULT '',
     twitter_url TEXT DEFAULT '',
     school TEXT DEFAULT '',
-    website_url TEXT DEFAULT '',
+    website_url TEXT DEFAULT ''
 );
 
 CREATE TABLE account (
