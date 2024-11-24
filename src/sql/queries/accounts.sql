@@ -29,7 +29,7 @@ SELECT * FROM account WHERE username = $1;
 -- POST --
 
 -- name: CreateAccount :exec
-INSERT INTO account (id, username, email, created_at) VALUES ($1, $2, $3, $4);
+INSERT INTO account (id, username, email) VALUES ($1, $2, $3);
 
 -- name: CreateAccountAttributes :one
 INSERT INTO account_attribute (id, bio, contact_email, location, real_name, github_url, linkedin_url, facebook_url, instagram_url, twitter_url, school, public_email, website_url)
