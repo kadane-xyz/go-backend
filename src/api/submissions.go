@@ -26,6 +26,10 @@ type SubmissionResultResponse struct {
 	Data *judge0.SubmissionResult `json:"data"`
 }
 
+type SubmissionsResponse struct {
+	Data []judge0.SubmissionResult `json:"data"`
+}
+
 func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
 	/*userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
@@ -49,14 +53,14 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 		Stdin:      submissionRequest.Stdin,
 	}
 
-	submissionResponse, err := h.Judge0Client.CreateSubmission(submission)
+	submissionResponse, err := h.Judge0Client.CreateSubmissionAndWait(submission)
 	if err != nil {
 		log.Println(err)
 		apierror.SendError(w, http.StatusInternalServerError, "Failed to create submission")
 		return
 	}
 
-	var response SubmissionResponse
+	var response SubmissionResultResponse
 	response.Data = submissionResponse
 
 	w.Header().Set("Content-Type", "application/json")
