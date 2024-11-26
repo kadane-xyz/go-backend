@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"time"
 
 	"kadane.xyz/go-backend/v2/src/config"
 )
@@ -44,6 +45,19 @@ type SubmissionResult struct {
 	} `json:"status"`
 }
 
+type PaginationMeta struct {
+	CurrentPage int `json:"current_page"`
+	NextPage    int `json:"next_page"`
+	PrevPage    int `json:"prev_page"`
+	TotalPages  int `json:"total_pages"`
+	TotalCount  int `json:"total_count"`
+}
+
+type SubmissionsResponse struct {
+	Submissions []SubmissionResult `json:"submissions"`
+	Meta        PaginationMeta     `json:"meta"`
+}
+
 var languageIDMap = map[string]int{
 	"cpp":        54,
 	"go":         60,
@@ -65,8 +79,54 @@ func NewJudge0Client(cfg *config.Config) *Judge0Client {
 	}
 }
 
+const (
+	initialRetryDelay = 50 * time.Millisecond
+	maxRetryDelay     = 500 * time.Millisecond
+	maxWaitTime       = 30 * time.Second
+)
+
+func (c *Judge0Client) CreateSubmissionAndWait(submission Submission) (*SubmissionResult, error) {
+	// First create the submission without waiting
+	resp, err := c.CreateSubmission(submission)
+	if err != nil {
+		return nil, err
+	}
+
+	// Quick first check after submission
+	result, err := c.GetSubmission(resp.Token)
+	if err == nil && result.Status.ID >= 3 {
+		return result, nil
+	}
+
+	// Then poll with exponential backoff
+	startTime := time.Now()
+	currentDelay := initialRetryDelay
+
+	for {
+		if time.Since(startTime) > maxWaitTime {
+			return nil, fmt.Errorf("submission timed out after %v", maxWaitTime)
+		}
+
+		time.Sleep(currentDelay)
+		result, err := c.GetSubmission(resp.Token)
+		if err != nil {
+			return nil, err
+		}
+
+		if result.Status.ID >= 3 {
+			return result, nil
+		}
+
+		// Smaller multiplication factor for gentler backoff
+		currentDelay = time.Duration(float64(currentDelay) * 1.5)
+		if currentDelay > maxRetryDelay {
+			currentDelay = maxRetryDelay
+		}
+	}
+}
+
 func (c *Judge0Client) CreateSubmission(submission Submission) (*SubmissionResponse, error) {
-	url := fmt.Sprintf("%s/submissions?base64_encoded=true&wait=%v", c.BaseURL, submission.Wait)
+	url := fmt.Sprintf("%s/submissions?base64_encoded=true", c.BaseURL)
 
 	jsonData, err := json.Marshal(submission)
 	if err != nil {
@@ -139,6 +199,37 @@ func (c *Judge0Client) GetSubmission(token string) (*SubmissionResult, error) {
 	}
 
 	return &result, nil
+}
+
+func (c *Judge0Client) GetSubmissions() (*SubmissionsResponse, error) {
+	url := fmt.Sprintf("%s/submissions/?base64_encoded=false&fields=*", c.BaseURL)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("X-Auth-Token", c.Token)
+
+	resp, err := c.Client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Println(body)
+
+	var response SubmissionsResponse
+	err = json.Unmarshal(body, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	return &response, nil
 }
 
 func (c *Judge0Client) GetLanguages() ([]map[string]interface{}, error) {

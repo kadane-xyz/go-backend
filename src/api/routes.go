@@ -53,7 +53,9 @@ func RegisterApiRoutes(h *Handler, r chi.Router) {
 		})
 		//submissions
 		r.Route("/submissions", func(r chi.Router) {
-			r.Get("/{token}", h.GetSubmission)
+			r.Route("/{token}", func(r chi.Router) {
+				r.Get("/", h.GetSubmission)
+			})
 			r.Post("/", h.CreateSubmission)
 		})
 	})
