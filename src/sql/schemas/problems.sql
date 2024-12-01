@@ -4,7 +4,6 @@ CREATE TABLE problem (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     title TEXT NOT NULL,
     description TEXT,
-    prompt TEXT NOT NULL,
     points INT NOT NULL DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     tags TEXT[],
