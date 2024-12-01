@@ -22,8 +22,8 @@ SELECT * FROM problem_hint WHERE problem_id = $1;
 -- name: GetProblemByTitle :one
 SELECT * FROM problem WHERE title = $1;
 
--- name: GetProblemSolutionExpectedOutputHash :one
-SELECT expected_output_hash FROM problem_solution WHERE problem_id = $1;
+-- name: GetProblemSolution :one
+SELECT expected_output FROM problem_solution WHERE problem_id = $1;
 
--- name: CreateProblemSolution :exec
-INSERT INTO problem_solution (problem_id, expected_output, expected_output_hash) VALUES ($1, $2, $3);
+-- name: CreateProblemSolution :one
+INSERT INTO problem_solution (problem_id, expected_output) VALUES ($1, $2) RETURNING *;
