@@ -38,7 +38,6 @@ type ProblemRequestCode struct {
 type ProblemRequest struct {
 	Title       string               `json:"title"`
 	Description string               `json:"description"`
-	Prompt      string               `json:"prompt"`
 	Tags        []string             `json:"tags"`
 	Code        []ProblemRequestCode `json:"code"`
 	Hints       []ProblemRequestHint `json:"hints"`
@@ -50,7 +49,6 @@ type Problem struct {
 	ID          pgtype.UUID   `json:"id"`
 	Title       string        `json:"title"`
 	Description string        `json:"description"`
-	Prompt      string        `json:"prompt"`
 	Tags        []string      `json:"tags"`
 	Code        []ProblemCode `json:"code"`
 	Hints       []ProblemHint `json:"hints"`
@@ -82,7 +80,6 @@ func (h *Handler) GetProblems(w http.ResponseWriter, r *http.Request) {
 			ID:          problem.ID,
 			Title:       problem.Title,
 			Description: problem.Description.String,
-			Prompt:      problem.Prompt,
 			Tags:        problem.Tags,
 			Points:      int(problem.Points),
 		}
@@ -159,11 +156,6 @@ func (h *Handler) CreateProblem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if request.Prompt == "" {
-		apierror.SendError(w, http.StatusBadRequest, "Prompt is required")
-		return
-	}
-
 	if len(request.Tags) == 0 {
 		apierror.SendError(w, http.StatusBadRequest, "At least one tag is required")
 		return
@@ -178,7 +170,6 @@ func (h *Handler) CreateProblem(w http.ResponseWriter, r *http.Request) {
 	problemID, err := h.PostgresQueries.CreateProblem(context.Background(), sql.CreateProblemParams{
 		Title:       request.Title,
 		Description: pgtype.Text{String: request.Description, Valid: true},
-		Prompt:      request.Prompt,
 		Points:      int32(request.Points),
 		Tags:        request.Tags,
 	})
@@ -311,7 +302,6 @@ func (h *Handler) GetProblem(w http.ResponseWriter, r *http.Request) {
 		ID:          problem.ID,
 		Title:       problem.Title,
 		Description: problem.Description.String,
-		Prompt:      problem.Prompt,
 		Tags:        problem.Tags,
 		Points:      int(problem.Points),
 		Code:        problemCodes,
