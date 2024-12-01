@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -242,11 +241,9 @@ func (h *Handler) CreateProblem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hashedSolution := sha256.Sum256(solutionBytes)
-	err = h.PostgresQueries.CreateProblemSolution(context.Background(), sql.CreateProblemSolutionParams{
-		ProblemID:          problemID,
-		ExpectedOutputHash: hashedSolution[:],
-		ExpectedOutput:     solutionBytes,
+	_, err = h.PostgresQueries.CreateProblemSolution(context.Background(), sql.CreateProblemSolutionParams{
+		ProblemID:      problemID,
+		ExpectedOutput: solutionBytes,
 	})
 	if err != nil {
 		log.Println(err)

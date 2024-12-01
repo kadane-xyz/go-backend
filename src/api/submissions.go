@@ -1,42 +1,74 @@
 package api
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 	"kadane.xyz/go-backend/v2/src/apierror"
 	"kadane.xyz/go-backend/v2/src/judge0"
+	"kadane.xyz/go-backend/v2/src/middleware"
+	"kadane.xyz/go-backend/v2/src/sql/sql"
 )
 
 type Submission struct {
 	Language   string `json:"language"`
 	SourceCode string `json:"sourceCode"`
 	Stdin      string `json:"stdin"`
-	ProblemID  int    `json:"problemId"`
-	Wait       bool   `json:"wait"`
+	ProblemID  string `json:"problemId"`
+	//Wait       bool   `json:"wait"`
 }
 
 type SubmissionResponse struct {
 	Data *judge0.SubmissionResponse `json:"data"`
 }
 
+type SubmissionResult struct {
+	Token         string         `json:"token"`
+	Stdout        string         `json:"stdout"`
+	Time          string         `json:"time"`
+	Memory        int            `json:"memory"`
+	Stderr        string         `json:"stderr"`
+	CompileOutput string         `json:"compileOutput"`
+	Message       string         `json:"message"`
+	Status        StatusResponse `json:"status"`
+	Language      LanguageInfo   `json:"language"`
+	// Our custom fields
+	AccountID string    `json:"accountId"`
+	ProblemID string    `json:"problemId"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
 type SubmissionResultResponse struct {
-	Data *judge0.SubmissionResult `json:"data"`
+	Data *SubmissionResult `json:"data"`
 }
 
 type SubmissionsResponse struct {
 	Data []judge0.SubmissionResult `json:"data"`
 }
 
+type StatusResponse struct {
+	ID          int    `json:"id"`
+	Description string `json:"description"`
+}
+
+type LanguageInfo struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+}
+
 func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
-	/*userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
 	if userId == "" {
 		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for comment creation")
 		return
-	}*/
+	}
 
 	var submissionRequest Submission
 	err := json.NewDecoder(r.Body).Decode(&submissionRequest)
@@ -45,12 +77,33 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	problemId := submissionRequest.ProblemID
+	if problemId == "" {
+		apierror.SendError(w, http.StatusBadRequest, "Missing problem ID")
+		return
+	}
+
+	idUUID, err := uuid.Parse(problemId)
+	if err != nil {
+		apierror.SendError(w, http.StatusBadRequest, "Invalid problem ID")
+		return
+	}
+
 	languageID := judge0.LanguageToLanguageID(submissionRequest.Language)
 
+	// get expected output
+	expectedOutput, err := h.PostgresQueries.GetProblemSolution(r.Context(), pgtype.UUID{Bytes: idUUID, Valid: true})
+	if err != nil {
+		log.Println(err)
+		apierror.SendError(w, http.StatusInternalServerError, "Failed to get problem solution")
+		return
+	}
+
 	submission := judge0.Submission{
-		LanguageID: languageID,
-		SourceCode: submissionRequest.SourceCode,
-		Stdin:      submissionRequest.Stdin,
+		LanguageID:     languageID,
+		SourceCode:     submissionRequest.SourceCode,
+		Stdin:          submissionRequest.Stdin,
+		ExpectedOutput: base64.StdEncoding.EncodeToString(expectedOutput),
 	}
 
 	submissionResponse, err := h.Judge0Client.CreateSubmissionAndWait(submission)
@@ -60,8 +113,72 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var response SubmissionResultResponse
-	response.Data = submissionResponse
+	submissionSql := sql.CreateSubmissionParams{
+		Token: submissionResponse.Token,
+		Stdout: pgtype.Text{
+			String: submissionResponse.Stdout,
+			Valid:  submissionResponse.Stdout != "",
+		},
+		Time: pgtype.Text{
+			String: submissionResponse.Time,
+			Valid:  submissionResponse.Time != "",
+		},
+		MemoryUsed: pgtype.Int4{
+			Int32: int32(submissionResponse.Memory),
+			Valid: true,
+		},
+		Stderr: pgtype.Text{
+			String: submissionResponse.Stderr,
+			Valid:  submissionResponse.Stderr != "",
+		},
+		CompileOutput: pgtype.Text{
+			String: submissionResponse.CompileOutput,
+			Valid:  submissionResponse.CompileOutput != "",
+		},
+		Message: pgtype.Text{
+			String: submissionResponse.Message,
+			Valid:  submissionResponse.Message != "",
+		},
+		Status:            sql.SubmissionStatus(submissionResponse.Status.Description),
+		StatusID:          int32(submissionResponse.Status.ID),
+		StatusDescription: submissionResponse.Status.Description,
+		LanguageID:        int32(languageID),
+		LanguageName:      submissionRequest.Language,
+		AccountID:         userId,
+		ProblemID:         pgtype.UUID{Bytes: idUUID, Valid: true},
+	}
+
+	// create submission in db
+	result, err := h.PostgresQueries.CreateSubmission(r.Context(), submissionSql)
+	if err != nil {
+		log.Println(err)
+		apierror.SendError(w, http.StatusInternalServerError, "Failed to create submission")
+		return
+	}
+
+	response := SubmissionResultResponse{
+		Data: &SubmissionResult{
+			Token:         result.Token,
+			Stdout:        result.Stdout.String,
+			Time:          result.Time.String,
+			Memory:        int(result.MemoryUsed.Int32),
+			Stderr:        result.Stderr.String,
+			CompileOutput: result.CompileOutput.String,
+			Message:       result.Message.String,
+			Status: StatusResponse{
+				ID:          int(result.StatusID),
+				Description: result.StatusDescription,
+			},
+			Language: LanguageInfo{
+				ID:   int(result.LanguageID),
+				Name: result.LanguageName,
+			},
+			// Our custom fields
+			AccountID: userId,
+			ProblemID: problemId,
+			CreatedAt: result.CreatedAt.Time,
+		},
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
@@ -69,11 +186,11 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) GetSubmission(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
-	/*userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
 	if userId == "" {
 		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for comment creation")
 		return
-	}*/
+	}
 
 	token := chi.URLParam(r, "token")
 	if token == "" {
@@ -81,45 +198,38 @@ func (h *Handler) GetSubmission(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	/*problemId, err := strconv.Atoi(r.URL.Query().Get("problemId"))
-	if err != nil {
-		apierror.SendError(w, http.StatusBadRequest, "Invalid problem ID")
-		return
-	}*/
-
-	result, err := h.Judge0Client.GetSubmission(token)
+	result, err := h.PostgresQueries.GetSubmissionByToken(r.Context(), token)
 	if err != nil {
 		log.Println(err)
 		apierror.SendError(w, http.StatusInternalServerError, "Failed to get submission")
 		return
 	}
 
-	/*hash := sha256.Sum256([]byte(result.Stdout))
+	problemId := uuid.UUID(result.ProblemID.Bytes).String()
 
-	expectedOutputHash, err := h.PostgresQueries.GetProblemSolutionExpectedOutputHash(r.Context(), pgtype.Int8{Int64: int64(problemId), Valid: true})
-	if err != nil {
-		log.Println(err)
-		apierror.SendError(w, http.StatusInternalServerError, "Failed to get problem solution expected output hash")
-		return
+	response := SubmissionResultResponse{
+		Data: &SubmissionResult{
+			Token:         result.Token,
+			Stdout:        result.Stdout.String,
+			Time:          result.Time.String,
+			Memory:        int(result.MemoryUsed.Int32),
+			Stderr:        result.Stderr.String,
+			CompileOutput: result.CompileOutput.String,
+			Message:       result.Message.String,
+			Status: StatusResponse{
+				ID:          int(result.StatusID),
+				Description: result.StatusDescription,
+			},
+			Language: LanguageInfo{
+				ID:   int(result.LanguageID),
+				Name: result.LanguageName,
+			},
+			// Our custom fields
+			AccountID: userId,
+			ProblemID: problemId,
+			CreatedAt: result.CreatedAt.Time,
+		},
 	}
-
-	var response string
-	if bytes.Equal(hash[:], expectedOutputHash) {
-		response = "correct answer"
-	} else {
-		response = "wrong answer"
-	}
-
-	log.Printf("Response: %s", response)
-
-	w.Header().Set("Content-Type", "application/json")
-	if response == "correct answer" {
-		json.NewEncoder(w).Encode(SubmissionResultResponse{Data: response})
-	} else {
-		apierror.SendError(w, http.StatusBadRequest, "Wrong answer")
-	}*/
-
-	response := SubmissionResultResponse{Data: result}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)

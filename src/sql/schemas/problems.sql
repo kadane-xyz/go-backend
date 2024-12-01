@@ -33,7 +33,6 @@ CREATE TABLE problem_solution (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     problem_id UUID REFERENCES problem(id) ON DELETE CASCADE,
     expected_output BYTEA NOT NULL,
-    expected_output_hash BYTEA NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (problem_id, id)
 );
