@@ -27,3 +27,9 @@ SELECT expected_output FROM problem_solution WHERE problem_id = $1;
 
 -- name: CreateProblemSolution :one
 INSERT INTO problem_solution (problem_id, expected_output) VALUES ($1, $2) RETURNING *;
+
+-- name: CreateProblemTestCase :one
+INSERT INTO problem_test_case (problem_id, description, input, expected_output) VALUES ($1, $2, $3, $4) RETURNING *;
+
+-- name: GetProblemTestCases :many
+SELECT * FROM problem_test_case WHERE problem_id = $1;
