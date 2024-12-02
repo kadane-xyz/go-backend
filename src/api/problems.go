@@ -149,11 +149,6 @@ func (h *Handler) CreateProblem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(request.Hints) == 0 {
-		apierror.SendError(w, http.StatusBadRequest, "At least one hint is required")
-		return
-	}
-
 	if len(request.Code) == 0 {
 		apierror.SendError(w, http.StatusBadRequest, "At least one code is required")
 		return
