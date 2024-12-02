@@ -25,6 +25,12 @@ type ProblemCode struct {
 	Code     []byte `json:"code"`
 }
 
+type ProblemTestCase struct {
+	Description    string `json:"description"`
+	Input          string `json:"input"`
+	ExpectedOutput string `json:"expectedOutput"`
+}
+
 type ProblemRequestHint struct {
 	Description string `json:"description"`
 	Answer      string `json:"answer"`
@@ -43,17 +49,19 @@ type ProblemRequest struct {
 	Hints       []ProblemRequestHint `json:"hints"`
 	Points      int                  `json:"points"`
 	Solution    string               `json:"solution"`
+	TestCases   []ProblemTestCase    `json:"testCases"`
 }
 
 type Problem struct {
-	ID          pgtype.UUID   `json:"id"`
-	Title       string        `json:"title"`
-	Description string        `json:"description"`
-	Tags        []string      `json:"tags"`
-	Code        []ProblemCode `json:"code"`
-	Hints       []ProblemHint `json:"hints"`
-	Points      int           `json:"points"`
-	Solution    string        `json:"solution,omitempty"`
+	ID          pgtype.UUID       `json:"id"`
+	Title       string            `json:"title"`
+	Description string            `json:"description"`
+	Tags        []string          `json:"tags"`
+	Code        []ProblemCode     `json:"code"`
+	Hints       []ProblemHint     `json:"hints"`
+	Points      int               `json:"points"`
+	Solution    string            `json:"solution,omitempty"`
+	TestCases   []ProblemTestCase `json:"testCases"`
 }
 
 type ProblemResponse struct {
@@ -242,6 +250,21 @@ func (h *Handler) CreateProblem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 5. Create test cases using the problem ID
+	for _, testCase := range request.TestCases {
+		_, err = h.PostgresQueries.CreateProblemTestCase(context.Background(), sql.CreateProblemTestCaseParams{
+			ProblemID:      problemID,
+			Description:    testCase.Description,
+			Input:          testCase.Input,
+			ExpectedOutput: testCase.ExpectedOutput,
+		})
+		if err != nil {
+			log.Println(err)
+			apierror.SendError(w, http.StatusInternalServerError, "Failed to create test case")
+			return
+		}
+	}
+
 	w.WriteHeader(http.StatusCreated)
 }
 
@@ -298,6 +321,22 @@ func (h *Handler) GetProblem(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Get test cases
+	testCases, err := h.PostgresQueries.GetProblemTestCases(context.Background(), problem.ID)
+	if err != nil {
+		log.Println(err)
+		apierror.SendError(w, http.StatusInternalServerError, "Failed to get problem test cases")
+		return
+	}
+	problemTestCases := make([]ProblemTestCase, len(testCases))
+	for i, testCase := range testCases {
+		problemTestCases[i] = ProblemTestCase{
+			Description:    testCase.Description,
+			Input:          testCase.Input,
+			ExpectedOutput: testCase.ExpectedOutput,
+		}
+	}
+
 	problemResponse := Problem{
 		ID:          problem.ID,
 		Title:       problem.Title,
@@ -306,6 +345,7 @@ func (h *Handler) GetProblem(w http.ResponseWriter, r *http.Request) {
 		Points:      int(problem.Points),
 		Code:        problemCodes,
 		Hints:       problemHints,
+		TestCases:   problemTestCases,
 	}
 
 	response := ProblemResponse{

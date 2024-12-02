@@ -28,6 +28,16 @@ CREATE TABLE problem_hint (
     UNIQUE (problem_id, id)
 );
 
+CREATE TABLE problem_test_case (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    problem_id UUID REFERENCES problem(id) ON DELETE CASCADE,
+    description TEXT NOT NULL,
+    input TEXT NOT NULL,
+    expected_output TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (problem_id, id)
+);
+
 CREATE TABLE problem_solution (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     problem_id UUID REFERENCES problem(id) ON DELETE CASCADE,
