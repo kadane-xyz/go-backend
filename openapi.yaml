@@ -705,6 +705,80 @@ paths:
         '500':
           description: Error getting account
 
+  /problems:
+    get:
+      tags:
+        - Problems
+      summary: Get all problems
+      description: Retrieve a list of all problems
+      operationId: getProblems
+      responses:
+        '200':
+          description: List of problems retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Problem'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - Problems
+      summary: Create a new problem
+      description: Create a new coding problem with test cases, hints, and solution
+      operationId: createProblem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProblemRequest'
+      responses:
+        '201':
+          description: Problem created successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /problems/{id}:
+    get:
+      tags:
+        - Problems
+      summary: Get problem by ID
+      description: Retrieve a specific problem by its UUID
+      operationId: getProblem
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Problem UUID
+      responses:
+        '200':
+          description: Problem retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Problem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
 components:
   securitySchemes: 
     Authorization:
@@ -925,6 +999,125 @@ components:
           format: uuid
           description: The token of the created submission.
           example: "token: caccd998-4e5c-48ee-bce1-30b77b15bc6d"
+    ProblemRequest:
+      type: object
+      required:
+        - title
+        - description
+        - tags
+        - code
+        - points
+        - solution
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        code:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProblemRequestCode'
+        hints:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProblemRequestHint'
+        points:
+          type: integer
+          minimum: 0
+        solution:
+          type: string
+          format: base64
+        testCases:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProblemTestCase'
+
+    ProblemRequestCode:
+      type: object
+      required:
+        - language
+        - code
+      properties:
+        language:
+          type: string
+        code:
+          type: string
+          format: base64
+
+    ProblemRequestHint:
+      type: object
+      required:
+        - description
+        - answer
+      properties:
+        description:
+          type: string
+          format: base64
+        answer:
+          type: string
+          format: base64
+
+    Problem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        code:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProblemCode'
+        hints:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProblemHint'
+        points:
+          type: integer
+        testCases:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProblemTestCase'
+
+    ProblemCode:
+      type: object
+      properties:
+        language:
+          type: string
+        code:
+          type: string
+          format: byte
+
+    ProblemHint:
+      type: object
+      properties:
+        description:
+          type: string
+          format: byte
+        answer:
+          type: string
+          format: byte
+
+    ProblemTestCase:
+      type: object
+      properties:
+        description:
+          type: string
+        input:
+          type: string
+        expectedOutput:
+          type: string
   responses:
     BadRequest:
       description: Bad request
