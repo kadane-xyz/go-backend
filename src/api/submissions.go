@@ -234,3 +234,68 @@ func (h *Handler) GetSubmission(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
+
+func (h *Handler) GetSubmissionsByUsername(w http.ResponseWriter, r *http.Request) {
+	username := chi.URLParam(r, "username")
+	if username == "" {
+		apierror.SendError(w, http.StatusBadRequest, "Missing username")
+		return
+	}
+
+	var problemUUID pgtype.UUID
+	problemId := r.URL.Query().Get("problemId")
+	if problemId != "" {
+		idUUID, err := uuid.Parse(problemId)
+		if err != nil {
+			apierror.SendError(w, http.StatusBadRequest, "Invalid problem ID")
+			return
+		}
+		problemUUID = pgtype.UUID{Bytes: idUUID, Valid: true}
+	}
+
+	accountId, err := h.PostgresQueries.GetAccountIDByUsername(r.Context(), username)
+	if err != nil {
+		apierror.SendError(w, http.StatusInternalServerError, "Failed to get account ID")
+		return
+	}
+
+	submissions, err := h.PostgresQueries.GetSubmissionsByUsername(r.Context(), sql.GetSubmissionsByUsernameParams{
+		AccountID: accountId,
+		Column2:   problemUUID,
+	})
+	if err != nil {
+		log.Println(err)
+		apierror.SendError(w, http.StatusInternalServerError, "Failed to get submissions")
+		return
+	}
+
+	var response []SubmissionResultResponse
+	for _, submission := range submissions {
+		problemId := uuid.UUID(submission.ProblemID.Bytes).String()
+		response = append(response, SubmissionResultResponse{
+			Data: &SubmissionResult{
+				Token:         submission.Token,
+				Stdout:        submission.Stdout.String,
+				Time:          submission.Time.String,
+				Memory:        int(submission.MemoryUsed.Int32),
+				Stderr:        submission.Stderr.String,
+				CompileOutput: submission.CompileOutput.String,
+				Message:       submission.Message.String,
+				Status: StatusResponse{
+					ID:          int(submission.StatusID),
+					Description: submission.StatusDescription,
+				},
+				Language: LanguageInfo{
+					ID:   int(submission.LanguageID),
+					Name: submission.LanguageName,
+				},
+				AccountID: submission.AccountID,
+				ProblemID: problemId,
+				CreatedAt: submission.CreatedAt.Time,
+			},
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}

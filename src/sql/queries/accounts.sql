@@ -6,6 +6,9 @@ SELECT * FROM account WHERE id = $1;
 -- name: GetAccounts :many
 SELECT * FROM account;
 
+-- name: GetAccountIDByUsername :one
+SELECT id from account WHERE username = $1;
+
 -- name: GetAccountUsername :one
 SELECT username from account WHERE id = $1;
 
