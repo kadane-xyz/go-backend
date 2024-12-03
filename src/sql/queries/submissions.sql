@@ -6,3 +6,8 @@ SELECT * FROM submission WHERE token = $1;
 
 -- name: GetSubmissionsByProblemID :many
 SELECT * FROM submission WHERE problem_id = $1;
+
+-- name: GetSubmissionsByUsername :many
+SELECT * FROM submission 
+WHERE account_id = $1 
+  AND ($2::uuid IS NULL OR problem_id = $2::uuid);
