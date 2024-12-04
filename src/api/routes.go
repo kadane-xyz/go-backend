@@ -64,7 +64,18 @@ func RegisterApiRoutes(h *Handler, r chi.Router) {
 			r.Route("/{token}", func(r chi.Router) {
 				r.Get("/", h.GetSubmission)
 			})
+			r.Route("/username/{username}", func(r chi.Router) {
+				r.Get("/", h.GetSubmissionsByUsername)
+			})
 			r.Post("/", h.CreateSubmission)
+		})
+		//rooms
+		r.Route("/rooms", func(r chi.Router) {
+			r.Get("/", h.GetRooms)
+			r.Post("/", h.CreateRoom)
+			r.Route("/{id}", func(r chi.Router) {
+				r.Get("/", h.GetRoom)
+			})
 		})
 	})
 	//generate a route to catch anything not defined and error/block spam
