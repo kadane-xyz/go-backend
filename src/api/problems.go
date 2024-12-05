@@ -159,11 +159,6 @@ func (h *Handler) CreateProblem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(request.Tags) == 0 {
-		apierror.SendError(w, http.StatusBadRequest, "At least one tag is required")
-		return
-	}
-
 	if len(request.Solution) == 0 {
 		apierror.SendError(w, http.StatusBadRequest, "Solution is required")
 		return
