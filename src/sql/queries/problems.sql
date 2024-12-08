@@ -1,5 +1,5 @@
 -- name: CreateProblem :one
-INSERT INTO problem (title, description, points, tags) VALUES ($1, $2, $3, $4) RETURNING id;
+INSERT INTO problem (title, description, points, tags, difficulty) VALUES ($1, $2, $3, $4, $5) RETURNING id;
 
 -- name: CreateProblemCode :exec
 INSERT INTO problem_code (problem_id, language, code) VALUES ($1, $2, $3);
@@ -21,6 +21,9 @@ SELECT * FROM problem_hint WHERE problem_id = $1;
 
 -- name: GetProblemByTitle :one
 SELECT * FROM problem WHERE title = $1;
+
+-- name: GetProblemByDifficulty :many
+SELECT * FROM problem WHERE difficulty = $1 ORDER BY RANDOM()LIMIT $2;
 
 -- name: GetProblemSolution :one
 SELECT expected_output FROM problem_solution WHERE problem_id = $1;
