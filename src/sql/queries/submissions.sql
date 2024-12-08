@@ -8,6 +8,35 @@ SELECT * FROM submission WHERE token = $1;
 SELECT * FROM submission WHERE problem_id = $1;
 
 -- name: GetSubmissionsByUsername :many
-SELECT * FROM submission 
-WHERE account_id = $1 
-  AND ($2::uuid IS NULL OR problem_id = $2::uuid);
+WITH user_submissions AS (
+    SELECT 
+        s.token,
+        s.stdout,
+        s.time,
+        s.memory_used,
+        s.stderr,
+        s.compile_output,
+        s.message,
+        s.status_id,
+        s.status_description,
+        s.language_id,
+        s.language_name,
+        s.account_id,
+        s.submitted_code,
+        s.submitted_stdin,
+        s.problem_id,
+        s.created_at,
+        p.title as problem_title,
+        p.description as problem_description,
+        p.difficulty as problem_difficulty,
+        p.points as problem_points,
+        a.username
+    FROM submission s
+    JOIN account a ON s.account_id = a.id
+    JOIN problem p ON s.problem_id = p.id
+    WHERE 
+        a.username = @username
+        AND (@problem_id::uuid IS NULL OR s.problem_id = @problem_id)
+    ORDER BY s.created_at DESC
+)
+SELECT * FROM user_submissions;

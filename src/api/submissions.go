@@ -261,15 +261,9 @@ func (h *Handler) GetSubmissionsByUsername(w http.ResponseWriter, r *http.Reques
 		problemUUID = pgtype.UUID{Bytes: idUUID, Valid: true}
 	}
 
-	accountId, err := h.PostgresQueries.GetAccountIDByUsername(r.Context(), username)
-	if err != nil {
-		apierror.SendError(w, http.StatusInternalServerError, "Failed to get account ID")
-		return
-	}
-
 	submissions, err := h.PostgresQueries.GetSubmissionsByUsername(r.Context(), sql.GetSubmissionsByUsernameParams{
-		AccountID: accountId,
-		Column2:   problemUUID,
+		Username:  username,
+		ProblemID: problemUUID,
 	})
 	if err != nil {
 		log.Println(err)
