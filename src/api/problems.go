@@ -67,71 +67,37 @@ type Problem struct {
 }
 
 type ProblemResponse struct {
-	Data Problem `json:"data"`
+	Data sql.GetProblemRow `json:"data"`
 }
 
 type ProblemsResponse struct {
-	Data []Problem `json:"data"`
+	Data []sql.GetProblemsRow `json:"data"`
 }
 
 // GET: /problems
 func (h *Handler) GetProblems(w http.ResponseWriter, r *http.Request) {
 	problems, err := h.PostgresQueries.GetProblems(r.Context())
 	if err != nil {
-		log.Println(err)
+		log.Printf("Error getting problems: %v", err)
 		apierror.SendError(w, http.StatusInternalServerError, "Failed to get problems")
 		return
 	}
 
-	problemsResponse := make([]Problem, len(problems))
-	for i, problem := range problems {
-		// First copy the basic problem data
-		problemsResponse[i] = Problem{
-			ID:          problem.ID,
-			Title:       problem.Title,
-			Description: problem.Description.String,
-			Tags:        problem.Tags,
-			Difficulty:  string(problem.Difficulty),
-			Points:      int(problem.Points),
-		}
-
-		// Get and assign codes
-		codes, err := h.PostgresQueries.GetProblemCodes(r.Context(), problem.ID)
-		if err != nil {
-			log.Println(err)
-			apierror.SendError(w, http.StatusInternalServerError, "Failed to get problem codes")
-			return
-		}
-		problemsResponse[i].Code = make([]ProblemCode, len(codes))
-		for j, code := range codes {
-			problemsResponse[i].Code[j] = ProblemCode{
-				Language: string(code.Language),
-				Code:     code.Code,
-			}
-		}
-
-		// Get and assign hints
-		hints, err := h.PostgresQueries.GetProblemHints(r.Context(), problem.ID)
-		if err != nil {
-			log.Println(err)
-			apierror.SendError(w, http.StatusInternalServerError, "Failed to get problem hints")
-			return
-		}
-		problemsResponse[i].Hints = make([]ProblemHint, len(hints))
-		for j, hint := range hints {
-			problemsResponse[i].Hints[j] = ProblemHint{
-				Description: hint.Description,
-				Answer:      hint.Answer,
-			}
-		}
-	}
-
+	// Map the SQL response to our API response
 	response := ProblemsResponse{
-		Data: problemsResponse,
+		Data: problems,
 	}
 
+	sendJSONResponse(w, http.StatusOK, response)
+}
+
+// Helper function to send JSON response
+func sendJSONResponse(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		log.Printf("Error encoding response: %v", err)
+	}
 }
 
 // POST: /problems
@@ -273,77 +239,15 @@ func (h *Handler) GetProblem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pguuid := pgtype.UUID{
-		Bytes: idUUID,
-		Valid: true,
-	}
-
-	problem, err := h.PostgresQueries.GetProblem(context.Background(), pguuid)
+	problem, err := h.PostgresQueries.GetProblem(context.Background(), pgtype.UUID{Bytes: idUUID, Valid: true})
 	if err != nil {
 		log.Println(err)
 		apierror.SendError(w, http.StatusInternalServerError, "Failed to get problem")
 		return
 	}
 
-	// Get codes
-	codes, err := h.PostgresQueries.GetProblemCodes(context.Background(), problem.ID)
-	if err != nil {
-		log.Println(err)
-		apierror.SendError(w, http.StatusInternalServerError, "Failed to get problem codes")
-		return
-	}
-	problemCodes := make([]ProblemCode, len(codes))
-	for i, code := range codes {
-		problemCodes[i] = ProblemCode{
-			Language: string(code.Language),
-			Code:     code.Code,
-		}
-	}
-
-	// Get hints
-	hints, err := h.PostgresQueries.GetProblemHints(context.Background(), problem.ID)
-	if err != nil {
-		log.Println(err)
-		apierror.SendError(w, http.StatusInternalServerError, "Failed to get problem hints")
-		return
-	}
-	problemHints := make([]ProblemHint, len(hints))
-	for i, hint := range hints {
-		problemHints[i] = ProblemHint{
-			Description: hint.Description,
-			Answer:      hint.Answer,
-		}
-	}
-
-	// Get test cases
-	testCases, err := h.PostgresQueries.GetProblemTestCases(context.Background(), problem.ID)
-	if err != nil {
-		log.Println(err)
-		apierror.SendError(w, http.StatusInternalServerError, "Failed to get problem test cases")
-		return
-	}
-	problemTestCases := make([]ProblemTestCase, len(testCases))
-	for i, testCase := range testCases {
-		problemTestCases[i] = ProblemTestCase{
-			Description:    testCase.Description,
-			Input:          testCase.Input,
-			ExpectedOutput: testCase.ExpectedOutput,
-		}
-	}
-
-	problemResponse := Problem{
-		ID:          problem.ID,
-		Title:       problem.Title,
-		Description: problem.Description.String,
-		Tags:        problem.Tags,
-		Points:      int(problem.Points),
-		Code:        problemCodes,
-		Hints:       problemHints,
-		TestCases:   problemTestCases,
-	}
-
 	response := ProblemResponse{
-		Data: problemResponse,
+		Data: problem,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
