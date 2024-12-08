@@ -39,9 +39,11 @@ type SubmissionResult struct {
 	Status        StatusResponse `json:"status"`
 	Language      LanguageInfo   `json:"language"`
 	// Our custom fields
-	AccountID string    `json:"accountId"`
-	ProblemID string    `json:"problemId"`
-	CreatedAt time.Time `json:"createdAt"`
+	AccountID      string    `json:"accountId"`
+	SubmittedCode  string    `json:"submittedCode"`
+	SubmittedStdin string    `json:"submittedStdin"`
+	ProblemID      string    `json:"problemId"`
+	CreatedAt      time.Time `json:"createdAt"`
 }
 
 type SubmissionResultResponse struct {
@@ -49,7 +51,7 @@ type SubmissionResultResponse struct {
 }
 
 type SubmissionsResponse struct {
-	Data []judge0.SubmissionResult `json:"data"`
+	Data []SubmissionResult `json:"data"`
 }
 
 type StatusResponse struct {
@@ -145,6 +147,8 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 		LanguageID:        int32(languageID),
 		LanguageName:      submissionRequest.Language,
 		AccountID:         userId,
+		SubmittedCode:     submissionRequest.SourceCode,
+		SubmittedStdin:    submissionRequest.Stdin,
 		ProblemID:         pgtype.UUID{Bytes: idUUID, Valid: true},
 	}
 
@@ -174,9 +178,11 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 				Name: result.LanguageName,
 			},
 			// Our custom fields
-			AccountID: userId,
-			ProblemID: problemId,
-			CreatedAt: result.CreatedAt.Time,
+			AccountID:      userId,
+			SubmittedCode:  submissionRequest.SourceCode,
+			SubmittedStdin: submissionRequest.Stdin,
+			ProblemID:      problemId,
+			CreatedAt:      result.CreatedAt.Time,
 		},
 	}
 
@@ -225,9 +231,11 @@ func (h *Handler) GetSubmission(w http.ResponseWriter, r *http.Request) {
 				Name: result.LanguageName,
 			},
 			// Our custom fields
-			AccountID: userId,
-			ProblemID: problemId,
-			CreatedAt: result.CreatedAt.Time,
+			AccountID:      userId,
+			SubmittedCode:  result.SubmittedCode,
+			SubmittedStdin: result.SubmittedStdin,
+			ProblemID:      problemId,
+			CreatedAt:      result.CreatedAt.Time,
 		},
 	}
 
@@ -269,31 +277,35 @@ func (h *Handler) GetSubmissionsByUsername(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	var response []SubmissionResultResponse
+	var submissionResults []SubmissionResult
 	for _, submission := range submissions {
 		problemId := uuid.UUID(submission.ProblemID.Bytes).String()
-		response = append(response, SubmissionResultResponse{
-			Data: &SubmissionResult{
-				Token:         submission.Token,
-				Stdout:        submission.Stdout.String,
-				Time:          submission.Time.String,
-				Memory:        int(submission.MemoryUsed.Int32),
-				Stderr:        submission.Stderr.String,
-				CompileOutput: submission.CompileOutput.String,
-				Message:       submission.Message.String,
-				Status: StatusResponse{
-					ID:          int(submission.StatusID),
-					Description: submission.StatusDescription,
-				},
-				Language: LanguageInfo{
-					ID:   int(submission.LanguageID),
-					Name: submission.LanguageName,
-				},
-				AccountID: submission.AccountID,
-				ProblemID: problemId,
-				CreatedAt: submission.CreatedAt.Time,
+		submissionResults = append(submissionResults, SubmissionResult{
+			Token:         submission.Token,
+			Stdout:        submission.Stdout.String,
+			Time:          submission.Time.String,
+			Memory:        int(submission.MemoryUsed.Int32),
+			Stderr:        submission.Stderr.String,
+			CompileOutput: submission.CompileOutput.String,
+			Message:       submission.Message.String,
+			Status: StatusResponse{
+				ID:          int(submission.StatusID),
+				Description: submission.StatusDescription,
 			},
+			Language: LanguageInfo{
+				ID:   int(submission.LanguageID),
+				Name: submission.LanguageName,
+			},
+			AccountID:      submission.AccountID,
+			SubmittedCode:  submission.SubmittedCode,
+			SubmittedStdin: submission.SubmittedStdin,
+			ProblemID:      problemId,
+			CreatedAt:      submission.CreatedAt.Time,
 		})
+	}
+
+	response := SubmissionsResponse{
+		Data: submissionResults,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
