@@ -1,11 +1,14 @@
 CREATE TYPE problem_language AS ENUM ('cpp', 'go', 'java', 'javascript', 'python', 'typescript');
 
+CREATE TYPE problem_difficulty AS ENUM ('easy', 'medium', 'hard');
+
 CREATE TABLE problem (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     title TEXT NOT NULL,
     description TEXT,
     points INT NOT NULL DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    difficulty problem_difficulty NOT NULL,
     tags TEXT[],
     UNIQUE (id, title)
 );

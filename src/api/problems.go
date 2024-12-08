@@ -45,6 +45,7 @@ type ProblemRequest struct {
 	Title       string               `json:"title"`
 	Description string               `json:"description"`
 	Tags        []string             `json:"tags"`
+	Difficulty  string               `json:"difficulty"`
 	Code        []ProblemRequestCode `json:"code"`
 	Hints       []ProblemRequestHint `json:"hints"`
 	Points      int                  `json:"points"`
@@ -57,6 +58,7 @@ type Problem struct {
 	Title       string            `json:"title"`
 	Description string            `json:"description"`
 	Tags        []string          `json:"tags"`
+	Difficulty  string            `json:"difficulty"`
 	Code        []ProblemCode     `json:"code"`
 	Hints       []ProblemHint     `json:"hints"`
 	Points      int               `json:"points"`
@@ -89,6 +91,7 @@ func (h *Handler) GetProblems(w http.ResponseWriter, r *http.Request) {
 			Title:       problem.Title,
 			Description: problem.Description.String,
 			Tags:        problem.Tags,
+			Difficulty:  string(problem.Difficulty),
 			Points:      int(problem.Points),
 		}
 
@@ -170,6 +173,7 @@ func (h *Handler) CreateProblem(w http.ResponseWriter, r *http.Request) {
 		Description: pgtype.Text{String: request.Description, Valid: true},
 		Points:      int32(request.Points),
 		Tags:        request.Tags,
+		Difficulty:  sql.ProblemDifficulty(request.Difficulty),
 	})
 	if err != nil {
 		log.Println(err)
