@@ -277,7 +277,7 @@ func (h *Handler) GetSubmissionsByUsername(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	var submissionResults []SubmissionResult
+	submissionResults := make([]SubmissionResult, 0)
 	for _, submission := range submissions {
 		problemId := uuid.UUID(submission.ProblemID.Bytes).String()
 		submissionResults = append(submissionResults, SubmissionResult{
