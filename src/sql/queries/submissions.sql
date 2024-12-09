@@ -1,8 +1,8 @@
 -- name: CreateSubmission :one
-INSERT INTO submission (token, stdout, time, memory_used, stderr, compile_output, message, status, status_id, status_description, language_id, language_name, account_id, problem_id, submitted_code, submitted_stdin) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING *;
+INSERT INTO submission (id, stdout, time, memory, stderr, compile_output, message, status, language_id, language_name, account_id, problem_id, submitted_code, submitted_stdin) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *;
 
--- name: GetSubmissionByToken :one
-SELECT * FROM submission WHERE token = $1;
+-- name: GetSubmissionByID :one
+SELECT * FROM submission WHERE id = $1;
 
 -- name: GetSubmissionsByProblemID :many
 SELECT * FROM submission WHERE problem_id = $1;
@@ -10,15 +10,14 @@ SELECT * FROM submission WHERE problem_id = $1;
 -- name: GetSubmissionsByUsername :many
 WITH user_submissions AS (
     SELECT 
-        s.token,
+        s.id as submission_id,
         s.stdout,
         s.time,
-        s.memory_used,
+        s.memory,
         s.stderr,
         s.compile_output,
         s.message,
-        s.status_id,
-        s.status_description,
+        s.status,
         s.language_id,
         s.language_name,
         s.account_id,
@@ -39,4 +38,25 @@ WITH user_submissions AS (
         AND (@problem_id::uuid IS NULL OR s.problem_id = @problem_id)
     ORDER BY s.created_at DESC
 )
-SELECT * FROM user_submissions;
+SELECT 
+    submission_id as id,
+    stdout,
+    time,
+    memory,
+    stderr,
+    compile_output,
+    message,
+    status,
+    language_id,
+    language_name,
+    account_id,
+    submitted_code,
+    submitted_stdin,
+    problem_id,
+    created_at,
+    problem_title,
+    problem_description,
+    problem_difficulty,
+    problem_points,
+    username
+FROM user_submissions;

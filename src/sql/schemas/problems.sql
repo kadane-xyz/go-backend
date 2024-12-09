@@ -13,6 +13,14 @@ CREATE TABLE problem (
     UNIQUE (id, title)
 );
 
+CREATE TABLE problem_solution (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    problem_id UUID REFERENCES problem(id) ON DELETE CASCADE,
+    solution BYTEA NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (problem_id, id)
+);
+
 CREATE TABLE problem_code (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     problem_id UUID REFERENCES problem(id) ON DELETE CASCADE,
@@ -34,17 +42,9 @@ CREATE TABLE problem_hint (
 CREATE TABLE problem_test_case (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     problem_id UUID REFERENCES problem(id) ON DELETE CASCADE,
-    description TEXT NOT NULL,
-    input TEXT NOT NULL,
-    expected_output TEXT NOT NULL,
+    input BYTEA NOT NULL,
+    output BYTEA NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (problem_id, id)
-);
-
-CREATE TABLE problem_solution (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    problem_id UUID REFERENCES problem(id) ON DELETE CASCADE,
-    expected_output BYTEA NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    visibility visibility NOT NULL,
     UNIQUE (problem_id, id)
 );

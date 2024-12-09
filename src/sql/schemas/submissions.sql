@@ -17,26 +17,21 @@ CREATE TYPE submission_status AS ENUM (
 
 CREATE TABLE submission (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    token VARCHAR(36) NOT NULL,
     stdout TEXT,
     time TEXT,
-    memory_used INTEGER,
+    memory INTEGER,
     stderr TEXT,
     compile_output TEXT,
     message TEXT,
     status submission_status NOT NULL,
-    status_id INTEGER NOT NULL,
-    status_description TEXT NOT NULL,
     language_id INTEGER NOT NULL,
     language_name TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     account_id TEXT NOT NULL REFERENCES account(id) ON DELETE CASCADE,
     submitted_code TEXT NOT NULL,
     submitted_stdin TEXT NOT NULL,
-    problem_id UUID NOT NULL REFERENCES problem(id) ON DELETE CASCADE,
-    UNIQUE(token)
+    problem_id UUID NOT NULL REFERENCES problem(id) ON DELETE CASCADE
 );
 
 -- Add indexes for commonly queried fields
-CREATE INDEX idx_submission_token ON submission(token);
 CREATE INDEX idx_submission_status_id ON submission(status_id);

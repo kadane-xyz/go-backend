@@ -22,9 +22,13 @@ type Judge0Client struct {
 type Submission struct {
 	SourceCode     string `json:"source_code"`
 	LanguageID     int    `json:"language_id"`
-	Stdin          string `json:"stdin,omitempty"`
-	ExpectedOutput string `json:"expected_output,omitempty"`
+	Stdin          []byte `json:"stdin,omitempty"`
+	ExpectedOutput []byte `json:"expected_output,omitempty"`
 	Wait           bool   `json:"wait,omitempty"`
+}
+
+type SubmissionBatch struct {
+	Submissions []Submission `json:"submissions"`
 }
 
 type SubmissionResponse struct {
@@ -38,8 +42,12 @@ type SubmissionResult struct {
 	Stderr        string `json:"stderr"`
 	Token         string `json:"token"`
 	CompileOutput string `json:"compile_output"`
-	Message       string `json:"message"`
-	Status        struct {
+	Language      struct {
+		ID   int    `json:"id"`
+		Name string `json:"name"`
+	} `json:"language"`
+	Message string `json:"message"`
+	Status  struct {
 		ID          int    `json:"id"`
 		Description string `json:"description"`
 	} `json:"status"`
@@ -56,6 +64,10 @@ type PaginationMeta struct {
 type SubmissionsResponse struct {
 	Submissions []SubmissionResult `json:"submissions"`
 	Meta        PaginationMeta     `json:"meta"`
+}
+
+type SubmissionBatchResponse struct {
+	Submissions []SubmissionResponse
 }
 
 var languageIDMap = map[string]int{
@@ -84,6 +96,65 @@ const (
 	maxRetryDelay     = 500 * time.Millisecond
 	maxWaitTime       = 30 * time.Second
 )
+
+func (c *Judge0Client) CreateSubmissionBatchAndWait(submissions []Submission) ([]SubmissionResult, error) {
+	// First create the submission without waiting
+	resp, err := c.CreateSubmissionBatch(submissions)
+	if err != nil {
+		return nil, fmt.Errorf("batch creation error: %w", err)
+	}
+
+	// Create a map to track processed submissions
+	results := make([]SubmissionResult, 0, len(submissions))
+	pendingTokens := make(map[string]bool)
+
+	// Initialize pending tokens
+	for _, submission := range resp.Submissions {
+		pendingTokens[submission.Token] = true
+	}
+
+	// Quick first check after submission
+	for token := range pendingTokens {
+		result, err := c.GetSubmission(token)
+		if err == nil && result.Status.ID >= 3 {
+			results = append(results, *result)
+			delete(pendingTokens, token)
+		}
+	}
+
+	// Then poll remaining submissions with exponential backoff
+	startTime := time.Now()
+	currentDelay := initialRetryDelay
+
+	for len(pendingTokens) > 0 {
+		if time.Since(startTime) > maxWaitTime {
+			return nil, fmt.Errorf("submission batch timed out after %v", maxWaitTime)
+		}
+
+		time.Sleep(currentDelay)
+
+		// Check each pending submission
+		for token := range pendingTokens {
+			result, err := c.GetSubmission(token)
+			if err != nil {
+				continue // Skip this token for now if there's an error
+			}
+
+			if result.Status.ID >= 3 {
+				results = append(results, *result)
+				delete(pendingTokens, token)
+			}
+		}
+
+		// Adjust delay with gentler backoff
+		currentDelay = time.Duration(float64(currentDelay) * 1.5)
+		if currentDelay > maxRetryDelay {
+			currentDelay = maxRetryDelay
+		}
+	}
+
+	return results, nil
+}
 
 func (c *Judge0Client) CreateSubmissionAndWait(submission Submission) (*SubmissionResult, error) {
 	// First create the submission without waiting
@@ -164,8 +235,52 @@ func (c *Judge0Client) CreateSubmission(submission Submission) (*SubmissionRespo
 	return &submissionResp, nil
 }
 
+func (c *Judge0Client) CreateSubmissionBatch(submissions []Submission) (*SubmissionBatchResponse, error) {
+	url := fmt.Sprintf("%s/submissions/batch?base64_encoded=true&fields=*", c.BaseURL)
+
+	submissionBatch := SubmissionBatch{
+		Submissions: submissions,
+	}
+
+	jsonData, err := json.Marshal(submissionBatch)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling submission batch: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("error creating request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Auth-Token", c.Token)
+
+	resp, err := c.Client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("error sending request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("error reading response body: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		return nil, fmt.Errorf("unexpected status code: %d, body: %s", resp.StatusCode, string(body))
+	}
+
+	var submissionResponses []SubmissionResponse
+	if err := json.Unmarshal(body, &submissionResponses); err != nil {
+		return nil, fmt.Errorf("error unmarshaling response: %w", err)
+	}
+
+	return &SubmissionBatchResponse{
+		Submissions: submissionResponses,
+	}, nil
+}
+
 func (c *Judge0Client) GetSubmission(token string) (*SubmissionResult, error) {
-	url := fmt.Sprintf("%s/submissions/%s?base64_encoded=false", c.BaseURL, token)
+	url := fmt.Sprintf("%s/submissions/%s?base64_encoded=false&fields=stdout,time,memory,stderr,token,compile_output,message,status,language", c.BaseURL, token)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -202,7 +317,7 @@ func (c *Judge0Client) GetSubmission(token string) (*SubmissionResult, error) {
 }
 
 func (c *Judge0Client) GetSubmissions() (*SubmissionsResponse, error) {
-	url := fmt.Sprintf("%s/submissions/?base64_encoded=false&fields=*", c.BaseURL)
+	url := fmt.Sprintf("%s/submissions?base64_encoded=false&fields=*", c.BaseURL)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {

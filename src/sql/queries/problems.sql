@@ -23,22 +23,21 @@ SELECT
     ) FILTER (WHERE pc.id IS NOT NULL) as code,
     json_agg(
         json_build_object(
-            'id', h.id,
-            'description', h.description,
-            'answer', h.answer
-        ) ORDER BY h.id
-    ) FILTER (WHERE h.id IS NOT NULL) as hints,
+            'id', ph.id,
+            'description', ph.description,
+            'answer', ph.answer
+        ) ORDER BY ph.id
+    ) FILTER (WHERE ph.id IS NOT NULL) as hint,
     json_agg(
         json_build_object(
             'id', pt.id,
-            'description', pt.description,
             'input', pt.input,
-            'expectedOutput', pt.expected_output
+            'output', pt.output
         ) ORDER BY pt.id
     ) FILTER (WHERE pt.id IS NOT NULL) as test_cases
 FROM problem p
 LEFT JOIN problem_code pc ON p.id = pc.problem_id
-LEFT JOIN hint h ON p.id = h.problem_id
+LEFT JOIN problem_hint ph ON p.id = ph.problem_id
 LEFT JOIN problem_test_case pt ON p.id = pt.problem_id
 WHERE p.id = @id
 GROUP BY p.id, p.title, p.description, p.tags, p.difficulty, p.points;
@@ -63,12 +62,11 @@ WITH problem_data AS (
                 'description', ph.description,
                 'answer', ph.answer
             )
-        ) FILTER (WHERE ph.id IS NOT NULL) as hints,
+        ) FILTER (WHERE ph.id IS NOT NULL) as hint,
         json_agg(
             json_build_object(
-                'description', pt.description,
                 'input', pt.input,
-                'expectedOutput', pt.expected_output
+                'output', pt.output
             )
         ) FILTER (WHERE pt.id IS NOT NULL) as test_cases
     FROM problem p
@@ -85,10 +83,13 @@ SELECT
     difficulty,
     points,
     COALESCE(code, '[]'::json) as code,
-    COALESCE(hints, '[]'::json) as problem_hint,
+    COALESCE(hint, '[]'::json) as hint,
     COALESCE(test_cases, '[]'::json) as test_cases
 FROM problem_data
 ORDER BY points DESC;
+
+-- name: GetProblemCodeByLanguage :one
+SELECT * FROM problem_code WHERE problem_id = $1 AND language = $2;
 
 -- name: GetProblemCodes :many
 SELECT * FROM problem_code WHERE problem_id = $1;
@@ -102,14 +103,8 @@ SELECT * FROM problem WHERE title = $1;
 -- name: GetProblemByDifficulty :many
 SELECT * FROM problem WHERE difficulty = $1 ORDER BY RANDOM()LIMIT $2;
 
--- name: GetProblemSolution :one
-SELECT expected_output FROM problem_solution WHERE problem_id = $1;
-
--- name: CreateProblemSolution :one
-INSERT INTO problem_solution (problem_id, expected_output) VALUES ($1, $2) RETURNING *;
-
 -- name: CreateProblemTestCase :one
-INSERT INTO problem_test_case (problem_id, description, input, expected_output) VALUES ($1, $2, $3, $4) RETURNING *;
+INSERT INTO problem_test_case (problem_id, input, output, visibility) VALUES ($1, $2, $3, $4) RETURNING *;
 
 -- name: GetProblemTestCases :many
 SELECT * FROM problem_test_case WHERE problem_id = $1;
