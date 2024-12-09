@@ -1,10 +1,11 @@
 package api
 
 import (
-	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -12,16 +13,19 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"kadane.xyz/go-backend/v2/src/apierror"
 	"kadane.xyz/go-backend/v2/src/judge0"
-	"kadane.xyz/go-backend/v2/src/middleware"
 	"kadane.xyz/go-backend/v2/src/sql/sql"
 )
+
+type TestCase struct {
+	Input          string         `json:"input"`
+	ExpectedOutput string         `json:"expectedOutput"`
+	Visibility     sql.Visibility `json:"visibility"`
+}
 
 type Submission struct {
 	Language   string `json:"language"`
 	SourceCode string `json:"sourceCode"`
-	Stdin      string `json:"stdin"`
 	ProblemID  string `json:"problemId"`
-	//Wait       bool   `json:"wait"`
 }
 
 type SubmissionResponse struct {
@@ -29,15 +33,16 @@ type SubmissionResponse struct {
 }
 
 type SubmissionResult struct {
-	Token         string         `json:"token"`
-	Stdout        string         `json:"stdout"`
-	Time          string         `json:"time"`
-	Memory        int            `json:"memory"`
-	Stderr        string         `json:"stderr"`
-	CompileOutput string         `json:"compileOutput"`
-	Message       string         `json:"message"`
-	Status        StatusResponse `json:"status"`
-	Language      LanguageInfo   `json:"language"`
+	Id            string               `json:"id"`
+	Token         string               `json:"token"`
+	Stdout        string               `json:"stdout"`
+	Time          string               `json:"time"`
+	Memory        int                  `json:"memory"`
+	Stderr        string               `json:"stderr"`
+	CompileOutput string               `json:"compileOutput"`
+	Message       string               `json:"message"`
+	Status        sql.SubmissionStatus `json:"status"`
+	Language      LanguageInfo         `json:"language"`
 	// Our custom fields
 	AccountID      string    `json:"accountId"`
 	SubmittedCode  string    `json:"submittedCode"`
@@ -66,11 +71,13 @@ type LanguageInfo struct {
 
 func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	/*userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
 	if userId == "" {
 		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for comment creation")
 		return
-	}
+	}*/
+
+	userId := "bVcEHjEYOwYqgqlSCGgQhYFK4wj2"
 
 	var submissionRequest Submission
 	err := json.NewDecoder(r.Body).Decode(&submissionRequest)
@@ -93,67 +100,104 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 
 	languageID := judge0.LanguageToLanguageID(submissionRequest.Language)
 
-	// get expected output
-	expectedOutput, err := h.PostgresQueries.GetProblemSolution(r.Context(), pgtype.UUID{Bytes: idUUID, Valid: true})
+	submissionId := uuid.New() // unique id for the batch submission to use for db reference
+
+	// get expected output from all test cases
+	testCases, err := h.PostgresQueries.GetProblemTestCases(r.Context(), pgtype.UUID{Bytes: idUUID, Valid: true})
 	if err != nil {
 		log.Println(err)
 		apierror.SendError(w, http.StatusInternalServerError, "Failed to get problem solution")
 		return
 	}
 
-	submission := judge0.Submission{
-		LanguageID:     languageID,
-		SourceCode:     submissionRequest.SourceCode,
-		Stdin:          submissionRequest.Stdin,
-		ExpectedOutput: base64.StdEncoding.EncodeToString(expectedOutput),
+	// create submissions for each test case to be used in judge0 batch submission
+	submissions := []judge0.Submission{}
+
+	for _, testCase := range testCases {
+		submissions = append(submissions, judge0.Submission{
+			LanguageID:     languageID,
+			SourceCode:     submissionRequest.SourceCode,
+			Stdin:          testCase.Input,
+			ExpectedOutput: testCase.Output,
+		})
 	}
 
-	submissionResponse, err := h.Judge0Client.CreateSubmissionAndWait(submission)
+	// create judge0 batch submission
+	submissionResponses, err := h.Judge0Client.CreateSubmissionBatchAndWait(submissions)
 	if err != nil {
 		log.Println(err)
 		apierror.SendError(w, http.StatusInternalServerError, "Failed to create submission")
 		return
 	}
 
-	submissionSql := sql.CreateSubmissionParams{
-		Token: submissionResponse.Token,
-		Stdout: pgtype.Text{
-			String: submissionResponse.Stdout,
-			Valid:  submissionResponse.Stdout != "",
+	// Calculate averages from all submission responses
+	var totalMemory int
+	var totalTime float64
+	var failedSubmission *SubmissionResult
+
+	// First pass: check for any failures and collect totals
+	for _, resp := range submissionResponses {
+		if resp.Status.Description != "Accepted" {
+			failedSubmission = &SubmissionResult{
+				Status:        sql.SubmissionStatus(resp.Status.Description),
+				Memory:        resp.Memory,
+				Time:          resp.Time,
+				Stdout:        resp.Stdout,
+				Stderr:        resp.Stderr,
+				CompileOutput: resp.CompileOutput,
+				Message:       resp.Message,
+				Language:      LanguageInfo{ID: int(resp.Language.ID), Name: resp.Language.Name},
+			}
+			break
+		}
+
+		totalMemory += resp.Memory
+		if timeVal, err := strconv.ParseFloat(resp.Time, 64); err == nil {
+			totalTime += timeVal
+		}
+	}
+
+	// Create the averaged submission
+	count := len(submissionResponses)
+	lastResp := submissionResponses[len(submissionResponses)-1]
+
+	// If any test failed, use its details, otherwise use averages
+	avgSubmission := SubmissionResult{
+		Status:        sql.SubmissionStatus(lastResp.Status.Description),
+		Memory:        int(totalMemory / count),
+		Time:          fmt.Sprintf("%.3f", totalTime/float64(count)),
+		Stdout:        lastResp.Stdout,
+		Stderr:        lastResp.Stderr,
+		CompileOutput: lastResp.CompileOutput,
+		Message:       lastResp.Message,
+		Language: LanguageInfo{
+			ID:   int(lastResp.Language.ID),
+			Name: lastResp.Language.Name,
 		},
-		Time: pgtype.Text{
-			String: submissionResponse.Time,
-			Valid:  submissionResponse.Time != "",
-		},
-		MemoryUsed: pgtype.Int4{
-			Int32: int32(submissionResponse.Memory),
-			Valid: true,
-		},
-		Stderr: pgtype.Text{
-			String: submissionResponse.Stderr,
-			Valid:  submissionResponse.Stderr != "",
-		},
-		CompileOutput: pgtype.Text{
-			String: submissionResponse.CompileOutput,
-			Valid:  submissionResponse.CompileOutput != "",
-		},
-		Message: pgtype.Text{
-			String: submissionResponse.Message,
-			Valid:  submissionResponse.Message != "",
-		},
-		Status:            sql.SubmissionStatus(submissionResponse.Status.Description),
-		StatusID:          int32(submissionResponse.Status.ID),
-		StatusDescription: submissionResponse.Status.Description,
-		LanguageID:        int32(languageID),
-		LanguageName:      submissionRequest.Language,
-		AccountID:         userId,
-		SubmittedCode:     submissionRequest.SourceCode,
-		SubmittedStdin:    submissionRequest.Stdin,
-		ProblemID:         pgtype.UUID{Bytes: idUUID, Valid: true},
+	}
+
+	if failedSubmission != nil {
+		avgSubmission = *failedSubmission
+	}
+
+	dbSubmission := sql.CreateSubmissionParams{
+		ID:            pgtype.UUID{Bytes: uuid.New(), Valid: true},
+		AccountID:     userId,
+		ProblemID:     pgtype.UUID{Bytes: idUUID, Valid: true},
+		SubmittedCode: submissionRequest.SourceCode,
+		Status:        avgSubmission.Status,
+		Stdout:        pgtype.Text{String: avgSubmission.Stdout, Valid: true},
+		Time:          pgtype.Text{String: avgSubmission.Time, Valid: true},
+		Memory:        pgtype.Int4{Int32: int32(avgSubmission.Memory), Valid: true},
+		Stderr:        pgtype.Text{String: avgSubmission.Stderr, Valid: true},
+		CompileOutput: pgtype.Text{String: avgSubmission.CompileOutput, Valid: true},
+		Message:       pgtype.Text{String: avgSubmission.Message, Valid: true},
+		LanguageID:    int32(avgSubmission.Language.ID),
+		LanguageName:  avgSubmission.Language.Name,
 	}
 
 	// create submission in db
-	result, err := h.PostgresQueries.CreateSubmission(r.Context(), submissionSql)
+	_, err = h.PostgresQueries.CreateSubmission(r.Context(), dbSubmission)
 	if err != nil {
 		log.Println(err)
 		apierror.SendError(w, http.StatusInternalServerError, "Failed to create submission")
@@ -162,27 +206,23 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 
 	response := SubmissionResultResponse{
 		Data: &SubmissionResult{
-			Token:         result.Token,
-			Stdout:        result.Stdout.String,
-			Time:          result.Time.String,
-			Memory:        int(result.MemoryUsed.Int32),
-			Stderr:        result.Stderr.String,
-			CompileOutput: result.CompileOutput.String,
-			Message:       result.Message.String,
-			Status: StatusResponse{
-				ID:          int(result.StatusID),
-				Description: result.StatusDescription,
-			},
+			Id:            submissionId.String(),
+			Stdout:        avgSubmission.Stdout,
+			Time:          avgSubmission.Time,
+			Memory:        int(avgSubmission.Memory),
+			Stderr:        avgSubmission.Stderr,
+			CompileOutput: avgSubmission.CompileOutput,
+			Message:       avgSubmission.Message,
+			Status:        avgSubmission.Status,
 			Language: LanguageInfo{
-				ID:   int(result.LanguageID),
-				Name: result.LanguageName,
+				ID:   int(avgSubmission.Language.ID),
+				Name: avgSubmission.Language.Name,
 			},
-			// Our custom fields
 			AccountID:      userId,
 			SubmittedCode:  submissionRequest.SourceCode,
-			SubmittedStdin: submissionRequest.Stdin,
+			SubmittedStdin: "",
 			ProblemID:      problemId,
-			CreatedAt:      result.CreatedAt.Time,
+			CreatedAt:      time.Now(),
 		},
 	}
 
@@ -192,19 +232,27 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) GetSubmission(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	/*userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
 	if userId == "" {
 		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for comment creation")
 		return
-	}
+	}*/
 
-	token := chi.URLParam(r, "token")
-	if token == "" {
-		apierror.SendError(w, http.StatusBadRequest, "Missing token")
+	userId := "gYlyr3bkGIWcESRRbEuMUW5Y4O22"
+
+	submissionId := chi.URLParam(r, "submissionId")
+	if submissionId == "" {
+		apierror.SendError(w, http.StatusBadRequest, "Missing submission ID")
 		return
 	}
 
-	result, err := h.PostgresQueries.GetSubmissionByToken(r.Context(), token)
+	idUUID, err := uuid.Parse(submissionId)
+	if err != nil {
+		apierror.SendError(w, http.StatusBadRequest, "Invalid submission ID")
+		return
+	}
+
+	result, err := h.PostgresQueries.GetSubmissionByID(r.Context(), pgtype.UUID{Bytes: idUUID, Valid: true})
 	if err != nil {
 		log.Println(err)
 		apierror.SendError(w, http.StatusInternalServerError, "Failed to get submission")
@@ -215,17 +263,14 @@ func (h *Handler) GetSubmission(w http.ResponseWriter, r *http.Request) {
 
 	response := SubmissionResultResponse{
 		Data: &SubmissionResult{
-			Token:         result.Token,
+			Id:            submissionId,
 			Stdout:        result.Stdout.String,
 			Time:          result.Time.String,
-			Memory:        int(result.MemoryUsed.Int32),
+			Memory:        int(result.Memory.Int32),
 			Stderr:        result.Stderr.String,
 			CompileOutput: result.CompileOutput.String,
 			Message:       result.Message.String,
-			Status: StatusResponse{
-				ID:          int(result.StatusID),
-				Description: result.StatusDescription,
-			},
+			Status:        result.Status,
 			Language: LanguageInfo{
 				ID:   int(result.LanguageID),
 				Name: result.LanguageName,
@@ -273,19 +318,17 @@ func (h *Handler) GetSubmissionsByUsername(w http.ResponseWriter, r *http.Reques
 
 	submissionResults := make([]SubmissionResult, 0)
 	for _, submission := range submissions {
+		submissionId := uuid.UUID(submission.ID.Bytes)
 		problemId := uuid.UUID(submission.ProblemID.Bytes).String()
 		submissionResults = append(submissionResults, SubmissionResult{
-			Token:         submission.Token,
+			Id:            submissionId.String(),
 			Stdout:        submission.Stdout.String,
 			Time:          submission.Time.String,
-			Memory:        int(submission.MemoryUsed.Int32),
+			Memory:        int(submission.Memory.Int32),
 			Stderr:        submission.Stderr.String,
 			CompileOutput: submission.CompileOutput.String,
 			Message:       submission.Message.String,
-			Status: StatusResponse{
-				ID:          int(submission.StatusID),
-				Description: submission.StatusDescription,
-			},
+			Status:        submission.Status,
 			Language: LanguageInfo{
 				ID:   int(submission.LanguageID),
 				Name: submission.LanguageName,
