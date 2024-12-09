@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"net/mail"
 	"strings"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/go-chi/chi/v5"
@@ -31,21 +30,12 @@ const (
 	minDimension = 500
 )
 
-type Account struct {
-	ID        string `json:"id"`
-	Username  string `json:"username"`
-	Email     string `json:"email"`
-	AvatarUrl string `json:"avatarUrl"`
-	Level     int    `json:"level"`
-	CreatedAt string `json:"created"`
-}
-
 type AccountResponse struct {
-	Data Account `json:"data"`
+	Data sql.Account `json:"data"`
 }
 
 type AccountsResponse struct {
-	Data []Account `json:"data"`
+	Data []sql.Account `json:"data"`
 }
 
 type AccountAttributesInput struct {
@@ -88,7 +78,7 @@ type AccountAttributesWithAccount struct {
 }
 
 type AccountAttributesResponse struct {
-	Data AccountAttributesWithAccount `json:"data"`
+	Data sql.GetAccountRow `json:"data"`
 }
 
 type AccountAttributesUpdateResponse struct {
@@ -107,13 +97,13 @@ func (h *Handler) GetAccounts(w http.ResponseWriter, r *http.Request) {
 		apierror.SendError(w, http.StatusInternalServerError, "Error getting accounts")
 	}
 
-	accountsResponse := AccountsResponse{Data: []Account{}}
+	accountsResponse := AccountsResponse{Data: []sql.Account{}}
 	for _, account := range accounts {
-		accountsResponse.Data = append(accountsResponse.Data, Account{
+		accountsResponse.Data = append(accountsResponse.Data, sql.Account{
 			ID:        account.ID,
 			Username:  account.Username,
 			Email:     account.Email,
-			CreatedAt: account.CreatedAt.Time.Format(time.RFC3339),
+			CreatedAt: account.CreatedAt,
 		})
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -190,7 +180,7 @@ func (h *Handler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create account attributes in the database
-	id, err := h.PostgresQueries.CreateAccountAttributes(r.Context(), sql.CreateAccountAttributesParams{
+	_, err = h.PostgresQueries.CreateAccountAttributes(r.Context(), sql.CreateAccountAttributesParams{
 		ID:           createAccountRequest.ID,
 		Bio:          pgtype.Text{String: "", Valid: true},
 		ContactEmail: pgtype.Text{String: "", Valid: true},
@@ -210,16 +200,18 @@ func (h *Handler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Println("Account attributes id: ", id)
+	account, err := h.PostgresQueries.GetAccount(r.Context(), sql.GetAccountParams{
+		ID:                createAccountRequest.ID,
+		IncludeAttributes: true,
+	})
+	if err != nil {
+		log.Println("Error getting account: ", err)
+		apierror.SendError(w, http.StatusInternalServerError, "Error getting account")
+		return
+	}
 
 	// Prepare response
-	response := AccountResponse{
-		Data: Account{
-			ID:       createAccountRequest.ID,
-			Username: createAccountRequest.Username,
-			Email:    createAccountRequest.Email,
-		},
-	}
+	response := AccountAttributesResponse{Data: account}
 
 	// Send response
 	w.Header().Set("Content-Type", "application/json")
@@ -341,59 +333,21 @@ func (h *Handler) GetAccount(w http.ResponseWriter, r *http.Request) {
 		attributes = "false"
 	}
 
-	if attributes == "true" {
-		account, err := h.PostgresQueries.GetAccountAttributesWithAccount(r.Context(), accountId)
-		if err != nil {
-			log.Println("Error getting account: ", err)
-			apierror.SendError(w, http.StatusInternalServerError, "Error getting account")
-			return
-		}
-
-		response := AccountAttributesResponse{Data: AccountAttributesWithAccount{
-			ID:        account.ID,
-			Username:  account.Username,
-			Email:     account.Email,
-			AvatarUrl: account.AvatarUrl.String,
-			Level:     int(account.Level.Int32),
-			CreatedAt: account.CreatedAt.Time.Format(time.RFC3339),
-			Attributes: AccountAttributes{
-				Bio:          account.Bio.String,
-				ContactEmail: account.ContactEmail.String,
-				Location:     account.Location.String,
-				RealName:     account.RealName.String,
-				GithubUrl:    account.GithubUrl.String,
-				LinkedinUrl:  account.LinkedinUrl.String,
-				FacebookUrl:  account.FacebookUrl.String,
-				InstagramUrl: account.InstagramUrl.String,
-				TwitterUrl:   account.TwitterUrl.String,
-				School:       account.School.String,
-				WebsiteUrl:   account.WebsiteUrl.String,
-			},
-		}}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response)
-	} else {
-		account, err := h.PostgresQueries.GetAccount(r.Context(), accountId)
-		if err != nil {
-			apierror.SendError(w, http.StatusInternalServerError, "Error getting account")
-			return
-		}
-
-		response := AccountResponse{Data: Account{
-			ID:        account.ID,
-			AvatarUrl: account.AvatarUrl.String,
-			CreatedAt: account.CreatedAt.Time.Format(time.RFC3339),
-			Email:     account.Email,
-			Level:     int(account.Level.Int32),
-			Username:  account.Username,
-		}}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response)
+	account, err := h.PostgresQueries.GetAccount(r.Context(), sql.GetAccountParams{
+		ID:                accountId,
+		IncludeAttributes: attributes == "true",
+	})
+	if err != nil {
+		log.Println("Error getting account: ", err)
+		apierror.SendError(w, http.StatusInternalServerError, "Error getting account")
+		return
 	}
+
+	response := AccountAttributesResponse{Data: account}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
 }
 
 // PUT: /accounts/id
@@ -457,7 +411,10 @@ func (h *Handler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get updated account attributes
-	account, err := h.PostgresQueries.GetAccountAttributesWithAccount(r.Context(), accountID)
+	account, err := h.PostgresQueries.GetAccount(r.Context(), sql.GetAccountParams{
+		ID:                accountID,
+		IncludeAttributes: true,
+	})
 	if err != nil {
 		log.Println("Error getting account: ", err)
 		apierror.SendError(w, http.StatusInternalServerError, "Error getting account")
@@ -465,27 +422,7 @@ func (h *Handler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Prepare response
-	response := AccountAttributesResponse{Data: AccountAttributesWithAccount{
-		ID:        account.ID,
-		Username:  account.Username,
-		Email:     account.Email,
-		AvatarUrl: account.AvatarUrl.String,
-		Level:     int(account.Level.Int32),
-		CreatedAt: account.CreatedAt.Time.Format(time.RFC3339),
-		Attributes: AccountAttributes{
-			Bio:          account.Bio.String,
-			ContactEmail: account.ContactEmail.String,
-			Location:     account.Location.String,
-			RealName:     account.RealName.String,
-			GithubUrl:    account.GithubUrl.String,
-			LinkedinUrl:  account.LinkedinUrl.String,
-			FacebookUrl:  account.FacebookUrl.String,
-			InstagramUrl: account.InstagramUrl.String,
-			TwitterUrl:   account.TwitterUrl.String,
-			School:       account.School.String,
-			WebsiteUrl:   account.WebsiteUrl.String,
-		},
-	}}
+	response := AccountAttributesResponse{Data: account}
 
 	// Send response
 	w.Header().Set("Content-Type", "application/json")
@@ -642,49 +579,16 @@ func (h *Handler) GetAccountByUsername(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if attributes == "true" {
-		accountAttributes, err := h.PostgresQueries.GetAccountAttributes(r.Context(), account.ID)
-		if err != nil {
-			apierror.SendError(w, http.StatusInternalServerError, "Error getting account attributes")
-			return
-		}
-
-		response := AccountAttributesResponse{Data: AccountAttributesWithAccount{
-			ID:        account.ID,
-			Username:  account.Username,
-			Email:     account.Email,
-			AvatarUrl: account.AvatarUrl.String,
-			Level:     int(account.Level.Int32),
-			CreatedAt: account.CreatedAt.Time.Format(time.RFC3339),
-			Attributes: AccountAttributes{
-				Bio:          accountAttributes.Bio.String,
-				ContactEmail: accountAttributes.ContactEmail.String,
-				Location:     accountAttributes.Location.String,
-				RealName:     accountAttributes.RealName.String,
-				GithubUrl:    accountAttributes.GithubUrl.String,
-				LinkedinUrl:  accountAttributes.LinkedinUrl.String,
-				FacebookUrl:  accountAttributes.FacebookUrl.String,
-				InstagramUrl: accountAttributes.InstagramUrl.String,
-				TwitterUrl:   accountAttributes.TwitterUrl.String,
-				School:       accountAttributes.School.String,
-				WebsiteUrl:   accountAttributes.WebsiteUrl.String,
-			},
-		}}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response)
-	} else {
-		response := AccountResponse{Data: Account{
-			ID:        account.ID,
-			AvatarUrl: account.AvatarUrl.String,
-			CreatedAt: account.CreatedAt.Time.Format(time.RFC3339),
-			Email:     account.Email,
-			Level:     int(account.Level.Int32),
-			Username:  account.Username,
-		}}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response)
+	response, err := h.PostgresQueries.GetAccount(r.Context(), sql.GetAccountParams{
+		ID:                account.ID,
+		IncludeAttributes: attributes == "true",
+	})
+	if err != nil {
+		apierror.SendError(w, http.StatusInternalServerError, "Error getting account attributes")
+		return
 	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
 }
