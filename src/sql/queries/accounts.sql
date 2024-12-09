@@ -1,10 +1,39 @@
 -- GET --
 
 -- name: GetAccount :one
-SELECT * FROM account WHERE id = $1;
+SELECT 
+    a.id,
+    a.username,
+    a.email,
+    a.avatar_url,
+    a.level,
+    a.created_at,
+    CASE WHEN @include_attributes::boolean THEN
+        json_build_object(
+            'bio', COALESCE(aa.bio, ''),
+            'contactEmail', COALESCE(aa.contact_email, ''),
+            'location', COALESCE(aa.location, ''),
+            'realName', COALESCE(aa.real_name, ''),
+            'githubUrl', COALESCE(aa.github_url, ''),
+            'linkedinUrl', COALESCE(aa.linkedin_url, ''),
+            'facebookUrl', COALESCE(aa.facebook_url, ''),
+            'instagramUrl', COALESCE(aa.instagram_url, ''),
+            'twitterUrl', COALESCE(aa.twitter_url, ''),
+            'school', COALESCE(aa.school, ''),
+            'websiteUrl', COALESCE(aa.website_url, '')
+        )
+    ELSE
+        NULL
+    END as attributes
+FROM account a
+LEFT JOIN account_attribute aa ON a.id = aa.id
+WHERE a.id = @id;
 
 -- name: GetAccounts :many
 SELECT * FROM account;
+
+-- name: GetAccountExists :one
+SELECT EXISTS (SELECT 1 FROM account WHERE id = $1);
 
 -- name: GetAccountIDByUsername :one
 SELECT id from account WHERE username = $1;
@@ -35,9 +64,46 @@ SELECT * FROM account WHERE username = $1;
 INSERT INTO account (id, username, email) VALUES ($1, $2, $3);
 
 -- name: CreateAccountAttributes :one
-INSERT INTO account_attribute (id, bio, contact_email, location, real_name, github_url, linkedin_url, facebook_url, instagram_url, twitter_url, school, website_url)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-RETURNING id;
+INSERT INTO account_attribute (
+    id,
+    bio,
+    contact_email,
+    location,
+    real_name,
+    github_url,
+    linkedin_url,
+    facebook_url,
+    instagram_url,
+    twitter_url,
+    school,
+    website_url
+) VALUES (
+    @id,
+    @bio,
+    @contact_email,
+    @location,
+    @real_name,
+    @github_url,
+    @linkedin_url,
+    @facebook_url,
+    @instagram_url,
+    @twitter_url,
+    @school,
+    @website_url
+)
+RETURNING 
+    id,
+    bio,
+    contact_email,
+    location,
+    real_name,
+    github_url,
+    linkedin_url,
+    facebook_url,
+    instagram_url,
+    twitter_url,
+    school,
+    website_url;
 
 -- PUT --
 

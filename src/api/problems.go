@@ -26,9 +26,9 @@ type ProblemCode struct {
 }
 
 type ProblemTestCase struct {
-	Description    string `json:"description"`
-	Input          string `json:"input"`
-	ExpectedOutput string `json:"expectedOutput"`
+	Input      string         `json:"input"`
+	Output     string         `json:"output"`
+	Visibility sql.Visibility `json:"visibility"`
 }
 
 type ProblemRequestHint struct {
@@ -105,12 +105,9 @@ func (h *Handler) CreateProblem(w http.ResponseWriter, r *http.Request) {
 	var request ProblemRequest
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
-		log.Println(err)
 		apierror.SendError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
-
-	log.Println(request)
 
 	// Check problem fields
 	if request.Title == "" || request.Description == "" || len(request.Solution) == 0 {
@@ -142,7 +139,6 @@ func (h *Handler) CreateProblem(w http.ResponseWriter, r *http.Request) {
 		Difficulty:  sql.ProblemDifficulty(request.Difficulty),
 	})
 	if err != nil {
-		log.Println(err)
 		apierror.SendError(w, http.StatusInternalServerError, "Failed to create problem")
 		return
 	}
@@ -167,7 +163,6 @@ func (h *Handler) CreateProblem(w http.ResponseWriter, r *http.Request) {
 			Answer:      answerBytes,
 		})
 		if err != nil {
-			log.Println(err)
 			apierror.SendError(w, http.StatusInternalServerError, "Failed to create hint")
 			return
 		}
@@ -187,36 +182,18 @@ func (h *Handler) CreateProblem(w http.ResponseWriter, r *http.Request) {
 			Code:      codeBytes,
 		})
 		if err != nil {
-			log.Println(err)
 			apierror.SendError(w, http.StatusInternalServerError, "Failed to create code")
 			return
 		}
 	}
 
-	// 4. Create solution using the problem ID
-	solutionBytes, err := base64.StdEncoding.DecodeString(request.Solution)
-	if err != nil {
-		apierror.SendError(w, http.StatusBadRequest, "Invalid base64 in solution")
-		return
-	}
-
-	_, err = h.PostgresQueries.CreateProblemSolution(context.Background(), sql.CreateProblemSolutionParams{
-		ProblemID:      problemID,
-		ExpectedOutput: solutionBytes,
-	})
-	if err != nil {
-		log.Println(err)
-		apierror.SendError(w, http.StatusInternalServerError, "Failed to create solution")
-		return
-	}
-
-	// 5. Create test cases using the problem ID
+	// 4. Create test cases using the problem ID
 	for _, testCase := range request.TestCases {
 		_, err = h.PostgresQueries.CreateProblemTestCase(context.Background(), sql.CreateProblemTestCaseParams{
-			ProblemID:      problemID,
-			Description:    testCase.Description,
-			Input:          testCase.Input,
-			ExpectedOutput: testCase.ExpectedOutput,
+			ProblemID:  problemID,
+			Input:      []byte(testCase.Input),
+			Output:     []byte(testCase.Output),
+			Visibility: sql.Visibility(testCase.Visibility),
 		})
 		if err != nil {
 			log.Println(err)
