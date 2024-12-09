@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"kadane.xyz/go-backend/v2/src/apierror"
 	"kadane.xyz/go-backend/v2/src/judge0"
+	"kadane.xyz/go-backend/v2/src/middleware"
 	"kadane.xyz/go-backend/v2/src/sql/sql"
 )
 
@@ -71,13 +72,11 @@ type LanguageInfo struct {
 
 func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
-	/*userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
 	if userId == "" {
 		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for comment creation")
 		return
-	}*/
-
-	userId := "bVcEHjEYOwYqgqlSCGgQhYFK4wj2"
+	}
 
 	var submissionRequest Submission
 	err := json.NewDecoder(r.Body).Decode(&submissionRequest)
@@ -232,13 +231,11 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) GetSubmission(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
-	/*userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
 	if userId == "" {
 		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for comment creation")
 		return
-	}*/
-
-	userId := "gYlyr3bkGIWcESRRbEuMUW5Y4O22"
+	}
 
 	submissionId := chi.URLParam(r, "submissionId")
 	if submissionId == "" {
