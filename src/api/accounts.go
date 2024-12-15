@@ -573,20 +573,22 @@ func (h *Handler) GetAccountByUsername(w http.ResponseWriter, r *http.Request) {
 		attributes = "false"
 	}
 
-	account, err := h.PostgresQueries.GetAccountByUsername(r.Context(), username)
+	accountId, err := h.PostgresQueries.GetAccountByUsername(r.Context(), username)
 	if err != nil {
 		apierror.SendError(w, http.StatusInternalServerError, "Error getting account")
 		return
 	}
 
-	response, err := h.PostgresQueries.GetAccount(r.Context(), sql.GetAccountParams{
-		ID:                account.ID,
+	account, err := h.PostgresQueries.GetAccount(r.Context(), sql.GetAccountParams{
+		ID:                accountId.ID,
 		IncludeAttributes: attributes == "true",
 	})
 	if err != nil {
 		apierror.SendError(w, http.StatusInternalServerError, "Error getting account attributes")
 		return
 	}
+
+	response := AccountAttributesResponse{Data: account}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
