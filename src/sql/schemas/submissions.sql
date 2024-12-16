@@ -30,7 +30,7 @@ CREATE TABLE submission (
     account_id TEXT NOT NULL REFERENCES account(id) ON DELETE CASCADE,
     submitted_code TEXT NOT NULL,
     submitted_stdin TEXT NOT NULL,
-    problem_id UUID NOT NULL REFERENCES problem(id) ON DELETE CASCADE
+    problem_id INTEGER NOT NULL REFERENCES problem(id) ON DELETE CASCADE
 );
 
 -- Add indexes for commonly queried fields

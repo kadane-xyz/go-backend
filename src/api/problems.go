@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strconv"
 
 	"encoding/base64"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"kadane.xyz/go-backend/v2/src/apierror"
 	"kadane.xyz/go-backend/v2/src/sql/sql"
@@ -54,7 +54,7 @@ type ProblemRequest struct {
 }
 
 type Problem struct {
-	ID          pgtype.UUID       `json:"id"`
+	ID          int               `json:"id"`
 	Title       string            `json:"title"`
 	Description string            `json:"description"`
 	Tags        []string          `json:"tags"`
@@ -158,7 +158,7 @@ func (h *Handler) CreateProblem(w http.ResponseWriter, r *http.Request) {
 		}
 
 		err = h.PostgresQueries.CreateProblemHint(context.Background(), sql.CreateProblemHintParams{
-			ProblemID:   problemID,
+			ProblemID:   pgtype.Int4{Int32: int32(problemID), Valid: true},
 			Description: descBytes,
 			Answer:      answerBytes,
 		})
@@ -177,7 +177,7 @@ func (h *Handler) CreateProblem(w http.ResponseWriter, r *http.Request) {
 		}
 
 		err = h.PostgresQueries.CreateProblemCode(context.Background(), sql.CreateProblemCodeParams{
-			ProblemID: problemID,
+			ProblemID: pgtype.Int4{Int32: int32(problemID), Valid: true},
 			Language:  sql.ProblemLanguage(code.Language),
 			Code:      codeBytes,
 		})
@@ -190,7 +190,7 @@ func (h *Handler) CreateProblem(w http.ResponseWriter, r *http.Request) {
 	// 4. Create test cases using the problem ID
 	for _, testCase := range request.TestCases {
 		_, err = h.PostgresQueries.CreateProblemTestCase(context.Background(), sql.CreateProblemTestCaseParams{
-			ProblemID:  problemID,
+			ProblemID:  pgtype.Int4{Int32: int32(problemID), Valid: true},
 			Input:      []byte(testCase.Input),
 			Output:     []byte(testCase.Output),
 			Visibility: sql.Visibility(testCase.Visibility),
@@ -208,15 +208,13 @@ func (h *Handler) CreateProblem(w http.ResponseWriter, r *http.Request) {
 // GET: /problems/:id
 func (h *Handler) GetProblem(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-
-	idUUID, err := uuid.Parse(id)
+	idInt, err := strconv.Atoi(id)
 	if err != nil {
-		log.Println(err)
 		apierror.SendError(w, http.StatusBadRequest, "Invalid problem ID")
 		return
 	}
 
-	problem, err := h.PostgresQueries.GetProblem(context.Background(), pgtype.UUID{Bytes: idUUID, Valid: true})
+	problem, err := h.PostgresQueries.GetProblem(context.Background(), int32(idInt))
 	if err != nil {
 		log.Println(err)
 		apierror.SendError(w, http.StatusInternalServerError, "Failed to get problem")

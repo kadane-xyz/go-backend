@@ -3,7 +3,7 @@ CREATE TYPE problem_language AS ENUM ('cpp', 'go', 'java', 'javascript', 'python
 CREATE TYPE problem_difficulty AS ENUM ('easy', 'medium', 'hard');
 
 CREATE TABLE problem (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id SERIAL PRIMARY KEY,
     title TEXT NOT NULL,
     description TEXT,
     points INT NOT NULL DEFAULT 1,
@@ -14,16 +14,16 @@ CREATE TABLE problem (
 );
 
 CREATE TABLE problem_solution (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    problem_id UUID REFERENCES problem(id) ON DELETE CASCADE,
+    id SERIAL PRIMARY KEY,
+    problem_id INT REFERENCES problem(id) ON DELETE CASCADE,
     solution BYTEA NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (problem_id, id)
 );
 
 CREATE TABLE problem_code (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    problem_id UUID REFERENCES problem(id) ON DELETE CASCADE,
+    id SERIAL PRIMARY KEY,
+    problem_id INT REFERENCES problem(id) ON DELETE CASCADE,
     language problem_language NOT NULL,
     code BYTEA NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -31,8 +31,8 @@ CREATE TABLE problem_code (
 );
 
 CREATE TABLE problem_hint (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    problem_id UUID REFERENCES problem(id) ON DELETE CASCADE,
+    id SERIAL PRIMARY KEY,
+    problem_id INT REFERENCES problem(id) ON DELETE CASCADE,
     description BYTEA NOT NULL,
     answer BYTEA NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -40,8 +40,8 @@ CREATE TABLE problem_hint (
 );
 
 CREATE TABLE problem_test_case (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    problem_id UUID REFERENCES problem(id) ON DELETE CASCADE,
+    id SERIAL PRIMARY KEY,
+    problem_id INT REFERENCES problem(id) ON DELETE CASCADE,
     input BYTEA NOT NULL,
     output BYTEA NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
