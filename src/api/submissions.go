@@ -26,7 +26,7 @@ type TestCase struct {
 type Submission struct {
 	Language   string `json:"language"`
 	SourceCode []byte `json:"sourceCode"`
-	ProblemID  string `json:"problemId"`
+	ProblemID  int    `json:"problemId"`
 }
 
 type SubmissionResponse struct {
@@ -48,7 +48,7 @@ type SubmissionResult struct {
 	AccountID      string    `json:"accountId"`
 	SubmittedCode  string    `json:"submittedCode"`
 	SubmittedStdin string    `json:"submittedStdin"`
-	ProblemID      string    `json:"problemId"`
+	ProblemID      int       `json:"problemId"`
 	CreatedAt      time.Time `json:"createdAt"`
 }
 
@@ -86,14 +86,8 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 	}
 
 	problemId := submissionRequest.ProblemID
-	if problemId == "" {
+	if problemId == 0 {
 		apierror.SendError(w, http.StatusBadRequest, "Missing problem ID")
-		return
-	}
-
-	idUUID, err := uuid.Parse(problemId)
-	if err != nil {
-		apierror.SendError(w, http.StatusBadRequest, "Invalid problem ID")
 		return
 	}
 
@@ -102,7 +96,7 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 	submissionId := uuid.New() // unique id for the batch submission to use for db reference
 
 	// get expected output from all test cases
-	testCases, err := h.PostgresQueries.GetProblemTestCases(r.Context(), pgtype.UUID{Bytes: idUUID, Valid: true})
+	testCases, err := h.PostgresQueries.GetProblemTestCases(r.Context(), pgtype.Int4{Int32: int32(problemId), Valid: true})
 	if err != nil {
 		log.Println(err)
 		apierror.SendError(w, http.StatusInternalServerError, "Failed to get problem solution")
@@ -182,7 +176,7 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 	dbSubmission := sql.CreateSubmissionParams{
 		ID:            pgtype.UUID{Bytes: uuid.New(), Valid: true},
 		AccountID:     userId,
-		ProblemID:     pgtype.UUID{Bytes: idUUID, Valid: true},
+		ProblemID:     int32(problemId),
 		SubmittedCode: string(submissionRequest.SourceCode),
 		Status:        avgSubmission.Status,
 		Stdout:        pgtype.Text{String: avgSubmission.Stdout, Valid: true},
@@ -256,8 +250,6 @@ func (h *Handler) GetSubmission(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	problemId := uuid.UUID(result.ProblemID.Bytes).String()
-
 	response := SubmissionResultResponse{
 		Data: &SubmissionResult{
 			Id:            submissionId,
@@ -276,7 +268,7 @@ func (h *Handler) GetSubmission(w http.ResponseWriter, r *http.Request) {
 			AccountID:      userId,
 			SubmittedCode:  result.SubmittedCode,
 			SubmittedStdin: result.SubmittedStdin,
-			ProblemID:      problemId,
+			ProblemID:      int(result.ProblemID),
 			CreatedAt:      result.CreatedAt.Time,
 		},
 	}
@@ -292,20 +284,16 @@ func (h *Handler) GetSubmissionsByUsername(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	var problemUUID pgtype.UUID
-	problemId := r.URL.Query().Get("problemId")
-	if problemId != "" {
-		idUUID, err := uuid.Parse(problemId)
-		if err != nil {
-			apierror.SendError(w, http.StatusBadRequest, "Invalid problem ID")
-			return
-		}
-		problemUUID = pgtype.UUID{Bytes: idUUID, Valid: true}
+	id := r.URL.Query().Get("problemId")
+	problemId, err := strconv.Atoi(id)
+	if err != nil {
+		apierror.SendError(w, http.StatusBadRequest, "Invalid problem ID")
+		return
 	}
 
 	submissions, err := h.PostgresQueries.GetSubmissionsByUsername(r.Context(), sql.GetSubmissionsByUsernameParams{
 		Username:  username,
-		ProblemID: problemUUID,
+		ProblemID: int32(problemId),
 	})
 	if err != nil {
 		log.Println(err)
@@ -316,7 +304,6 @@ func (h *Handler) GetSubmissionsByUsername(w http.ResponseWriter, r *http.Reques
 	submissionResults := make([]SubmissionResult, 0)
 	for _, submission := range submissions {
 		submissionId := uuid.UUID(submission.ID.Bytes)
-		problemId := uuid.UUID(submission.ProblemID.Bytes).String()
 		submissionResults = append(submissionResults, SubmissionResult{
 			Id:            submissionId.String(),
 			Stdout:        submission.Stdout.String,
@@ -333,7 +320,7 @@ func (h *Handler) GetSubmissionsByUsername(w http.ResponseWriter, r *http.Reques
 			AccountID:      submission.AccountID,
 			SubmittedCode:  submission.SubmittedCode,
 			SubmittedStdin: submission.SubmittedStdin,
-			ProblemID:      problemId,
+			ProblemID:      int(submission.ProblemID),
 			CreatedAt:      submission.CreatedAt.Time,
 		})
 	}

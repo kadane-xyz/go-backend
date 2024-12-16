@@ -35,7 +35,7 @@ WITH user_submissions AS (
     JOIN problem p ON s.problem_id = p.id
     WHERE 
         a.username = @username
-        AND (@problem_id::uuid IS NULL OR s.problem_id = @problem_id)
+        AND (@problem_id::int IS NULL OR s.problem_id = @problem_id)
     ORDER BY s.created_at DESC
 )
 SELECT 

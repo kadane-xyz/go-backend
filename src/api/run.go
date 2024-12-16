@@ -20,7 +20,7 @@ import (
 type RunRequest struct {
 	Language   string     `json:"language"`
 	SourceCode string     `json:"sourceCode"`
-	ProblemID  string     `json:"problemId"`
+	ProblemID  int        `json:"problemId"`
 	TestCases  []TestCase `json:"testCases"`
 }
 
@@ -44,7 +44,7 @@ type RunResult struct {
 	Status    sql.SubmissionStatus `json:"status"` // Accepted, Wrong Answer, etc
 	// Our custom fields
 	AccountID string    `json:"accountId"`
-	ProblemID string    `json:"problemId"`
+	ProblemID int       `json:"problemId"`
 	CreatedAt time.Time `json:"createdAt"`
 }
 
@@ -56,7 +56,7 @@ type RunsResponse struct {
 	Data []RunResult `json:"data"`
 }
 
-func SummarizeSubmissionResponses(userId string, problemId uuid.UUID, sourceCode string, submissionResponses []judge0.SubmissionResult) (sql.CreateSubmissionParams, error) {
+func SummarizeSubmissionResponses(userId string, problemId int32, sourceCode string, submissionResponses []judge0.SubmissionResult) (sql.CreateSubmissionParams, error) {
 	// Calculate averages from all submission responses
 	var totalMemory int
 	var totalTime float64
@@ -110,7 +110,7 @@ func SummarizeSubmissionResponses(userId string, problemId uuid.UUID, sourceCode
 	return sql.CreateSubmissionParams{
 		ID:            pgtype.UUID{Bytes: uuid.New(), Valid: true},
 		AccountID:     userId,
-		ProblemID:     pgtype.UUID{Bytes: problemId, Valid: true},
+		ProblemID:     int32(problemId),
 		SubmittedCode: sourceCode,
 		Status:        avgSubmission.Status,
 		Stdout:        pgtype.Text{String: avgSubmission.Stdout, Valid: true},
@@ -140,16 +140,6 @@ func (h *Handler) CreateRun(w http.ResponseWriter, r *http.Request) {
 	}
 
 	problemId := runRequest.ProblemID
-	if problemId == "" {
-		apierror.SendError(w, http.StatusBadRequest, "Missing problem ID")
-		return
-	}
-
-	idUUID, err := uuid.Parse(problemId)
-	if err != nil {
-		apierror.SendError(w, http.StatusBadRequest, "Invalid problem ID")
-		return
-	}
 
 	//base64 decode
 	decodedSourceCode, err := base64.StdEncoding.DecodeString(runRequest.SourceCode)
@@ -158,11 +148,9 @@ func (h *Handler) CreateRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	problemIdUUID := pgtype.UUID{Bytes: idUUID, Valid: true}
-
 	languageID := judge0.LanguageToLanguageID(runRequest.Language)
 
-	problemCode, err := h.PostgresQueries.GetProblemCode(r.Context(), problemIdUUID)
+	problemCode, err := h.PostgresQueries.GetProblemCode(r.Context(), pgtype.Int4{Int32: int32(problemId), Valid: true})
 	if err != nil {
 		apierror.SendError(w, http.StatusInternalServerError, "Failed to get problem")
 		return
@@ -245,7 +233,7 @@ func (h *Handler) CreateRun(w http.ResponseWriter, r *http.Request) {
 
 		if userResp.Status.Description != "Accepted" {
 			// User code failed to execute properly
-			dbSubmission, err = SummarizeSubmissionResponses(userId, idUUID, runRequest.SourceCode, userResponses[i:i+1])
+			dbSubmission, err = SummarizeSubmissionResponses(userId, int32(problemId), runRequest.SourceCode, userResponses[i:i+1])
 			if err != nil {
 				apierror.SendError(w, http.StatusInternalServerError, "Failed to process submission")
 				return
@@ -256,7 +244,7 @@ func (h *Handler) CreateRun(w http.ResponseWriter, r *http.Request) {
 		// Both executions were successful, compare outputs for this pair
 		if solutionResp.Stdout != userResp.Stdout {
 			// Test case failed - outputs don't match
-			dbSubmission, err = SummarizeSubmissionResponses(userId, idUUID, runRequest.SourceCode, userResponses[i:i+1])
+			dbSubmission, err = SummarizeSubmissionResponses(userId, int32(problemId), runRequest.SourceCode, userResponses[i:i+1])
 			if err != nil {
 				apierror.SendError(w, http.StatusInternalServerError, "Failed to process submission")
 				return
@@ -269,7 +257,7 @@ func (h *Handler) CreateRun(w http.ResponseWriter, r *http.Request) {
 
 	// If all test cases passed, create submission with averaged results
 	if dbSubmission.Status == "" {
-		dbSubmission, err = SummarizeSubmissionResponses(userId, idUUID, runRequest.SourceCode, userResponses)
+		dbSubmission, err = SummarizeSubmissionResponses(userId, int32(problemId), runRequest.SourceCode, userResponses)
 		if err != nil {
 			apierror.SendError(w, http.StatusInternalServerError, "Failed to process submission")
 			return
