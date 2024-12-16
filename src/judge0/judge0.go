@@ -20,7 +20,7 @@ type Judge0Client struct {
 }
 
 type Submission struct {
-	SourceCode     string `json:"source_code"`
+	SourceCode     []byte `json:"source_code"`
 	LanguageID     int    `json:"language_id"`
 	Stdin          []byte `json:"stdin,omitempty"`
 	ExpectedOutput []byte `json:"expected_output,omitempty"`
@@ -83,6 +83,15 @@ func LanguageToLanguageID(language string) int {
 	return languageIDMap[language]
 }
 
+func LanguageIDToLanguage(languageID int) string {
+	for language, id := range languageIDMap {
+		if id == languageID {
+			return language
+		}
+	}
+	return ""
+}
+
 func NewJudge0Client(cfg *config.Config) *Judge0Client {
 	return &Judge0Client{
 		BaseURL: cfg.Judge0Url,
@@ -101,6 +110,7 @@ func (c *Judge0Client) CreateSubmissionBatchAndWait(submissions []Submission) ([
 	// First create the submission without waiting
 	resp, err := c.CreateSubmissionBatch(submissions)
 	if err != nil {
+		log.Println(err)
 		return nil, fmt.Errorf("batch creation error: %w", err)
 	}
 

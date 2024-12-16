@@ -91,6 +91,9 @@ ORDER BY points DESC;
 -- name: GetProblemCodeByLanguage :one
 SELECT * FROM problem_code WHERE problem_id = $1 AND language = $2;
 
+-- name: GetProblemCode :one
+SELECT * FROM problem_code WHERE problem_id = $1;
+
 -- name: GetProblemCodes :many
 SELECT * FROM problem_code WHERE problem_id = $1;
 

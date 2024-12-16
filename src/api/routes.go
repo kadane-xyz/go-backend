@@ -77,6 +77,10 @@ func RegisterApiRoutes(h *Handler, r chi.Router) {
 				r.Get("/", h.GetRoom)
 			})
 		})
+		//runs
+		r.Route("/runs", func(r chi.Router) {
+			r.Post("/", h.CreateRun)
+		})
 	})
 	//generate a route to catch anything not defined and error/block spam
 	r.Get("/*", func(w http.ResponseWriter, r *http.Request) {

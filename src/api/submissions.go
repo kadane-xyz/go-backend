@@ -18,14 +18,14 @@ import (
 )
 
 type TestCase struct {
-	Input          string         `json:"input"`
-	ExpectedOutput string         `json:"expectedOutput"`
-	Visibility     sql.Visibility `json:"visibility"`
+	Input      []string       `json:"input"`
+	Output     string         `json:"output"`
+	Visibility sql.Visibility `json:"visibility"`
 }
 
 type Submission struct {
 	Language   string `json:"language"`
-	SourceCode string `json:"sourceCode"`
+	SourceCode []byte `json:"sourceCode"`
 	ProblemID  string `json:"problemId"`
 }
 
@@ -183,7 +183,7 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 		ID:            pgtype.UUID{Bytes: uuid.New(), Valid: true},
 		AccountID:     userId,
 		ProblemID:     pgtype.UUID{Bytes: idUUID, Valid: true},
-		SubmittedCode: submissionRequest.SourceCode,
+		SubmittedCode: string(submissionRequest.SourceCode),
 		Status:        avgSubmission.Status,
 		Stdout:        pgtype.Text{String: avgSubmission.Stdout, Valid: true},
 		Time:          pgtype.Text{String: avgSubmission.Time, Valid: true},
@@ -218,7 +218,7 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 				Name: avgSubmission.Language.Name,
 			},
 			AccountID:      userId,
-			SubmittedCode:  submissionRequest.SourceCode,
+			SubmittedCode:  string(submissionRequest.SourceCode),
 			SubmittedStdin: "",
 			ProblemID:      problemId,
 			CreatedAt:      time.Now(),
