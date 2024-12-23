@@ -28,10 +28,7 @@ CREATE TABLE submission (
     language_name TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     account_id TEXT NOT NULL REFERENCES account(id) ON DELETE CASCADE,
-    submitted_code TEXT NOT NULL,
-    submitted_stdin TEXT NOT NULL,
+    submitted_code BYTEA NOT NULL,
+    submitted_stdin BYTEA DEFAULT NULL,
     problem_id INTEGER NOT NULL REFERENCES problem(id) ON DELETE CASCADE
 );
-
--- Add indexes for commonly queried fields
-CREATE INDEX idx_submission_status_id ON submission(status_id);

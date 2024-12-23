@@ -23,7 +23,7 @@ type TestCase struct {
 	Visibility sql.Visibility `json:"visibility"`
 }
 
-type Submission struct {
+type SubmissionRequest struct {
 	Language   string `json:"language"`
 	SourceCode []byte `json:"sourceCode"`
 	ProblemID  int    `json:"problemId"`
@@ -46,8 +46,27 @@ type SubmissionResult struct {
 	Language      LanguageInfo         `json:"language"`
 	// Our custom fields
 	AccountID      string    `json:"accountId"`
-	SubmittedCode  string    `json:"submittedCode"`
-	SubmittedStdin string    `json:"submittedStdin"`
+	SubmittedCode  []byte    `json:"submittedCode"`
+	SubmittedStdin []byte    `json:"submittedStdin"`
+	ProblemID      int       `json:"problemId"`
+	CreatedAt      time.Time `json:"createdAt"`
+}
+
+type SubmissionResponseType struct {
+	Id            string               `json:"id"`
+	Token         string               `json:"token"`
+	Stdout        string               `json:"stdout"`
+	Time          string               `json:"time"`
+	Memory        int                  `json:"memory"`
+	Stderr        string               `json:"stderr"`
+	CompileOutput string               `json:"compileOutput"`
+	Message       string               `json:"message"`
+	Status        sql.SubmissionStatus `json:"status"`
+	Language      string               `json:"language"`
+	// Our custom fields
+	AccountID      string    `json:"accountId"`
+	SubmittedCode  []byte    `json:"submittedCode"`
+	SubmittedStdin []byte    `json:"submittedStdin"`
 	ProblemID      int       `json:"problemId"`
 	CreatedAt      time.Time `json:"createdAt"`
 }
@@ -57,7 +76,7 @@ type SubmissionResultResponse struct {
 }
 
 type SubmissionsResponse struct {
-	Data []SubmissionResult `json:"data"`
+	Data []SubmissionResponseType `json:"data"`
 }
 
 type StatusResponse struct {
@@ -70,6 +89,7 @@ type LanguageInfo struct {
 	Name string `json:"name"`
 }
 
+// POST: /submissions
 func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
 	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
@@ -78,7 +98,7 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var submissionRequest Submission
+	var submissionRequest SubmissionRequest
 	err := json.NewDecoder(r.Body).Decode(&submissionRequest)
 	if err != nil {
 		apierror.SendError(w, http.StatusBadRequest, "Invalid submission data format")
@@ -177,7 +197,7 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 		ID:            pgtype.UUID{Bytes: uuid.New(), Valid: true},
 		AccountID:     userId,
 		ProblemID:     int32(problemId),
-		SubmittedCode: string(submissionRequest.SourceCode),
+		SubmittedCode: []byte(submissionRequest.SourceCode),
 		Status:        avgSubmission.Status,
 		Stdout:        pgtype.Text{String: avgSubmission.Stdout, Valid: true},
 		Time:          pgtype.Text{String: avgSubmission.Time, Valid: true},
@@ -197,32 +217,28 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := SubmissionResultResponse{
-		Data: &SubmissionResult{
-			Id:            submissionId.String(),
-			Stdout:        avgSubmission.Stdout,
-			Time:          avgSubmission.Time,
-			Memory:        int(avgSubmission.Memory),
-			Stderr:        avgSubmission.Stderr,
-			CompileOutput: avgSubmission.CompileOutput,
-			Message:       avgSubmission.Message,
-			Status:        avgSubmission.Status,
-			Language: LanguageInfo{
-				ID:   int(avgSubmission.Language.ID),
-				Name: avgSubmission.Language.Name,
-			},
-			AccountID:      userId,
-			SubmittedCode:  string(submissionRequest.SourceCode),
-			SubmittedStdin: "",
-			ProblemID:      problemId,
-			CreatedAt:      time.Now(),
-		},
+	response := SubmissionResponseType{
+		Id:             submissionId.String(),
+		Stdout:         avgSubmission.Stdout,
+		Time:           avgSubmission.Time,
+		Memory:         int(avgSubmission.Memory),
+		Stderr:         avgSubmission.Stderr,
+		CompileOutput:  avgSubmission.CompileOutput,
+		Message:        avgSubmission.Message,
+		Status:         avgSubmission.Status,
+		Language:       judge0.LanguageIDToLanguage(int(avgSubmission.Language.ID)),
+		AccountID:      userId,
+		SubmittedCode:  submissionRequest.SourceCode,
+		SubmittedStdin: []byte(""),
+		ProblemID:      problemId,
+		CreatedAt:      time.Now(),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
 
+// GET: /submissions/:submissionId
 func (h *Handler) GetSubmission(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
 	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
@@ -231,13 +247,13 @@ func (h *Handler) GetSubmission(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	submissionId := chi.URLParam(r, "submissionId")
-	if submissionId == "" {
+	token := chi.URLParam(r, "token")
+	if token == "" {
 		apierror.SendError(w, http.StatusBadRequest, "Missing submission ID")
 		return
 	}
 
-	idUUID, err := uuid.Parse(submissionId)
+	idUUID, err := uuid.Parse(token)
 	if err != nil {
 		apierror.SendError(w, http.StatusBadRequest, "Invalid submission ID")
 		return
@@ -250,27 +266,21 @@ func (h *Handler) GetSubmission(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := SubmissionResultResponse{
-		Data: &SubmissionResult{
-			Id:            submissionId,
-			Stdout:        result.Stdout.String,
-			Time:          result.Time.String,
-			Memory:        int(result.Memory.Int32),
-			Stderr:        result.Stderr.String,
-			CompileOutput: result.CompileOutput.String,
-			Message:       result.Message.String,
-			Status:        result.Status,
-			Language: LanguageInfo{
-				ID:   int(result.LanguageID),
-				Name: result.LanguageName,
-			},
-			// Our custom fields
-			AccountID:      userId,
-			SubmittedCode:  result.SubmittedCode,
-			SubmittedStdin: result.SubmittedStdin,
-			ProblemID:      int(result.ProblemID),
-			CreatedAt:      result.CreatedAt.Time,
-		},
+	response := SubmissionResponseType{
+		Id:             token,
+		Stdout:         result.Stdout.String,
+		Time:           result.Time.String,
+		Memory:         int(result.Memory.Int32),
+		Stderr:         result.Stderr.String,
+		CompileOutput:  result.CompileOutput.String,
+		Message:        result.Message.String,
+		Status:         result.Status,
+		Language:       judge0.LanguageIDToLanguage(int(result.LanguageID)),
+		AccountID:      userId,
+		SubmittedCode:  result.SubmittedCode,
+		SubmittedStdin: result.SubmittedStdin,
+		ProblemID:      int(result.ProblemID),
+		CreatedAt:      result.CreatedAt.Time,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -301,22 +311,19 @@ func (h *Handler) GetSubmissionsByUsername(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	submissionResults := make([]SubmissionResult, 0)
+	submissionResults := make([]SubmissionResponseType, 0)
 	for _, submission := range submissions {
 		submissionId := uuid.UUID(submission.ID.Bytes)
-		submissionResults = append(submissionResults, SubmissionResult{
-			Id:            submissionId.String(),
-			Stdout:        submission.Stdout.String,
-			Time:          submission.Time.String,
-			Memory:        int(submission.Memory.Int32),
-			Stderr:        submission.Stderr.String,
-			CompileOutput: submission.CompileOutput.String,
-			Message:       submission.Message.String,
-			Status:        submission.Status,
-			Language: LanguageInfo{
-				ID:   int(submission.LanguageID),
-				Name: submission.LanguageName,
-			},
+		submissionResults = append(submissionResults, SubmissionResponseType{
+			Id:             submissionId.String(),
+			Stdout:         submission.Stdout.String,
+			Time:           submission.Time.String,
+			Memory:         int(submission.Memory.Int32),
+			Stderr:         submission.Stderr.String,
+			CompileOutput:  submission.CompileOutput.String,
+			Message:        submission.Message.String,
+			Status:         submission.Status,
+			Language:       judge0.LanguageIDToLanguage(int(submission.LanguageID)),
 			AccountID:      submission.AccountID,
 			SubmittedCode:  submission.SubmittedCode,
 			SubmittedStdin: submission.SubmittedStdin,
