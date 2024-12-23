@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"sort"
 	"strconv"
+	"strings"
 
 	"encoding/base64"
 
@@ -66,6 +68,18 @@ type Problem struct {
 	TestCases   []ProblemTestCase `json:"testCases"`
 }
 
+type ProblemPagination struct {
+	Page         int64 `json:"page"`
+	PerPage      int64 `json:"perPage"`
+	ProblemCount int64 `json:"problemCount"`
+	LastPage     int64 `json:"lastPage"`
+}
+
+type ProblemPaginationResponse struct {
+	Data       []sql.GetProblemsRow `json:"data"`
+	Pagination ProblemPagination    `json:"pagination"`
+}
+
 type ProblemResponse struct {
 	Data sql.GetProblemRow `json:"data"`
 }
@@ -74,8 +88,77 @@ type ProblemsResponse struct {
 	Data []sql.GetProblemsRow `json:"data"`
 }
 
+type Sort string
+
+const (
+	SortAlpha Sort = "alpha"
+	SortIndex Sort = "index"
+)
+
+func filterProblems(problems []sql.GetProblemsRow, titleSearch string, difficulty string) []sql.GetProblemsRow {
+	var filteredProblems []sql.GetProblemsRow
+	for _, p := range problems {
+		// Title filter
+		if titleSearch != "" {
+			if !strings.Contains(
+				strings.ToLower(p.Title),
+				strings.ToLower(titleSearch),
+			) {
+				continue
+			}
+		}
+		// Difficulty filter
+		if difficulty != "" {
+			if string(p.Difficulty) != difficulty {
+				continue
+			}
+		}
+		// Passed all filters
+		filteredProblems = append(filteredProblems, p)
+	}
+	return filteredProblems
+}
+
 // GET: /problems
 func (h *Handler) GetProblems(w http.ResponseWriter, r *http.Request) {
+	titleSearch := strings.TrimSpace(r.URL.Query().Get("titleSearch"))
+	difficulty := strings.TrimSpace(r.URL.Query().Get("difficulty"))
+	sortType := strings.TrimSpace(r.URL.Query().Get("sort"))
+	if sortType == "" {
+		sortType = string(SortIndex)
+	} else if sortType != string(SortAlpha) && sortType != string(SortIndex) {
+		apierror.SendError(w, http.StatusBadRequest, "Invalid sort")
+		return
+	}
+
+	order := strings.TrimSpace(r.URL.Query().Get("order"))
+	if order == "" {
+		order = "asc"
+	} else if order != "asc" && order != "desc" {
+		apierror.SendError(w, http.StatusBadRequest, "Invalid order")
+		return
+	}
+
+	page, err := strconv.ParseInt(r.URL.Query().Get("page"), 10, 64)
+	if err != nil || page < 1 {
+		page = 1
+	}
+
+	perPage, err := strconv.ParseInt(r.URL.Query().Get("perPage"), 10, 64)
+	if err != nil || perPage < 1 {
+		perPage = 10
+	}
+
+	if difficulty != "" {
+		valid := (difficulty == string(sql.ProblemDifficultyEasy) ||
+			difficulty == string(sql.ProblemDifficultyMedium) ||
+			difficulty == string(sql.ProblemDifficultyHard))
+		if !valid {
+			apierror.SendError(w, http.StatusBadRequest, "Invalid difficulty")
+			return
+		}
+	}
+
 	problems, err := h.PostgresQueries.GetProblems(r.Context())
 	if err != nil {
 		log.Printf("Error getting problems: %v", err)
@@ -83,21 +166,76 @@ func (h *Handler) GetProblems(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Map the SQL response to our API response
-	response := ProblemsResponse{
-		Data: problems,
+	filteredProblems := filterProblems(problems, titleSearch, difficulty)
+
+	// handle sorting
+	switch sortType {
+	case string(SortAlpha):
+		if order == "asc" {
+			sort.Slice(filteredProblems, func(i, j int) bool {
+				return filteredProblems[i].Title < filteredProblems[j].Title
+			})
+		} else { // "desc"
+			sort.Slice(filteredProblems, func(i, j int) bool {
+				return filteredProblems[i].Title > filteredProblems[j].Title
+			})
+		}
+	case string(SortIndex):
+		if order == "asc" {
+			sort.Slice(filteredProblems, func(i, j int) bool {
+				return filteredProblems[i].ID < filteredProblems[j].ID
+			})
+		} else { // "desc"
+			sort.Slice(filteredProblems, func(i, j int) bool {
+				return filteredProblems[i].ID > filteredProblems[j].ID
+			})
+		}
 	}
 
-	sendJSONResponse(w, http.StatusOK, response)
-}
+	totalCount := len(filteredProblems)
+	if totalCount == 0 {
+		response := ProblemPaginationResponse{
+			Data:       []sql.GetProblemsRow{},
+			Pagination: ProblemPagination{},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+		return
+	}
 
-// Helper function to send JSON response
-func sendJSONResponse(w http.ResponseWriter, status int, data interface{}) {
+	lastPage := (int64(totalCount) + perPage - 1) / perPage
+
+	if lastPage == 0 {
+		lastPage = 1
+	}
+
+	fromIndex := (page - 1) * perPage
+	toIndex := fromIndex + perPage
+
+	if toIndex > int64(len(filteredProblems)) {
+		toIndex = int64(len(filteredProblems))
+	}
+
+	if page > lastPage {
+		apierror.SendError(w, http.StatusBadRequest, "Page out of bounds")
+		return
+	}
+
+	paginatedProblems := filteredProblems[fromIndex:toIndex]
+
+	// Return an empty array if no matches (status 200)
+	response := ProblemPaginationResponse{
+		Data: paginatedProblems,
+		Pagination: ProblemPagination{
+			Page:         page,
+			PerPage:      perPage,
+			ProblemCount: int64(len(filteredProblems)),
+			LastPage:     lastPage,
+		},
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(data); err != nil {
-		log.Printf("Error encoding response: %v", err)
-	}
+	json.NewEncoder(w).Encode(response)
 }
 
 // POST: /problems
