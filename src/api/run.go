@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -19,7 +18,7 @@ import (
 
 type RunRequest struct {
 	Language   string     `json:"language"`
-	SourceCode string     `json:"sourceCode"`
+	SourceCode []byte     `json:"sourceCode"`
 	ProblemID  int        `json:"problemId"`
 	TestCases  []TestCase `json:"testCases"`
 }
@@ -56,7 +55,7 @@ type RunsResponse struct {
 	Data []RunResult `json:"data"`
 }
 
-func SummarizeSubmissionResponses(userId string, problemId int32, sourceCode string, submissionResponses []judge0.SubmissionResult) (sql.CreateSubmissionParams, error) {
+func SummarizeSubmissionResponses(userId string, problemId int32, sourceCode []byte, submissionResponses []judge0.SubmissionResult) (sql.CreateSubmissionParams, error) {
 	// Calculate averages from all submission responses
 	var totalMemory int
 	var totalTime float64
@@ -141,13 +140,6 @@ func (h *Handler) CreateRun(w http.ResponseWriter, r *http.Request) {
 
 	problemId := runRequest.ProblemID
 
-	//base64 decode
-	decodedSourceCode, err := base64.StdEncoding.DecodeString(runRequest.SourceCode)
-	if err != nil {
-		apierror.SendError(w, http.StatusBadRequest, "Invalid source code")
-		return
-	}
-
 	languageID := judge0.LanguageToLanguageID(runRequest.Language)
 
 	problemCode, err := h.PostgresQueries.GetProblemCode(r.Context(), pgtype.Int4{Int32: int32(problemId), Valid: true})
@@ -162,14 +154,20 @@ func (h *Handler) CreateRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// create solution runs and custom user runs to compare output
 	solutionRuns := []judge0.Submission{}
 	userRuns := []judge0.Submission{}
 
-	// create solution runs and custom user runs to compare output
+	// Track runs by test case input
+	type RunPair struct {
+		solution judge0.Submission
+		user     judge0.Submission
+	}
+	runMap := make(map[string]RunPair)
+
+	// Create solution and user runs with matching
 	for _, testCase := range runRequest.TestCases {
-		// for each test case input
 		for _, input := range testCase.Input {
+			// Create solution run
 			solutionRun := judge0.Submission{
 				LanguageID:     languageID,
 				SourceCode:     []byte(problemCode.Code),
@@ -177,15 +175,24 @@ func (h *Handler) CreateRun(w http.ResponseWriter, r *http.Request) {
 				ExpectedOutput: []byte(testCase.Output),
 				Wait:           true,
 			}
-			solutionRuns = append(solutionRuns, solutionRun)
 
+			// Create user run
 			userRun := judge0.Submission{
 				LanguageID:     languageID,
-				SourceCode:     decodedSourceCode,
+				SourceCode:     runRequest.SourceCode,
 				Stdin:          []byte(input),
 				ExpectedOutput: []byte(testCase.Output),
 				Wait:           true,
 			}
+
+			// Store both runs mapped to this input
+			runMap[input] = RunPair{
+				solution: solutionRun,
+				user:     userRun,
+			}
+
+			// Also append to slices for batch submission
+			solutionRuns = append(solutionRuns, solutionRun)
 			userRuns = append(userRuns, userRun)
 		}
 	}
