@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -31,8 +32,8 @@ type RunTestCase struct {
 	Time           string               `json:"time"`
 	Memory         int                  `json:"memory"`
 	Status         sql.SubmissionStatus `json:"status"`         // Accepted, Wrong Answer, etc
-	Output         string               `json:"output"`         // User code output
-	ExpectedOutput string               `json:"expectedOutput"` // Solution code output
+	Output         []byte               `json:"output"`         // User code output
+	ExpectedOutput []byte               `json:"expectedOutput"` // Solution code output
 }
 
 type RunResult struct {
@@ -59,12 +60,12 @@ func SummarizeSubmissionResponses(userId string, problemId int32, sourceCode []b
 	// Calculate averages from all submission responses
 	var totalMemory int
 	var totalTime float64
-	var failedSubmission *SubmissionResult
+	var failedSubmission *Submission
 
 	// First pass: check for any failures and collect totals
 	for _, resp := range submissionResponses {
 		if resp.Status.Description != "Accepted" {
-			failedSubmission = &SubmissionResult{
+			failedSubmission = &Submission{
 				Status:        sql.SubmissionStatus(resp.Status.Description),
 				Memory:        resp.Memory,
 				Time:          resp.Time,
@@ -72,7 +73,7 @@ func SummarizeSubmissionResponses(userId string, problemId int32, sourceCode []b
 				Stderr:        resp.Stderr,
 				CompileOutput: resp.CompileOutput,
 				Message:       resp.Message,
-				Language:      LanguageInfo{ID: int(resp.Language.ID), Name: resp.Language.Name},
+				Language:      judge0.LanguageIDToLanguage(int(resp.Language.ID)),
 			}
 			break
 		}
@@ -88,7 +89,7 @@ func SummarizeSubmissionResponses(userId string, problemId int32, sourceCode []b
 	lastResp := submissionResponses[len(submissionResponses)-1]
 
 	// If any test failed, use its details, otherwise use averages
-	avgSubmission := SubmissionResult{
+	avgSubmission := Submission{
 		Status:        sql.SubmissionStatus(lastResp.Status.Description),
 		Memory:        int(totalMemory / count),
 		Time:          fmt.Sprintf("%.3f", totalTime/float64(count)),
@@ -96,11 +97,9 @@ func SummarizeSubmissionResponses(userId string, problemId int32, sourceCode []b
 		Stderr:        lastResp.Stderr,
 		CompileOutput: lastResp.CompileOutput,
 		Message:       lastResp.Message,
-		Language: LanguageInfo{
-			ID:   int(lastResp.Language.ID),
-			Name: lastResp.Language.Name,
-		},
 	}
+	languageID := lastResp.Language.ID
+	languageName := lastResp.Language.Name
 
 	if failedSubmission != nil {
 		avgSubmission = *failedSubmission
@@ -118,8 +117,8 @@ func SummarizeSubmissionResponses(userId string, problemId int32, sourceCode []b
 		Stderr:        pgtype.Text{String: avgSubmission.Stderr, Valid: true},
 		CompileOutput: pgtype.Text{String: avgSubmission.CompileOutput, Valid: true},
 		Message:       pgtype.Text{String: avgSubmission.Message, Valid: true},
-		LanguageID:    int32(avgSubmission.Language.ID),
-		LanguageName:  avgSubmission.Language.Name,
+		LanguageID:    int32(languageID),
+		LanguageName:  languageName,
 	}, nil
 }
 
@@ -134,6 +133,7 @@ func (h *Handler) CreateRun(w http.ResponseWriter, r *http.Request) {
 	var runRequest RunRequest
 	err := json.NewDecoder(r.Body).Decode(&runRequest)
 	if err != nil {
+		log.Println(err)
 		apierror.SendError(w, http.StatusBadRequest, "Invalid run data format")
 		return
 	}
@@ -171,7 +171,7 @@ func (h *Handler) CreateRun(w http.ResponseWriter, r *http.Request) {
 			solutionRun := judge0.Submission{
 				LanguageID:     languageID,
 				SourceCode:     []byte(problemCode.Code),
-				Stdin:          []byte(input),
+				Stdin:          []byte(testCase.Input),
 				ExpectedOutput: []byte(testCase.Output),
 				Wait:           true,
 			}
@@ -179,14 +179,14 @@ func (h *Handler) CreateRun(w http.ResponseWriter, r *http.Request) {
 			// Create user run
 			userRun := judge0.Submission{
 				LanguageID:     languageID,
-				SourceCode:     runRequest.SourceCode,
-				Stdin:          []byte(input),
+				SourceCode:     []byte(runRequest.SourceCode),
+				Stdin:          []byte(testCase.Input),
 				ExpectedOutput: []byte(testCase.Output),
 				Wait:           true,
 			}
 
 			// Store both runs mapped to this input
-			runMap[input] = RunPair{
+			runMap[string(input)] = RunPair{
 				solution: solutionRun,
 				user:     userRun,
 			}
@@ -229,9 +229,11 @@ func (h *Handler) CreateRun(w http.ResponseWriter, r *http.Request) {
 			Time:           userResp.Time,
 			Memory:         int(userResp.Memory),
 			Status:         sql.SubmissionStatus(userResp.Status.Description),
-			Output:         userResp.Stdout,
-			ExpectedOutput: solutionResp.Stdout, // solution code output
+			Output:         []byte(userResp.Stdout),
+			ExpectedOutput: []byte(solutionResp.Stdout), // solution code output
 		})
+
+		log.Printf("TEST CASE: %d USER: %s SOLUTION: %s", i, strings.TrimSuffix(string(userResp.Stdout), "\n"), strings.TrimSuffix(string(solutionResp.Stdout), "\n"))
 
 		// First check if both executions were successful
 		if solutionResp.Status.Description != "Accepted" {
@@ -250,6 +252,9 @@ func (h *Handler) CreateRun(w http.ResponseWriter, r *http.Request) {
 
 		// Both executions were successful, compare outputs for this pair
 		if solutionResp.Stdout != userResp.Stdout {
+			// store user code test case results
+			testCases[i].Status = sql.SubmissionStatus("Wrong Answer")
+
 			// Test case failed - outputs don't match
 			dbSubmission, err = SummarizeSubmissionResponses(userId, int32(problemId), runRequest.SourceCode, userResponses[i:i+1])
 			if err != nil {

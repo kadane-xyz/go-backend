@@ -27,12 +27,6 @@ type ProblemCode struct {
 	Code     []byte `json:"code"`
 }
 
-type ProblemTestCase struct {
-	Input      string         `json:"input"`
-	Output     string         `json:"output"`
-	Visibility sql.Visibility `json:"visibility"`
-}
-
 type ProblemRequestHint struct {
 	Description string `json:"description"`
 	Answer      string `json:"answer"`
@@ -52,32 +46,20 @@ type ProblemRequest struct {
 	Hints       []ProblemRequestHint `json:"hints"`
 	Points      int                  `json:"points"`
 	Solution    string               `json:"solution"`
-	TestCases   []ProblemTestCase    `json:"testCases"`
+	TestCases   []TestCase           `json:"testCases"`
 }
 
 type Problem struct {
-	ID          int               `json:"id"`
-	Title       string            `json:"title"`
-	Description string            `json:"description"`
-	Tags        []string          `json:"tags"`
-	Difficulty  string            `json:"difficulty"`
-	Code        []ProblemCode     `json:"code"`
-	Hints       []ProblemHint     `json:"hints"`
-	Points      int               `json:"points"`
-	Solution    string            `json:"solution,omitempty"`
-	TestCases   []ProblemTestCase `json:"testCases"`
-}
-
-type ProblemPagination struct {
-	Page         int64 `json:"page"`
-	PerPage      int64 `json:"perPage"`
-	ProblemCount int64 `json:"problemCount"`
-	LastPage     int64 `json:"lastPage"`
-}
-
-type ProblemPaginationResponse struct {
-	Data       []sql.GetProblemsRow `json:"data"`
-	Pagination ProblemPagination    `json:"pagination"`
+	ID          int           `json:"id"`
+	Title       string        `json:"title"`
+	Description string        `json:"description"`
+	Tags        []string      `json:"tags"`
+	Difficulty  string        `json:"difficulty"`
+	Code        []ProblemCode `json:"code"`
+	Hints       []ProblemHint `json:"hints"`
+	Points      int           `json:"points"`
+	Solution    string        `json:"solution,omitempty"`
+	TestCases   []TestCase    `json:"testCases"`
 }
 
 type ProblemResponse struct {
@@ -86,6 +68,11 @@ type ProblemResponse struct {
 
 type ProblemsResponse struct {
 	Data []sql.GetProblemsRow `json:"data"`
+}
+
+type ProblemPaginationResponse struct {
+	Data       []sql.GetProblemsRow `json:"data"`
+	Pagination Pagination           `json:"pagination"`
 }
 
 type Sort string
@@ -196,7 +183,7 @@ func (h *Handler) GetProblems(w http.ResponseWriter, r *http.Request) {
 	if totalCount == 0 {
 		response := ProblemPaginationResponse{
 			Data:       []sql.GetProblemsRow{},
-			Pagination: ProblemPagination{},
+			Pagination: Pagination{},
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(response)
@@ -226,11 +213,11 @@ func (h *Handler) GetProblems(w http.ResponseWriter, r *http.Request) {
 	// Return an empty array if no matches (status 200)
 	response := ProblemPaginationResponse{
 		Data: paginatedProblems,
-		Pagination: ProblemPagination{
-			Page:         page,
-			PerPage:      perPage,
-			ProblemCount: int64(len(filteredProblems)),
-			LastPage:     lastPage,
+		Pagination: Pagination{
+			Page:      page,
+			PerPage:   perPage,
+			DataCount: int64(len(filteredProblems)),
+			LastPage:  lastPage,
 		},
 	}
 
@@ -329,8 +316,8 @@ func (h *Handler) CreateProblem(w http.ResponseWriter, r *http.Request) {
 	for _, testCase := range request.TestCases {
 		_, err = h.PostgresQueries.CreateProblemTestCase(context.Background(), sql.CreateProblemTestCaseParams{
 			ProblemID:  pgtype.Int4{Int32: int32(problemID), Valid: true},
-			Input:      []byte(testCase.Input),
-			Output:     []byte(testCase.Output),
+			Input:      testCase.Input,
+			Output:     testCase.Output,
 			Visibility: sql.Visibility(testCase.Visibility),
 		})
 		if err != nil {

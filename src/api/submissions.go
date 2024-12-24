@@ -17,42 +17,7 @@ import (
 	"kadane.xyz/go-backend/v2/src/sql/sql"
 )
 
-type TestCase struct {
-	Input      []string       `json:"input"`
-	Output     string         `json:"output"`
-	Visibility sql.Visibility `json:"visibility"`
-}
-
-type SubmissionRequest struct {
-	Language   string `json:"language"`
-	SourceCode []byte `json:"sourceCode"`
-	ProblemID  int    `json:"problemId"`
-}
-
-type SubmissionResponse struct {
-	Data *judge0.SubmissionResponse `json:"data"`
-}
-
-type SubmissionResult struct {
-	Id            string               `json:"id"`
-	Token         string               `json:"token"`
-	Stdout        string               `json:"stdout"`
-	Time          string               `json:"time"`
-	Memory        int                  `json:"memory"`
-	Stderr        string               `json:"stderr"`
-	CompileOutput string               `json:"compileOutput"`
-	Message       string               `json:"message"`
-	Status        sql.SubmissionStatus `json:"status"`
-	Language      LanguageInfo         `json:"language"`
-	// Our custom fields
-	AccountID      string    `json:"accountId"`
-	SubmittedCode  []byte    `json:"submittedCode"`
-	SubmittedStdin []byte    `json:"submittedStdin"`
-	ProblemID      int       `json:"problemId"`
-	CreatedAt      time.Time `json:"createdAt"`
-}
-
-type SubmissionResponseType struct {
+type Submission struct {
 	Id            string               `json:"id"`
 	Token         string               `json:"token"`
 	Stdout        string               `json:"stdout"`
@@ -63,7 +28,7 @@ type SubmissionResponseType struct {
 	Message       string               `json:"message"`
 	Status        sql.SubmissionStatus `json:"status"`
 	Language      string               `json:"language"`
-	// Our custom fields
+	// custom fields
 	AccountID      string    `json:"accountId"`
 	SubmittedCode  []byte    `json:"submittedCode"`
 	SubmittedStdin []byte    `json:"submittedStdin"`
@@ -71,22 +36,18 @@ type SubmissionResponseType struct {
 	CreatedAt      time.Time `json:"createdAt"`
 }
 
-type SubmissionResultResponse struct {
-	Data *SubmissionResult `json:"data"`
+type SubmissionRequest struct {
+	Language   string `json:"language"`
+	SourceCode []byte `json:"sourceCode"`
+	ProblemID  int    `json:"problemId"`
+}
+
+type SubmissionResponse struct {
+	Data Submission `json:"data"`
 }
 
 type SubmissionsResponse struct {
-	Data []SubmissionResponseType `json:"data"`
-}
-
-type StatusResponse struct {
-	ID          int    `json:"id"`
-	Description string `json:"description"`
-}
-
-type LanguageInfo struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
+	Data []Submission `json:"data"`
 }
 
 // POST: /submissions
@@ -146,12 +107,12 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 	// Calculate averages from all submission responses
 	var totalMemory int
 	var totalTime float64
-	var failedSubmission *SubmissionResult
+	var failedSubmission *Submission
 
 	// First pass: check for any failures and collect totals
 	for _, resp := range submissionResponses {
 		if resp.Status.Description != "Accepted" {
-			failedSubmission = &SubmissionResult{
+			failedSubmission = &Submission{
 				Status:        sql.SubmissionStatus(resp.Status.Description),
 				Memory:        resp.Memory,
 				Time:          resp.Time,
@@ -159,7 +120,7 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 				Stderr:        resp.Stderr,
 				CompileOutput: resp.CompileOutput,
 				Message:       resp.Message,
-				Language:      LanguageInfo{ID: int(resp.Language.ID), Name: resp.Language.Name},
+				Language:      judge0.LanguageIDToLanguage(int(resp.Language.ID)),
 			}
 			break
 		}
@@ -175,7 +136,7 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 	lastResp := submissionResponses[len(submissionResponses)-1]
 
 	// If any test failed, use its details, otherwise use averages
-	avgSubmission := SubmissionResult{
+	avgSubmission := Submission{
 		Status:        sql.SubmissionStatus(lastResp.Status.Description),
 		Memory:        int(totalMemory / count),
 		Time:          fmt.Sprintf("%.3f", totalTime/float64(count)),
@@ -183,11 +144,10 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 		Stderr:        lastResp.Stderr,
 		CompileOutput: lastResp.CompileOutput,
 		Message:       lastResp.Message,
-		Language: LanguageInfo{
-			ID:   int(lastResp.Language.ID),
-			Name: lastResp.Language.Name,
-		},
 	}
+	// store language id and name for db
+	lastLanguageID := lastResp.Language.ID
+	lastLanguageName := lastResp.Language.Name
 
 	if failedSubmission != nil {
 		avgSubmission = *failedSubmission
@@ -205,8 +165,8 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 		Stderr:        pgtype.Text{String: avgSubmission.Stderr, Valid: true},
 		CompileOutput: pgtype.Text{String: avgSubmission.CompileOutput, Valid: true},
 		Message:       pgtype.Text{String: avgSubmission.Message, Valid: true},
-		LanguageID:    int32(avgSubmission.Language.ID),
-		LanguageName:  avgSubmission.Language.Name,
+		LanguageID:    int32(lastLanguageID),
+		LanguageName:  lastLanguageName,
 	}
 
 	// create submission in db
@@ -217,21 +177,23 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := SubmissionResponseType{
-		Id:             submissionId.String(),
-		Stdout:         avgSubmission.Stdout,
-		Time:           avgSubmission.Time,
-		Memory:         int(avgSubmission.Memory),
-		Stderr:         avgSubmission.Stderr,
-		CompileOutput:  avgSubmission.CompileOutput,
-		Message:        avgSubmission.Message,
-		Status:         avgSubmission.Status,
-		Language:       judge0.LanguageIDToLanguage(int(avgSubmission.Language.ID)),
-		AccountID:      userId,
-		SubmittedCode:  submissionRequest.SourceCode,
-		SubmittedStdin: []byte(""),
-		ProblemID:      problemId,
-		CreatedAt:      time.Now(),
+	response := SubmissionResponse{
+		Data: Submission{
+			Id:             submissionId.String(),
+			Stdout:         avgSubmission.Stdout,
+			Time:           avgSubmission.Time,
+			Memory:         int(avgSubmission.Memory),
+			Stderr:         avgSubmission.Stderr,
+			CompileOutput:  avgSubmission.CompileOutput,
+			Message:        avgSubmission.Message,
+			Status:         avgSubmission.Status,
+			Language:       judge0.LanguageIDToLanguage(int(lastLanguageID)),
+			AccountID:      userId,
+			SubmittedCode:  submissionRequest.SourceCode,
+			SubmittedStdin: []byte(""),
+			ProblemID:      problemId,
+			CreatedAt:      time.Now(),
+		},
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -266,21 +228,23 @@ func (h *Handler) GetSubmission(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := SubmissionResponseType{
-		Id:             token,
-		Stdout:         result.Stdout.String,
-		Time:           result.Time.String,
-		Memory:         int(result.Memory.Int32),
-		Stderr:         result.Stderr.String,
-		CompileOutput:  result.CompileOutput.String,
-		Message:        result.Message.String,
-		Status:         result.Status,
-		Language:       judge0.LanguageIDToLanguage(int(result.LanguageID)),
-		AccountID:      userId,
-		SubmittedCode:  result.SubmittedCode,
-		SubmittedStdin: result.SubmittedStdin,
-		ProblemID:      int(result.ProblemID),
-		CreatedAt:      result.CreatedAt.Time,
+	response := SubmissionResponse{
+		Data: Submission{
+			Id:             token,
+			Stdout:         result.Stdout.String,
+			Time:           result.Time.String,
+			Memory:         int(result.Memory.Int32),
+			Stderr:         result.Stderr.String,
+			CompileOutput:  result.CompileOutput.String,
+			Message:        result.Message.String,
+			Status:         result.Status,
+			Language:       judge0.LanguageIDToLanguage(int(result.LanguageID)),
+			AccountID:      userId,
+			SubmittedCode:  result.SubmittedCode,
+			SubmittedStdin: result.SubmittedStdin,
+			ProblemID:      int(result.ProblemID),
+			CreatedAt:      result.CreatedAt.Time,
+		},
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -311,10 +275,10 @@ func (h *Handler) GetSubmissionsByUsername(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	submissionResults := make([]SubmissionResponseType, 0)
+	submissionResults := make([]Submission, 0)
 	for _, submission := range submissions {
 		submissionId := uuid.UUID(submission.ID.Bytes)
-		submissionResults = append(submissionResults, SubmissionResponseType{
+		submissionResults = append(submissionResults, Submission{
 			Id:             submissionId.String(),
 			Stdout:         submission.Stdout.String,
 			Time:           submission.Time.String,
