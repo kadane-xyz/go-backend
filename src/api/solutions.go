@@ -2,13 +2,11 @@ package api
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx"
 	"github.com/jackc/pgx/v5/pgtype"
 	"kadane.xyz/go-backend/v2/src/apierror"
 	"kadane.xyz/go-backend/v2/src/middleware"
@@ -44,16 +42,9 @@ type SolutionsData struct {
 	CurrentUserVote sql.VoteType     `json:"currentUserVote"`
 }
 
-type SolutionsPagination struct {
-	Page          int64 `json:"page"`
-	PerPage       int64 `json:"perPage"`
-	SolutionCount int64 `json:"solutionCount"`
-	LastPage      int64 `json:"lastPage"`
-}
-
 type SolutionsResponse struct {
-	Data       []SolutionsData     `json:"data"`
-	Pagination SolutionsPagination `json:"pagination"`
+	Data       []SolutionsData `json:"data"`
+	Pagination Pagination      `json:"pagination"`
 }
 
 // GET: /solutions
@@ -131,12 +122,12 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 		POrderBy:       sort,
 	})
 	if err != nil {
-		apierror.SendError(w, http.StatusInternalServerError, "Error retrieving solutions from database")
+		EmptyDataArrayResponse(w) // { data: [] }
 		return
 	}
 
 	if len(solutions) == 0 {
-		apierror.SendError(w, http.StatusNotFound, "No solutions found for the given problem")
+		EmptyDataArrayResponse(w) // { data: [] }
 		return
 	}
 
@@ -218,25 +209,18 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 	// Final response
 	finalResponse := SolutionsResponse{
 		Data: solutionsData,
-		Pagination: SolutionsPagination{
-			Page:          page,       // Current page
-			PerPage:       perPage,    // Items per page
-			SolutionCount: totalCount, // Total items
-			LastPage:      lastPage,   // Last page
+		Pagination: Pagination{
+			Page:      page,       // Current page
+			PerPage:   perPage,    // Items per page
+			DataCount: totalCount, // Total items
+			LastPage:  lastPage,   // Last page
 		},
-	}
-
-	// Marshal solutions to JSON
-	responseJSON, err := json.Marshal(finalResponse)
-	if err != nil {
-		apierror.SendError(w, http.StatusInternalServerError, "error marshalling solutions")
-		return
 	}
 
 	// Write solutionsJSON to response
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write(responseJSON)
+	json.NewEncoder(w).Encode(finalResponse)
 }
 
 // POST: /
@@ -303,11 +287,7 @@ func (h *Handler) GetSolution(w http.ResponseWriter, r *http.Request) {
 	// Get solutions from db by idPg
 	solution, err := h.PostgresQueries.GetSolution(r.Context(), id)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			apierror.SendError(w, http.StatusNotFound, "Solution not found")
-		} else {
-			apierror.SendError(w, http.StatusInternalServerError, "Error retrieving solution from database")
-		}
+		EmptyDataResponse(w) // { data: {} }
 		return
 	}
 
@@ -366,17 +346,10 @@ func (h *Handler) GetSolution(w http.ResponseWriter, r *http.Request) {
 		Data: solutionData,
 	}
 
-	// Marshal solutions to JSON
-	responseJSON, err := json.Marshal(response)
-	if err != nil {
-		http.Error(w, "error marshalling solutions", http.StatusInternalServerError)
-		return
-	}
-
 	// Write solutionsJSON to response
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write(responseJSON)
+	json.NewEncoder(w).Encode(response)
 }
 
 // PUT: /{solutionId}

@@ -223,8 +223,7 @@ func (h *Handler) GetSubmission(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.PostgresQueries.GetSubmissionByID(r.Context(), pgtype.UUID{Bytes: idUUID, Valid: true})
 	if err != nil {
-		log.Println(err)
-		apierror.SendError(w, http.StatusInternalServerError, "Failed to get submission")
+		EmptyDataResponse(w) // { data: {} }
 		return
 	}
 
@@ -270,8 +269,7 @@ func (h *Handler) GetSubmissionsByUsername(w http.ResponseWriter, r *http.Reques
 		ProblemID: int32(problemId),
 	})
 	if err != nil {
-		log.Println(err)
-		apierror.SendError(w, http.StatusInternalServerError, "Failed to get submissions")
+		EmptyDataArrayResponse(w) // { data: [] }
 		return
 	}
 
