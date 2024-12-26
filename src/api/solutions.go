@@ -184,6 +184,7 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 
 		solutionData := SolutionsData{
 			Id:              solution.ID,
+			Body:            solution.Body,
 			Comments:        comment,
 			Date:            solution.CreatedAt,
 			Tags:            solution.Tags,
@@ -331,6 +332,7 @@ func (h *Handler) GetSolution(w http.ResponseWriter, r *http.Request) {
 
 	solutionData := SolutionsData{
 		Id:              solution.ID,
+		Body:            solution.Body,
 		Comments:        comment,
 		Date:            solution.CreatedAt,
 		Tags:            solution.Tags,
