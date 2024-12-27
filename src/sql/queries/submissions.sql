@@ -9,8 +9,8 @@ SELECT * FROM submission WHERE problem_id = $1;
 
 -- name: GetSubmissionsByUsername :many
 WITH user_submissions AS (
-    SELECT 
-        s.id as submission_id,
+    SELECT
+        s.id                AS submission_id,
         s.stdout,
         s.time,
         s.memory,
@@ -25,21 +25,31 @@ WITH user_submissions AS (
         s.submitted_stdin,
         s.problem_id,
         s.created_at,
-        p.title as problem_title,
-        p.description as problem_description,
-        p.difficulty as problem_difficulty,
-        p.points as problem_points,
+        p.title             AS problem_title,
+        p.description       AS problem_description,
+        p.difficulty        AS problem_difficulty,
+        p.points            AS problem_points,
         a.username
     FROM submission s
-    JOIN account a ON s.account_id = a.id
-    JOIN problem p ON s.problem_id = p.id
-    WHERE 
+    JOIN account a
+        ON s.account_id = a.id
+    JOIN problem p
+        ON s.problem_id = p.id
+    WHERE
         a.username = @username
-        AND (@problem_id::int IS NULL OR s.problem_id = @problem_id)
-    ORDER BY s.created_at DESC
+        -- Filter by problem_id only if not 0
+        AND (
+            @problem_id = 0
+            OR s.problem_id = @problem_id
+        )
+        -- Filter by status only if not empty string
+        AND (
+            @status = ''
+            OR s.status = @status::submission_status
+        )
 )
-SELECT 
-    submission_id as id,
+SELECT
+    submission_id                  AS id,
     stdout,
     time,
     memory,
@@ -59,4 +69,39 @@ SELECT
     problem_difficulty,
     problem_points,
     username
-FROM user_submissions;
+FROM user_submissions
+ORDER BY
+    -- 1) Sort by 'runtime' (the "time" column cast to float)
+    CASE
+        WHEN @sort = 'runtime' AND @sort_direction = 'ASC'
+            THEN CAST(time AS float)
+    END ASC,
+    CASE
+        WHEN @sort = 'runtime' AND @sort_direction = 'DESC'
+            THEN CAST(time AS float)
+    END DESC,
+
+    -- 2) Sort by 'memory'
+    CASE
+        WHEN @sort = 'memory' AND @sort_direction = 'ASC'
+            THEN memory
+    END ASC,
+    CASE
+        WHEN @sort = 'memory' AND @sort_direction = 'DESC'
+            THEN memory
+    END DESC,
+
+    -- 3) Sort by 'createdAt'
+    CASE
+        WHEN @sort = 'createdAt' AND @sort_direction = 'ASC'
+            THEN EXTRACT(EPOCH FROM created_at)
+    END ASC,
+    CASE
+        WHEN @sort = 'createdAt' AND @sort_direction = 'DESC'
+            THEN EXTRACT(EPOCH FROM created_at)
+    END DESC,
+
+    -- 4) OPTIONAL fallback ordering if none of the above matched:
+    --    This ensures there is always a stable ordering.
+    submission_id DESC
+NULLS LAST;
