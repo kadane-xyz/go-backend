@@ -250,6 +250,7 @@ func (h *Handler) GetSubmission(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+// GET: /submissions/username/:username
 func (h *Handler) GetSubmissionsByUsername(w http.ResponseWriter, r *http.Request) {
 	username := chi.URLParam(r, "username")
 	if username == "" {
@@ -264,9 +265,65 @@ func (h *Handler) GetSubmissionsByUsername(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	status := r.URL.Query().Get("status")
+	if status == "all" {
+		status = ""
+	} else if status != "" {
+		// Check if status is valid
+		validStatuses := []sql.SubmissionStatus{
+			sql.SubmissionStatusAccepted,
+			sql.SubmissionStatusWrongAnswer,
+			sql.SubmissionStatusTimeLimitExceeded,
+			sql.SubmissionStatusCompilationError,
+			sql.SubmissionStatusRuntimeErrorSIGSEGV,
+			sql.SubmissionStatusRuntimeErrorSIGXFSZ,
+			sql.SubmissionStatusRuntimeErrorSIGFPE,
+			sql.SubmissionStatusRuntimeErrorSIGABRT,
+			sql.SubmissionStatusRuntimeErrorNZEC,
+			sql.SubmissionStatusRuntimeErrorOther,
+			sql.SubmissionStatusInternalError,
+			sql.SubmissionStatusExecFormatError,
+		}
+
+		isValid := false
+		for _, validStatus := range validStatuses {
+			if sql.SubmissionStatus(status) == validStatus {
+				isValid = true
+				break
+			}
+		}
+
+		if !isValid {
+			apierror.SendError(w, http.StatusBadRequest, "Invalid status parameter")
+			return
+		}
+	}
+
+	order := r.URL.Query().Get("order")
+	if order == "" {
+		order = "DESC"
+	} else if order == "asc" {
+		order = "ASC"
+	} else if order == "desc" {
+		order = "DESC"
+	}
+
+	// runtime, memory, createdAt
+	sort := r.URL.Query().Get("sort")
+	if sort == "runtime" {
+		sort = "time"
+	} else if sort == "memory" {
+		sort = "memory"
+	} else if sort == "createdAt" {
+		sort = "created_at"
+	}
+
 	submissions, err := h.PostgresQueries.GetSubmissionsByUsername(r.Context(), sql.GetSubmissionsByUsernameParams{
-		Username:  username,
-		ProblemID: int32(problemId),
+		Username:      username,
+		ProblemID:     int32(problemId),
+		Sort:          sort,
+		SortDirection: order,
+		Status:        sql.SubmissionStatus(status),
 	})
 	if err != nil {
 		EmptyDataArrayResponse(w) // { data: [] }
