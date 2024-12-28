@@ -237,6 +237,7 @@ paths:
           $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalServerError'
+
   /comments/{commentId}/vote:
     patch:
       operationId: voteComment
@@ -520,6 +521,97 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /submissions/username/{username}:
+    get:
+      tags:
+        - Submissions
+      summary: Get submissions by username
+      description: Retrieve all submissions for a specific user with pagination and filtering
+      operationId: getSubmissionsByUsername
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Username to get submissions for
+        - name: problemId
+          in: query
+          required: true
+          schema:
+            type: integer
+          description: Problem ID to filter submissions
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [ALL, Accepted, "Wrong Answer", "Time Limit Exceeded", "Compilation Error", "Runtime Error", "Internal Error", "Memory Limit Exceeded"]
+            default: ALL
+          description: Filter submissions by status
+        - name: sortBy
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, memory, createdAt]
+            default: createdAt
+          description: Field to sort submissions by
+        - name: order
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+          description: Sort order
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number for pagination
+        - name: perPage
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+          description: Number of items per page
+      responses:
+        '200':
+          description: List of submissions retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Submission'
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                      perPage:
+                        type: integer
+                      dataCount:
+                        type: integer
+                      lastPage:
+                        type: integer
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   /accounts/{id}:
     get:
       summary: Get account by ID
@@ -710,8 +802,54 @@ paths:
       tags:
         - Problems
       summary: Get all problems
-      description: Retrieve a list of all problems
+      description: Retrieve a list of problems with filtering and pagination
       operationId: getProblems
+      parameters:
+        - name: titleSearch
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Search problems by title
+        - name: difficulty
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [easy, medium, hard]
+          description: Filter by difficulty level
+        - name: sort 
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [alpha, index]
+            default: index
+          description: Field to sort problems by
+        - name: order
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+          description: Sort order
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number for pagination
+        - name: perPage
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 10
+          description: Number of items per page
       responses:
         '200':
           description: List of problems retrieved successfully
@@ -724,6 +862,19 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/Problem'
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                      perPage:
+                        type: integer
+                      total:
+                        type: integer
+                      lastPage:
+                        type: integer
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -1118,6 +1269,54 @@ components:
           type: string
         expectedOutput:
           type: string
+
+    Submission:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        stdout:
+          type: string
+        time:
+          type: string
+        memory:
+          type: integer
+        stderr:
+          type: string
+        compile_output:
+          type: string
+        message:
+          type: string
+        status:
+          type: string
+          enum: [Accepted, "Wrong Answer", "Time Limit Exceeded", "Compilation Error", "Runtime Error", "Internal Error", "Memory Limit Exceeded"]
+        language_id:
+          type: integer
+        language_name:
+          type: string
+        account_id:
+          type: string
+        submitted_code:
+          type: string
+        submitted_stdin:
+          type: string
+        problem_id:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        problem_title:
+          type: string
+        problem_description:
+          type: string
+        problem_difficulty:
+          type: string
+        problem_points:
+          type: integer
+        username:
+          type: string
+
   responses:
     BadRequest:
       description: Bad request
