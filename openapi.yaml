@@ -515,7 +515,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SubmissionCreatedResponse'
+                $ref: '#/components/schemas/Submission'
         '400':
           $ref: '#/components/responses/BadRequest'
         '500':
@@ -549,7 +549,7 @@ paths:
             enum: [ALL, Accepted, "Wrong Answer", "Time Limit Exceeded", "Compilation Error", "Runtime Error", "Internal Error", "Memory Limit Exceeded"]
             default: ALL
           description: Filter submissions by status
-        - name: sortBy
+        - name: sort
           in: query
           required: false
           schema:
@@ -579,7 +579,6 @@ paths:
           schema:
             type: integer
             minimum: 1
-            maximum: 100
             default: 10
           description: Number of items per page
       responses:
@@ -1131,25 +1130,10 @@ components:
           type: string
           format: base64
           description: The code submitted as a solution.
-        stdin:
-          type: string
-          format: base64
-          description: The input to the problem.
-        wait:
-          type: boolean
-          description: Whether to wait for the submission to complete or not.
       required:
         - problemId
         - language
         - code
-    SubmissionCreatedResponse:
-      type: object
-      properties:
-        data:
-          type: string
-          format: uuid
-          description: The token of the created submission.
-          example: "token: caccd998-4e5c-48ee-bce1-30b77b15bc6d"
     ProblemRequest:
       type: object
       required:
@@ -1276,47 +1260,41 @@ components:
         id:
           type: string
           format: uuid
+        token:
+          type: string
+          format: uuid
         stdout:
           type: string
         time:
           type: string
+          format: date-time
         memory:
           type: integer
         stderr:
           type: string
         compile_output:
           type: string
+          format: base64
         message:
           type: string
         status:
           type: string
           enum: [Accepted, "Wrong Answer", "Time Limit Exceeded", "Compilation Error", "Runtime Error", "Internal Error", "Memory Limit Exceeded"]
-        language_id:
-          type: integer
-        language_name:
+        language:
           type: string
         account_id:
           type: string
         submitted_code:
           type: string
+          format: base64
         submitted_stdin:
           type: string
+          format: base64
         problem_id:
           type: integer
         created_at:
           type: string
           format: date-time
-        problem_title:
-          type: string
-        problem_description:
-          type: string
-        problem_difficulty:
-          type: string
-        problem_points:
-          type: integer
-        username:
-          type: string
-
   responses:
     BadRequest:
       description: Bad request
