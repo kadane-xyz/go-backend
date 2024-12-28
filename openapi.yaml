@@ -1272,7 +1272,7 @@ components:
           type: integer
         stderr:
           type: string
-        compile_output:
+        compileOutput:
           type: string
           format: base64
         message:
@@ -1282,17 +1282,17 @@ components:
           enum: [Accepted, "Wrong Answer", "Time Limit Exceeded", "Compilation Error", "Runtime Error", "Internal Error", "Memory Limit Exceeded"]
         language:
           type: string
-        account_id:
+        accountId:
           type: string
-        submitted_code:
-          type: string
-          format: base64
-        submitted_stdin:
+        submittedCode:
           type: string
           format: base64
-        problem_id:
+        submittedStdin:
+          type: string
+          format: base64
+        problemId:
           type: integer
-        created_at:
+        createdAt:
           type: string
           format: date-time
   responses:
