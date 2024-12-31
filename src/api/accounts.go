@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/mail"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/go-chi/chi/v5"
@@ -36,6 +37,10 @@ type AccountResponse struct {
 
 type AccountsResponse struct {
 	Data []sql.Account `json:"data"`
+}
+
+type AccountsAttributesResponse struct {
+	Data []AccountAttributesWithAccount `json:"data"`
 }
 
 type AccountAttributesInput struct {
@@ -68,13 +73,13 @@ type AccountAttributes struct {
 }
 
 type AccountAttributesWithAccount struct {
-	ID         string            `json:"id"`
-	Username   string            `json:"username"`
-	Email      string            `json:"email"`
-	AvatarUrl  string            `json:"avatarUrl,omitempty"`
-	Level      int               `json:"level"`
-	CreatedAt  string            `json:"created"`
-	Attributes AccountAttributes `json:"attributes,omitempty"`
+	ID         string      `json:"id"`
+	Username   string      `json:"username"`
+	Email      string      `json:"email"`
+	AvatarUrl  string      `json:"avatarUrl,omitempty"`
+	Level      int32       `json:"level"`
+	CreatedAt  time.Time   `json:"created"`
+	Attributes interface{} `json:"attributes"`
 }
 
 type AccountAttributesResponse struct {
@@ -91,19 +96,21 @@ type AvatarResponse struct {
 
 // GET: /accounts
 func (h *Handler) GetAccounts(w http.ResponseWriter, r *http.Request) {
-	accounts, err := h.PostgresQueries.GetAccounts(r.Context())
+	accounts, err := h.PostgresQueries.GetAccounts(r.Context(), true)
 	if err != nil {
-		log.Println("Error getting accounts: ", err)
 		apierror.SendError(w, http.StatusInternalServerError, "Error getting accounts")
 	}
 
-	accountsResponse := AccountsResponse{Data: []sql.Account{}}
+	accountsResponse := AccountsAttributesResponse{Data: []AccountAttributesWithAccount{}}
 	for _, account := range accounts {
-		accountsResponse.Data = append(accountsResponse.Data, sql.Account{
-			ID:        account.ID,
-			Username:  account.Username,
-			Email:     account.Email,
-			CreatedAt: account.CreatedAt,
+		accountsResponse.Data = append(accountsResponse.Data, AccountAttributesWithAccount{
+			ID:         account.ID,
+			Username:   account.Username,
+			Email:      account.Email,
+			CreatedAt:  account.CreatedAt.Time,
+			AvatarUrl:  account.AvatarUrl.String,
+			Level:      account.Level.Int32,
+			Attributes: account.Attributes,
 		})
 	}
 	w.Header().Set("Content-Type", "application/json")

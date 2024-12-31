@@ -30,7 +30,28 @@ LEFT JOIN account_attribute aa ON a.id = aa.id
 WHERE a.id = @id;
 
 -- name: GetAccounts :many
-SELECT * FROM account;
+SELECT 
+    a.*,
+    CASE 
+        WHEN @include_attributes::boolean THEN
+            json_build_object(
+                'bio', COALESCE(aa.bio, ''),
+                'contactEmail', COALESCE(aa.contact_email, ''),
+                'location', COALESCE(aa.location, ''),
+                'realName', COALESCE(aa.real_name, ''),
+                'githubUrl', COALESCE(aa.github_url, ''),
+                'linkedinUrl', COALESCE(aa.linkedin_url, ''),
+                'facebookUrl', COALESCE(aa.facebook_url, ''),
+                'instagramUrl', COALESCE(aa.instagram_url, ''),
+                'twitterUrl', COALESCE(aa.twitter_url, ''),
+                'school', COALESCE(aa.school, ''),
+                'websiteUrl', COALESCE(aa.website_url, '')
+            )
+        ELSE
+            NULL
+    END as attributes
+FROM account a
+LEFT JOIN account_attribute aa ON a.id = aa.id;
 
 -- name: GetAccountExists :one
 SELECT EXISTS (SELECT 1 FROM account WHERE id = $1);
