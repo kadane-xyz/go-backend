@@ -4,6 +4,9 @@ INSERT INTO submission (id, stdout, time, memory, stderr, compile_output, messag
 -- name: GetSubmissionByID :one
 SELECT * FROM submission WHERE id = $1;
 
+-- name: GetSubmissionsByID :many
+SELECT * FROM submission WHERE id = ANY(@ids::uuid[]);
+
 -- name: GetSubmissionsByProblemID :many
 SELECT * FROM submission WHERE problem_id = $1;
 

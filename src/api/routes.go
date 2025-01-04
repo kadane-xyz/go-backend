@@ -81,6 +81,21 @@ func RegisterApiRoutes(h *Handler, r chi.Router) {
 		r.Route("/runs", func(r chi.Router) {
 			r.Post("/", h.CreateRun)
 		})
+		//starred
+		r.Route("/starred", func(r chi.Router) {
+			r.Route("/problems", func(r chi.Router) {
+				r.Get("/", h.GetStarredProblems)
+				r.Put("/", h.PutStarProblem)
+			})
+			r.Route("/solutions", func(r chi.Router) {
+				r.Get("/", h.GetStarredSolutions)
+				r.Put("/", h.PutStarSolution)
+			})
+			r.Route("/submissions", func(r chi.Router) {
+				r.Get("/", h.GetStarredSubmissions)
+				r.Put("/", h.PutStarSubmission)
+			})
+		})
 	})
 	//generate a route to catch anything not defined and error/block spam
 	r.Get("/*", func(w http.ResponseWriter, r *http.Request) {

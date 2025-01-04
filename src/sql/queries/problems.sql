@@ -7,6 +7,9 @@ INSERT INTO problem_code (problem_id, language, code) VALUES ($1, $2, $3);
 -- name: CreateProblemHint :exec
 INSERT INTO problem_hint (problem_id, description, answer) VALUES ($1, $2, $3);
 
+-- name: GetProblemsById :many
+SELECT * FROM problem WHERE id = ANY(@ids::int[]);
+
 -- name: GetProblem :one
 SELECT 
     p.id,
