@@ -4,7 +4,7 @@ This repository contains the main backend for Kadane and also openapi documentat
 
 [https://api.kadane.xyz](https://api.kadane.xyz)
 
-[https://doc.kadane.xyz](https://doc.kadane.xyz)
+[https://docs.kadane.xyz](https://docs.kadane.xyz)
 
 ## Development:
 
