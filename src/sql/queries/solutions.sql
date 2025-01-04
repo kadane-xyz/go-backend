@@ -3,6 +3,20 @@
 -- name: GetSolutions :many
 SELECT * FROM solution WHERE problem_id = $1;
 
+-- name: GetSolutionsByID :many
+SELECT 
+    s.id,
+    a.username, -- username instead of user_id
+    s.title,
+    s.body,
+    s.problem_id,
+    s.tags,
+    s.created_at,
+    s.votes
+FROM solution s
+JOIN account a ON s.user_id = a.id
+WHERE s.id = ANY(@ids::int[]);
+
 -- name: GetSolutionsCount :one
 SELECT COUNT(*) FROM solution
 WHERE problem_id = $1
