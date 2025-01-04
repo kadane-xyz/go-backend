@@ -554,8 +554,8 @@ paths:
           required: false
           schema:
             type: string
-            enum: [runtime, memory, createdAt]
-            default: createdAt
+            enum: [runtime, memory, created]
+            default: created
           description: Field to sort submissions by
         - name: order
           in: query

@@ -71,14 +71,14 @@ SELECT
     username
 FROM user_submissions
 ORDER BY
-    -- 1) Sort by 'runtime' (the "time" column cast to float)
+    -- 1) Sort by 'time' (the "time" column cast to float)
     CASE
-        WHEN @sort = 'runtime' AND @sort_direction = 'ASC'
-            THEN CAST(time AS float)
+        WHEN @sort = 'time' AND @sort_direction = 'ASC'
+            THEN time 
     END ASC,
     CASE
-        WHEN @sort = 'runtime' AND @sort_direction = 'DESC'
-            THEN CAST(time AS float)
+        WHEN @sort = 'time' AND @sort_direction = 'DESC'
+            THEN time 
     END DESC,
 
     -- 2) Sort by 'memory'
@@ -91,17 +91,26 @@ ORDER BY
             THEN memory
     END DESC,
 
-    -- 3) Sort by 'createdAt'
+    -- 3) Sort by 'created'
     CASE
-        WHEN @sort = 'createdAt' AND @sort_direction = 'ASC'
-            THEN EXTRACT(EPOCH FROM created_at)
+        WHEN @sort = 'created_at' AND @sort_direction = 'ASC'
+            THEN created_at
     END ASC,
     CASE
-        WHEN @sort = 'createdAt' AND @sort_direction = 'DESC'
-            THEN EXTRACT(EPOCH FROM created_at)
+        WHEN @sort = 'created_at' AND @sort_direction = 'DESC'
+            THEN created_at
     END DESC,
 
-    -- 4) OPTIONAL fallback ordering if none of the above matched:
-    --    This ensures there is always a stable ordering.
+    -- 4) Sort by 'status' (alphabetical)
+    CASE
+        WHEN @sort = 'status' AND @sort_direction = 'ASC'
+            THEN status
+    END ASC,
+    CASE
+        WHEN @sort = 'status' AND @sort_direction = 'DESC'
+            THEN status
+    END DESC,
+
+    -- 5) Fallback ordering for stability
     submission_id DESC
 NULLS LAST;

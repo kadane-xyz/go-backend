@@ -266,9 +266,7 @@ func (h *Handler) GetSubmissionsByUsername(w http.ResponseWriter, r *http.Reques
 	}
 
 	status := r.URL.Query().Get("status")
-	if status == "all" {
-		status = ""
-	} else if status != "" {
+	if status != "" {
 		// Check if status is valid
 		validStatuses := []sql.SubmissionStatus{
 			sql.SubmissionStatusAccepted,
@@ -314,7 +312,7 @@ func (h *Handler) GetSubmissionsByUsername(w http.ResponseWriter, r *http.Reques
 		sort = "time"
 	} else if sort == "memory" {
 		sort = "memory"
-	} else if sort == "createdAt" {
+	} else if sort == "created" {
 		sort = "created_at"
 	}
 
