@@ -37,7 +37,8 @@ SELECT
             'input', pt.input,
             'output', pt.output
         ) ORDER BY pt.id
-    ) FILTER (WHERE pt.id IS NOT NULL) as test_cases
+    ) FILTER (WHERE pt.id IS NOT NULL) as test_cases,
+    CASE WHEN EXISTS (SELECT 1 FROM starred_problem WHERE problem_id = p.id AND user_id = @user_id) THEN true ELSE false END AS starred
 FROM problem p
 LEFT JOIN problem_code pc ON p.id = pc.problem_id
 LEFT JOIN problem_hint ph ON p.id = ph.problem_id

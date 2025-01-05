@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -11,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"kadane.xyz/go-backend/v2/src/apierror"
+	"kadane.xyz/go-backend/v2/src/middleware"
 	"kadane.xyz/go-backend/v2/src/sql/sql"
 )
 
@@ -61,11 +61,11 @@ type Problem struct {
 }
 
 type ProblemResponse struct {
-	Data sql.GetProblemRow `json:"data"`
+	Data Problem `json:"data"`
 }
 
 type ProblemsResponse struct {
-	Data []sql.GetProblemsRow `json:"data"`
+	Data []Problem `json:"data"`
 }
 
 type ProblemPaginationResponse struct {
@@ -129,7 +129,6 @@ func (h *Handler) GetProblems(w http.ResponseWriter, r *http.Request) {
 		Page:          int32(page),
 	})
 	if err != nil {
-		log.Printf("Error getting problems: %v", err)
 		apierror.SendError(w, http.StatusInternalServerError, "Failed to get problems")
 		return
 	}
@@ -267,13 +266,13 @@ func (h *Handler) CreateProblem(w http.ResponseWriter, r *http.Request) {
 	// 4. Create test cases using the problem ID
 	for _, testCase := range request.TestCases {
 		_, err = h.PostgresQueries.CreateProblemTestCase(context.Background(), sql.CreateProblemTestCaseParams{
-			ProblemID:  pgtype.Int4{Int32: int32(problemID), Valid: true},
-			Input:      testCase.Input,
-			Output:     testCase.Output,
-			Visibility: sql.Visibility(testCase.Visibility),
+			Description: testCase.Description,
+			ProblemID:   pgtype.Int4{Int32: int32(problemID), Valid: true},
+			Input:       testCase.Input,
+			Output:      testCase.Output,
+			Visibility:  sql.Visibility(testCase.Visibility),
 		})
 		if err != nil {
-			log.Println(err)
 			apierror.SendError(w, http.StatusInternalServerError, "Failed to create test case")
 			return
 		}
@@ -284,6 +283,12 @@ func (h *Handler) CreateProblem(w http.ResponseWriter, r *http.Request) {
 
 // GET: /problems/:id
 func (h *Handler) GetProblem(w http.ResponseWriter, r *http.Request) {
+	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	if userId == "" {
+		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for problem starring")
+		return
+	}
+
 	id := chi.URLParam(r, "id")
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
@@ -291,15 +296,30 @@ func (h *Handler) GetProblem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	problem, err := h.PostgresQueries.GetProblem(context.Background(), int32(idInt))
+	problem, err := h.PostgresQueries.GetProblem(context.Background(), sql.GetProblemParams{
+		ID:     int32(idInt),
+		UserID: userId,
+	})
 	if err != nil {
-		log.Println(err)
 		apierror.SendError(w, http.StatusInternalServerError, "Failed to get problem")
 		return
 	}
 
+	// test cases should not contain visibility on response
+
 	response := ProblemResponse{
-		Data: problem,
+		Data: Problem{
+			ID:          int(problem.ID),
+			Title:       problem.Title,
+			Description: problem.Description.String,
+			Tags:        problem.Tags,
+			Difficulty:  string(problem.Difficulty),
+			Code:        problem.Code,
+			Hints:       problem.Hint,
+			Points:      int(problem.Points),
+			TestCases:   problem.TestCases,
+			Starred:     problem.Starred,
+		},
 	}
 
 	w.Header().Set("Content-Type", "application/json")
