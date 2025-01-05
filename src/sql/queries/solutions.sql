@@ -73,8 +73,8 @@ WHERE s.id = ANY(@ids::int[]);
 -- name: GetSolutionsCount :one
 SELECT COUNT(*) FROM solution
 WHERE problem_id = $1
-  AND ($2 = '' OR title ILIKE '%' || $2 || '%')
-  AND (array_length($3::text[], 1) IS NULL OR tags && $3);
+  AND (@title = '' OR title ILIKE '%' || @title || '%')
+  AND (array_length(@tags::text[], 1) IS NULL OR tags && @tags);
 
 -- name: GetSolutionsPaginated :many
 SELECT 
@@ -99,20 +99,20 @@ LEFT JOIN (
     FROM solution_user_vote
     GROUP BY solution_id
 ) v ON s.id = v.solution_id
-WHERE s.problem_id = $1
-  AND ($2::text[] IS NULL OR s.tags && $2)
-  AND ($3::text IS NULL OR s.title ILIKE '%' || $3 || '%')
+WHERE s.problem_id = @problem_id
+  AND (@tags IS NULL OR s.tags && @tags)
+  AND (@title IS NULL OR s.title ILIKE '%' || @title || '%')
 ORDER BY 
-    (CASE WHEN $4 = 'id' AND $5 = 'ASC' THEN s.id END) ASC,
-    (CASE WHEN $4 = 'id' AND $5 = 'DESC' THEN s.id END) DESC,
-    (CASE WHEN $4 = 'created_at' AND $5 = 'ASC' THEN s.created_at END) ASC,
-    (CASE WHEN $4 = 'created_at' AND $5 = 'DESC' THEN s.created_at END) DESC,
-    (CASE WHEN $4 = 'username' AND $5 = 'ASC' THEN a.username END) ASC,
-    (CASE WHEN $4 = 'username' AND $5 = 'DESC' THEN a.username END) DESC,
-    (CASE WHEN $4 = 'votes' AND $5 = 'ASC' THEN s.votes END) ASC,
-    (CASE WHEN $4 = 'votes' AND $5 = 'DESC' THEN s.votes END) DESC,
+    (CASE WHEN @sort = 'id' AND @sort_direction = 'ASC' THEN s.id END) ASC,
+    (CASE WHEN @sort = 'id' AND @sort_direction = 'DESC' THEN s.id END) DESC,
+    (CASE WHEN @sort = 'created_at' AND @sort_direction = 'ASC' THEN s.created_at END) ASC,
+    (CASE WHEN @sort = 'created_at' AND @sort_direction = 'DESC' THEN s.created_at END) DESC,
+    (CASE WHEN @sort = 'username' AND @sort_direction = 'ASC' THEN a.username END) ASC,
+    (CASE WHEN @sort = 'username' AND @sort_direction = 'DESC' THEN a.username END) DESC,
+    (CASE WHEN @sort = 'votes' AND @sort_direction = 'ASC' THEN s.votes END) ASC,
+    (CASE WHEN @sort = 'votes' AND @sort_direction = 'DESC' THEN s.votes END) DESC,
     s.id DESC
-LIMIT $6 OFFSET $7;
+LIMIT @per_page OFFSET @page;
 
 -- name: GetSolutionsWithCommentsCount :many
 SELECT s.*, COALESCE(comment_counts.comments_count, 0) AS comments_count
