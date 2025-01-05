@@ -5,11 +5,8 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"sort"
 	"strconv"
 	"strings"
-
-	"encoding/base64"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -18,7 +15,7 @@ import (
 )
 
 type ProblemHint struct {
-	Description []byte `json:"description"`
+	Description string `json:"description"`
 	Answer      []byte `json:"answer"`
 }
 
@@ -42,7 +39,7 @@ type ProblemRequest struct {
 	Description string               `json:"description"`
 	Tags        []string             `json:"tags"`
 	Difficulty  string               `json:"difficulty"`
-	Code        []ProblemRequestCode `json:"code"`
+	Code        ProblemRequestCode   `json:"code"`
 	Hints       []ProblemRequestHint `json:"hints"`
 	Points      int                  `json:"points"`
 	Solution    string               `json:"solution"`
@@ -50,16 +47,17 @@ type ProblemRequest struct {
 }
 
 type Problem struct {
-	ID          int           `json:"id"`
-	Title       string        `json:"title"`
-	Description string        `json:"description"`
-	Tags        []string      `json:"tags"`
-	Difficulty  string        `json:"difficulty"`
-	Code        []ProblemCode `json:"code"`
-	Hints       []ProblemHint `json:"hints"`
-	Points      int           `json:"points"`
-	Solution    string        `json:"solution,omitempty"`
-	TestCases   []TestCase    `json:"testCases"`
+	ID          int         `json:"id"`
+	Title       string      `json:"title"`
+	Description string      `json:"description"`
+	Tags        []string    `json:"tags"`
+	Difficulty  string      `json:"difficulty"`
+	Code        interface{} `json:"code"`
+	Hints       interface{} `json:"hints"`
+	Points      int         `json:"points"`
+	Solution    interface{} `json:"solution,omitempty"`
+	TestCases   interface{} `json:"testCases"`
+	Starred     bool        `json:"starred"`
 }
 
 type ProblemResponse struct {
@@ -71,8 +69,8 @@ type ProblemsResponse struct {
 }
 
 type ProblemPaginationResponse struct {
-	Data       []sql.GetProblemsRow `json:"data"`
-	Pagination Pagination           `json:"pagination"`
+	Data       []Problem  `json:"data"`
+	Pagination Pagination `json:"pagination"`
 }
 
 type Sort string
@@ -81,30 +79,6 @@ const (
 	SortAlpha Sort = "alpha"
 	SortIndex Sort = "index"
 )
-
-func filterProblems(problems []sql.GetProblemsRow, titleSearch string, difficulty string) []sql.GetProblemsRow {
-	var filteredProblems []sql.GetProblemsRow
-	for _, p := range problems {
-		// Title filter
-		if titleSearch != "" {
-			if !strings.Contains(
-				strings.ToLower(p.Title),
-				strings.ToLower(titleSearch),
-			) {
-				continue
-			}
-		}
-		// Difficulty filter
-		if difficulty != "" {
-			if string(p.Difficulty) != difficulty {
-				continue
-			}
-		}
-		// Passed all filters
-		filteredProblems = append(filteredProblems, p)
-	}
-	return filteredProblems
-}
 
 // GET: /problems
 func (h *Handler) GetProblems(w http.ResponseWriter, r *http.Request) {
@@ -146,43 +120,24 @@ func (h *Handler) GetProblems(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	problems, err := h.PostgresQueries.GetProblems(r.Context())
+	problems, err := h.PostgresQueries.GetProblemsFilteredPaginated(r.Context(), sql.GetProblemsFilteredPaginatedParams{
+		Title:         titleSearch,
+		Difficulty:    difficulty,
+		Sort:          sortType,
+		SortDirection: order,
+		PerPage:       int32(perPage),
+		Page:          int32(page),
+	})
 	if err != nil {
 		log.Printf("Error getting problems: %v", err)
 		apierror.SendError(w, http.StatusInternalServerError, "Failed to get problems")
 		return
 	}
 
-	filteredProblems := filterProblems(problems, titleSearch, difficulty)
-
-	// handle sorting
-	switch sortType {
-	case string(SortAlpha):
-		if order == "asc" {
-			sort.Slice(filteredProblems, func(i, j int) bool {
-				return filteredProblems[i].Title < filteredProblems[j].Title
-			})
-		} else { // "desc"
-			sort.Slice(filteredProblems, func(i, j int) bool {
-				return filteredProblems[i].Title > filteredProblems[j].Title
-			})
-		}
-	case string(SortIndex):
-		if order == "asc" {
-			sort.Slice(filteredProblems, func(i, j int) bool {
-				return filteredProblems[i].ID < filteredProblems[j].ID
-			})
-		} else { // "desc"
-			sort.Slice(filteredProblems, func(i, j int) bool {
-				return filteredProblems[i].ID > filteredProblems[j].ID
-			})
-		}
-	}
-
-	totalCount := len(filteredProblems)
+	totalCount := len(problems)
 	if totalCount == 0 {
 		response := ProblemPaginationResponse{
-			Data:       []sql.GetProblemsRow{},
+			Data:       []Problem{},
 			Pagination: Pagination{},
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -199,8 +154,8 @@ func (h *Handler) GetProblems(w http.ResponseWriter, r *http.Request) {
 	fromIndex := (page - 1) * perPage
 	toIndex := fromIndex + perPage
 
-	if toIndex > int64(len(filteredProblems)) {
-		toIndex = int64(len(filteredProblems))
+	if toIndex > int64(len(problems)) {
+		toIndex = int64(len(problems))
 	}
 
 	if page > lastPage {
@@ -208,15 +163,32 @@ func (h *Handler) GetProblems(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	paginatedProblems := filteredProblems[fromIndex:toIndex]
+	paginatedProblems := problems[fromIndex:toIndex]
+
+	responseData := []Problem{}
+	for _, problem := range paginatedProblems {
+		responseData = append(responseData, Problem{
+			ID:          int(problem.ID),
+			Title:       problem.Title,
+			Description: problem.Description.String,
+			Tags:        problem.Tags,
+			Difficulty:  string(problem.Difficulty),
+			Code:        problem.CodeJson,
+			Hints:       problem.HintsJson,
+			Points:      int(problem.Points),
+			Solution:    problem.SolutionsJson,
+			TestCases:   problem.TestCasesJson,
+			Starred:     problem.Starred,
+		})
+	}
 
 	// Return an empty array if no matches (status 200)
 	response := ProblemPaginationResponse{
-		Data: paginatedProblems,
+		Data: responseData,
 		Pagination: Pagination{
 			Page:      page,
 			PerPage:   perPage,
-			DataCount: int64(len(filteredProblems)),
+			DataCount: int64(len(problems)),
 			LastPage:  lastPage,
 		},
 	}
@@ -240,7 +212,7 @@ func (h *Handler) CreateProblem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(request.Code) == 0 {
+	if request.Code.Language == "" || request.Code.Code == "" {
 		apierror.SendError(w, http.StatusBadRequest, "At least one code is required")
 		return
 	}
@@ -270,22 +242,10 @@ func (h *Handler) CreateProblem(w http.ResponseWriter, r *http.Request) {
 
 	// 2. Create hints using the problem ID
 	for _, hint := range request.Hints {
-		descBytes, err := base64.StdEncoding.DecodeString(hint.Description)
-		if err != nil {
-			apierror.SendError(w, http.StatusBadRequest, "Invalid base64 in hint description")
-			return
-		}
-
-		answerBytes, err := base64.StdEncoding.DecodeString(hint.Answer)
-		if err != nil {
-			apierror.SendError(w, http.StatusBadRequest, "Invalid base64 in hint answer")
-			return
-		}
-
 		err = h.PostgresQueries.CreateProblemHint(context.Background(), sql.CreateProblemHintParams{
 			ProblemID:   pgtype.Int4{Int32: int32(problemID), Valid: true},
-			Description: descBytes,
-			Answer:      answerBytes,
+			Description: hint.Description,
+			Answer:      hint.Answer,
 		})
 		if err != nil {
 			apierror.SendError(w, http.StatusInternalServerError, "Failed to create hint")
@@ -294,22 +254,14 @@ func (h *Handler) CreateProblem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 3. Create codes using the problem ID
-	for _, code := range request.Code {
-		codeBytes, err := base64.StdEncoding.DecodeString(code.Code)
-		if err != nil {
-			apierror.SendError(w, http.StatusBadRequest, "Invalid base64 in code")
-			return
-		}
-
-		err = h.PostgresQueries.CreateProblemCode(context.Background(), sql.CreateProblemCodeParams{
-			ProblemID: pgtype.Int4{Int32: int32(problemID), Valid: true},
-			Language:  sql.ProblemLanguage(code.Language),
-			Code:      codeBytes,
-		})
-		if err != nil {
-			apierror.SendError(w, http.StatusInternalServerError, "Failed to create code")
-			return
-		}
+	err = h.PostgresQueries.CreateProblemCode(context.Background(), sql.CreateProblemCodeParams{
+		ProblemID: pgtype.Int4{Int32: int32(problemID), Valid: true},
+		Language:  sql.ProblemLanguage(request.Code.Language),
+		Code:      request.Code.Code,
+	})
+	if err != nil {
+		apierror.SendError(w, http.StatusInternalServerError, "Failed to create code")
+		return
 	}
 
 	// 4. Create test cases using the problem ID

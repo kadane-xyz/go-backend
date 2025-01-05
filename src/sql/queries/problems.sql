@@ -91,6 +91,72 @@ SELECT
 FROM problem_data
 ORDER BY points DESC;
 
+-- name: GetProblemsFilteredPaginated :many
+SELECT
+    p.*,
+    (
+        SELECT COALESCE(
+            json_agg(
+                json_build_object('language', pc.language, 'code', pc.code)
+            ),
+            '[]'
+        )
+        FROM problem_code pc 
+        WHERE pc.problem_id = p.id
+    ) AS code_json,
+    
+    (
+        SELECT COALESCE(
+            json_agg(
+                json_build_object(
+                    'description', encode(ph.description, 'escape'),
+                    'answer', encode(ph.answer, 'escape')
+                )
+            ),
+            '[]'
+        )
+        FROM problem_hint ph 
+        WHERE ph.problem_id = p.id
+    ) AS hints_json,
+    
+    (
+        SELECT COALESCE(
+            json_agg(
+                json_build_object('input', pt.input, 'output', pt.output)
+            ),
+            '[]'
+        )
+        FROM problem_test_case pt 
+        WHERE pt.problem_id = p.id
+    ) AS test_cases_json,
+    
+    (
+        SELECT COALESCE(
+            json_agg(solution),
+            '[]'
+        )
+        FROM problem_solution ps 
+        WHERE ps.problem_id = p.id
+    ) AS solutions_json,
+    
+    EXISTS(
+        SELECT 1 
+        FROM starred_problem sp 
+        WHERE sp.problem_id = p.id 
+        AND sp.user_id = @user_id
+    ) AS starred
+FROM problem p
+WHERE
+    (@title = '' OR p.title ILIKE '%' || @title || '%')
+    AND (@difficulty = '' OR p.difficulty = @difficulty::problem_difficulty)
+ORDER BY
+    CASE WHEN @sort = 'alpha' AND @sort_direction = 'asc' THEN p.title END ASC,
+    CASE WHEN @sort = 'alpha' AND @sort_direction = 'desc' THEN p.title END DESC,
+    CASE WHEN @sort = 'index' AND @sort_direction = 'asc' THEN p.id END ASC,
+    CASE WHEN @sort = 'index' AND @sort_direction = 'desc' THEN p.id END DESC,
+    p.id DESC
+LIMIT @per_page OFFSET @page;
+
 -- name: GetProblemCodeByLanguage :one
 SELECT * FROM problem_code WHERE problem_id = $1 AND language = $2;
 
