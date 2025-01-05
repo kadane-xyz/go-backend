@@ -207,7 +207,10 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if solution exists
-	_, err = h.PostgresQueries.GetSolution(r.Context(), comment.SolutionId)
+	_, err = h.PostgresQueries.GetSolution(r.Context(), sql.GetSolutionParams{
+		ID:     comment.SolutionId,
+		UserID: userId,
+	})
 	if err != nil {
 		http.Error(w, "Solution not found", http.StatusNotFound)
 		return

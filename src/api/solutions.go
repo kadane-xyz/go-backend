@@ -40,6 +40,7 @@ type SolutionsData struct {
 	AvatarUrl       string           `json:"avatarUrl,omitempty"`
 	Votes           int32            `json:"votes"`
 	CurrentUserVote sql.VoteType     `json:"currentUserVote"`
+	Starred         bool             `json:"starred"`
 }
 
 type SolutionsResponse struct {
@@ -113,13 +114,13 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 	offset := (page - 1) * perPage
 
 	solutions, err := h.PostgresQueries.GetSolutionsPaginated(r.Context(), sql.GetSolutionsPaginatedParams{
-		PProblemID:     id,
-		PTitleSearch:   titleSearch,
-		Column6:        tagsArray,
-		PLimit:         int32(perPage),
-		POffset:        int32(offset),
-		PSortDirection: order,
-		POrderBy:       sort,
+		ProblemID: pgtype.Int8{Int64: id, Valid: true},
+		Column2:   tagsArray,
+		Column3:   titleSearch,
+		Limit:     int32(perPage),
+		Offset:    int32(offset),
+		Column4:   sort,
+		Column5:   order,
 	})
 	if err != nil {
 		EmptyDataArrayResponse(w) // { data: [] }
@@ -144,26 +145,6 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 	// Prepare response
 	var solutionsData []SolutionsData
 	for _, solution := range solutions {
-		// Get comments from db by idPg
-		comment, err := h.PostgresQueries.GetCommentCount(r.Context(), solution.ID)
-		if err != nil {
-			apierror.SendError(w, http.StatusInternalServerError, "error getting comments")
-			return
-		}
-
-		username, err := h.PostgresQueries.GetAccountUsername(r.Context(), solution.UserID.String)
-		if err != nil {
-			apierror.SendError(w, http.StatusInternalServerError, "error getting username")
-			return
-		}
-
-		avatarUrl, err := h.PostgresQueries.GetAccountAvatarUrl(r.Context(), solution.UserID.String)
-		if err != nil {
-			apierror.SendError(w, http.StatusInternalServerError, "error getting avatar url")
-			return
-		}
-
-		level, err := h.PostgresQueries.GetAccountLevel(r.Context(), solution.UserID.String)
 		if err != nil {
 			apierror.SendError(w, http.StatusInternalServerError, "error getting level")
 			return
@@ -185,13 +166,13 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 		solutionData := SolutionsData{
 			Id:              solution.ID,
 			Body:            solution.Body,
-			Comments:        comment,
+			Comments:        solution.CommentsCount,
 			Date:            solution.CreatedAt,
 			Tags:            solution.Tags,
 			Title:           solution.Title,
-			Username:        username,
-			Level:           level.Int32,
-			AvatarUrl:       avatarUrl.String,
+			Username:        solution.UserUsername,
+			Level:           solution.UserLevel.Int32,
+			AvatarUrl:       solution.UserAvatarUrl.String,
 			Votes:           solution.Votes.Int32,
 			CurrentUserVote: vote,
 		}
@@ -208,7 +189,7 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 	lastPage := (totalCount + perPage - 1) / perPage
 
 	// Final response
-	finalResponse := SolutionsResponse{
+	response := SolutionsResponse{
 		Data: solutionsData,
 		Pagination: Pagination{
 			Page:      page,       // Current page
@@ -221,7 +202,7 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 	// Write solutionsJSON to response
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(finalResponse)
+	json.NewEncoder(w).Encode(response)
 }
 
 // POST: /
@@ -286,43 +267,13 @@ func (h *Handler) GetSolution(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get solutions from db by idPg
-	solution, err := h.PostgresQueries.GetSolution(r.Context(), id)
+	solution, err := h.PostgresQueries.GetSolution(r.Context(), sql.GetSolutionParams{
+		ID:     id,
+		UserID: userId,
+	})
 	if err != nil {
 		EmptyDataResponse(w) // { data: {} }
 		return
-	}
-
-	// Get comments from db by idPg
-	comment, err := h.PostgresQueries.GetCommentCount(r.Context(), solution.ID)
-	if err != nil {
-		http.Error(w, "error getting comments", http.StatusInternalServerError)
-		return
-	}
-
-	username, err := h.PostgresQueries.GetAccountUsername(r.Context(), solution.UserID.String)
-	if err != nil {
-		http.Error(w, "error getting username", http.StatusInternalServerError)
-		return
-	}
-
-	avatarUrl, err := h.PostgresQueries.GetAccountAvatarUrl(r.Context(), solution.UserID.String)
-	if err != nil {
-		http.Error(w, "error getting avatar url", http.StatusInternalServerError)
-		return
-	}
-
-	level, err := h.PostgresQueries.GetAccountLevel(r.Context(), solution.UserID.String)
-	if err != nil {
-		http.Error(w, "error getting level", http.StatusInternalServerError)
-		return
-	}
-
-	vote, err := h.PostgresQueries.GetSolutionVote(r.Context(), sql.GetSolutionVoteParams{
-		UserID:     userId,
-		SolutionID: solution.ID,
-	})
-	if err != nil {
-		vote = "none"
 	}
 
 	// If tags is nil, set it to an empty array
@@ -333,15 +284,15 @@ func (h *Handler) GetSolution(w http.ResponseWriter, r *http.Request) {
 	solutionData := SolutionsData{
 		Id:              solution.ID,
 		Body:            solution.Body,
-		Comments:        comment,
+		Comments:        solution.CommentsCount,
 		Date:            solution.CreatedAt,
 		Tags:            solution.Tags,
 		Title:           solution.Title,
-		Username:        username,
-		Level:           level.Int32,
-		AvatarUrl:       avatarUrl.String,
+		Username:        solution.UserUsername.String,
+		Level:           solution.UserLevel.Int32,
+		AvatarUrl:       solution.UserAvatarUrl.String,
 		Votes:           solution.Votes.Int32,
-		CurrentUserVote: vote,
+		CurrentUserVote: solution.UserVote,
 	}
 
 	response := SolutionResponse{
@@ -485,7 +436,10 @@ func (h *Handler) VoteSolution(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if the solution exists
-	_, err = h.PostgresQueries.GetSolution(r.Context(), id)
+	_, err = h.PostgresQueries.GetSolution(r.Context(), sql.GetSolutionParams{
+		ID:     id,
+		UserID: userId,
+	})
 	if err != nil {
 		http.Error(w, "solution not found", http.StatusBadRequest)
 		return
