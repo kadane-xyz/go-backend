@@ -16,7 +16,7 @@ CREATE TABLE problem (
 CREATE TABLE problem_solution (
     id SERIAL PRIMARY KEY,
     problem_id INT REFERENCES problem(id) ON DELETE CASCADE,
-    solution BYTEA NOT NULL,
+    solution TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (problem_id, id)
 );
@@ -25,7 +25,7 @@ CREATE TABLE problem_code (
     id SERIAL PRIMARY KEY,
     problem_id INT REFERENCES problem(id) ON DELETE CASCADE,
     language problem_language NOT NULL,
-    code BYTEA NOT NULL,
+    code TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (problem_id, id)
 );
@@ -33,8 +33,8 @@ CREATE TABLE problem_code (
 CREATE TABLE problem_hint (
     id SERIAL PRIMARY KEY,
     problem_id INT REFERENCES problem(id) ON DELETE CASCADE,
-    description BYTEA NOT NULL,
-    answer BYTEA NOT NULL,
+    description TEXT NOT NULL,
+    answer TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (problem_id, id)
 );
@@ -42,8 +42,8 @@ CREATE TABLE problem_hint (
 CREATE TABLE problem_test_case (
     id SERIAL PRIMARY KEY,
     problem_id INT REFERENCES problem(id) ON DELETE CASCADE,
-    input BYTEA NOT NULL,
-    output BYTEA NOT NULL,
+    input TEXT NOT NULL,
+    output TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     visibility visibility NOT NULL,
     UNIQUE (problem_id, id)
