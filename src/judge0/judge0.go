@@ -2,7 +2,6 @@ package judge0
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -20,10 +19,10 @@ type Judge0Client struct {
 }
 
 type Submission struct {
-	SourceCode     []byte `json:"source_code"`
+	SourceCode     string `json:"source_code"` // plain string that will be base64 encoded
 	LanguageID     int    `json:"language_id"`
-	Stdin          []byte `json:"stdin,omitempty"`
-	ExpectedOutput []byte `json:"expected_output,omitempty"`
+	Stdin          string `json:"stdin,omitempty"`           // plain string that will be base64 encoded
+	ExpectedOutput string `json:"expected_output,omitempty"` // plain string that will be base64 encoded
 	Wait           bool   `json:"wait,omitempty"`
 }
 
@@ -70,27 +69,12 @@ type SubmissionBatchResponse struct {
 	Submissions []SubmissionResponse
 }
 
-var languageIDMap = map[string]int{
-	"cpp":        54,
-	"go":         60,
-	"java":       62,
-	"javascript": 63,
-	"python":     71,
-	"typescript": 74,
-}
-
-func LanguageToLanguageID(language string) int {
-	return languageIDMap[language]
-}
-
-func LanguageIDToLanguage(languageID int) string {
-	for language, id := range languageIDMap {
-		if id == languageID {
-			return language
-		}
-	}
-	return ""
-}
+// default values for retry and wait times
+const (
+	initialRetryDelay = 50 * time.Millisecond
+	maxRetryDelay     = 500 * time.Millisecond
+	maxWaitTime       = 30 * time.Second
+)
 
 func NewJudge0Client(cfg *config.Config) *Judge0Client {
 	return &Judge0Client{
@@ -100,13 +84,9 @@ func NewJudge0Client(cfg *config.Config) *Judge0Client {
 	}
 }
 
-const (
-	initialRetryDelay = 50 * time.Millisecond
-	maxRetryDelay     = 500 * time.Millisecond
-	maxWaitTime       = 30 * time.Second
-)
-
 func (c *Judge0Client) CreateSubmissionBatchAndWait(submissions []Submission) ([]SubmissionResult, error) {
+	// First base64 encode submissions
+	submissions = EncodeInputSubmissionsInput(submissions)
 	// First create the submission without waiting
 	resp, err := c.CreateSubmissionBatch(submissions)
 	if err != nil {
@@ -167,6 +147,8 @@ func (c *Judge0Client) CreateSubmissionBatchAndWait(submissions []Submission) ([
 }
 
 func (c *Judge0Client) CreateSubmissionAndWait(submission Submission) (*SubmissionResult, error) {
+	// First base64 encode submission
+	submission = EncodeSubmissionInputs(submission)
 	// First create the submission without waiting
 	resp, err := c.CreateSubmission(submission)
 	if err != nil {
@@ -383,16 +365,4 @@ func (c *Judge0Client) GetLanguages() ([]map[string]interface{}, error) {
 	}
 
 	return languages, nil
-}
-
-func EncodeBase64(text string) string {
-	return base64.StdEncoding.EncodeToString([]byte(text))
-}
-
-func DecodeBase64(encodedText string) (string, error) {
-	decoded, err := base64.StdEncoding.DecodeString(encodedText)
-	if err != nil {
-		return "", err
-	}
-	return string(decoded), nil
 }
