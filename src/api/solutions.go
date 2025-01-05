@@ -114,13 +114,13 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 	offset := (page - 1) * perPage
 
 	solutions, err := h.PostgresQueries.GetSolutionsPaginated(r.Context(), sql.GetSolutionsPaginatedParams{
-		ProblemID: pgtype.Int8{Int64: id, Valid: true},
-		Column2:   tagsArray,
-		Column3:   titleSearch,
-		Limit:     int32(perPage),
-		Offset:    int32(offset),
-		Column4:   sort,
-		Column5:   order,
+		ProblemID:     pgtype.Int8{Int64: id, Valid: true},
+		Tags:          tagsArray,
+		Title:         titleSearch,
+		PerPage:       int32(perPage),
+		Page:          int32(offset),
+		Sort:          sort,
+		SortDirection: order,
 	})
 	if err != nil {
 		EmptyDataArrayResponse(w) // { data: [] }
@@ -134,8 +134,8 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 
 	totalCount, err := h.PostgresQueries.GetSolutionsCount(r.Context(), sql.GetSolutionsCountParams{
 		ProblemID: pgtype.Int8{Int64: id, Valid: true},
-		Column2:   titleSearch,
-		Column3:   tagsArray,
+		Title:     titleSearch,
+		Tags:      tagsArray,
 	})
 	if err != nil {
 		apierror.SendError(w, http.StatusInternalServerError, "error getting total count")
