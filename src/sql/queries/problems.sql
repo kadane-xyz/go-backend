@@ -176,7 +176,7 @@ SELECT * FROM problem WHERE title = $1;
 SELECT * FROM problem WHERE difficulty = $1 ORDER BY RANDOM()LIMIT $2;
 
 -- name: CreateProblemTestCase :one
-INSERT INTO problem_test_case (problem_id, input, output, visibility) VALUES ($1, $2, $3, $4) RETURNING *;
+INSERT INTO problem_test_case (problem_id, description, input, output, visibility) VALUES ($1, $2, $3, $4, $5) RETURNING *;
 
 -- name: GetProblemTestCases :many
 SELECT * FROM problem_test_case WHERE problem_id = $1;
