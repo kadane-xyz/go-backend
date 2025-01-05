@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -30,15 +29,15 @@ type Submission struct {
 	Language      string               `json:"language"`
 	// custom fields
 	AccountID      string    `json:"accountId"`
-	SubmittedCode  []byte    `json:"submittedCode"`
-	SubmittedStdin []byte    `json:"submittedStdin"`
+	SubmittedCode  string    `json:"submittedCode"`
+	SubmittedStdin string    `json:"submittedStdin"`
 	ProblemID      int       `json:"problemId"`
 	CreatedAt      time.Time `json:"createdAt"`
 }
 
 type SubmissionRequest struct {
 	Language   string `json:"language"`
-	SourceCode []byte `json:"sourceCode"`
+	SourceCode string `json:"sourceCode"`
 	ProblemID  int    `json:"problemId"`
 }
 
@@ -79,7 +78,6 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 	// get expected output from all test cases
 	testCases, err := h.PostgresQueries.GetProblemTestCases(r.Context(), pgtype.Int4{Int32: int32(problemId), Valid: true})
 	if err != nil {
-		log.Println(err)
 		apierror.SendError(w, http.StatusInternalServerError, "Failed to get problem solution")
 		return
 	}
@@ -99,7 +97,6 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 	// create judge0 batch submission
 	submissionResponses, err := h.Judge0Client.CreateSubmissionBatchAndWait(submissions)
 	if err != nil {
-		log.Println(err)
 		apierror.SendError(w, http.StatusInternalServerError, "Failed to create submission")
 		return
 	}
@@ -157,7 +154,7 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 		ID:            pgtype.UUID{Bytes: uuid.New(), Valid: true},
 		AccountID:     userId,
 		ProblemID:     int32(problemId),
-		SubmittedCode: []byte(submissionRequest.SourceCode),
+		SubmittedCode: submissionRequest.SourceCode,
 		Status:        avgSubmission.Status,
 		Stdout:        pgtype.Text{String: avgSubmission.Stdout, Valid: true},
 		Time:          pgtype.Text{String: avgSubmission.Time, Valid: true},
@@ -172,7 +169,6 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 	// create submission in db
 	_, err = h.PostgresQueries.CreateSubmission(r.Context(), dbSubmission)
 	if err != nil {
-		log.Println(err)
 		apierror.SendError(w, http.StatusInternalServerError, "Failed to create submission")
 		return
 	}
@@ -190,7 +186,7 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 			Language:       judge0.LanguageIDToLanguage(int(lastLanguageID)),
 			AccountID:      userId,
 			SubmittedCode:  submissionRequest.SourceCode,
-			SubmittedStdin: []byte(""),
+			SubmittedStdin: "",
 			ProblemID:      problemId,
 			CreatedAt:      time.Now(),
 		},
@@ -240,7 +236,7 @@ func (h *Handler) GetSubmission(w http.ResponseWriter, r *http.Request) {
 			Language:       judge0.LanguageIDToLanguage(int(result.LanguageID)),
 			AccountID:      userId,
 			SubmittedCode:  result.SubmittedCode,
-			SubmittedStdin: result.SubmittedStdin,
+			SubmittedStdin: result.SubmittedStdin.String,
 			ProblemID:      int(result.ProblemID),
 			CreatedAt:      result.CreatedAt.Time,
 		},
@@ -343,7 +339,7 @@ func (h *Handler) GetSubmissionsByUsername(w http.ResponseWriter, r *http.Reques
 			Language:       judge0.LanguageIDToLanguage(int(submission.LanguageID)),
 			AccountID:      submission.AccountID,
 			SubmittedCode:  submission.SubmittedCode,
-			SubmittedStdin: submission.SubmittedStdin,
+			SubmittedStdin: submission.SubmittedStdin.String,
 			ProblemID:      int(submission.ProblemID),
 			CreatedAt:      submission.CreatedAt.Time,
 		})

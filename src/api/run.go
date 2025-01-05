@@ -19,7 +19,7 @@ import (
 
 type RunRequest struct {
 	Language   string     `json:"language"`
-	SourceCode []byte     `json:"sourceCode"`
+	SourceCode string     `json:"sourceCode"`
 	ProblemID  int        `json:"problemId"`
 	TestCases  []TestCase `json:"testCases"`
 }
@@ -32,8 +32,8 @@ type RunTestCase struct {
 	Time           string               `json:"time"`
 	Memory         int                  `json:"memory"`
 	Status         sql.SubmissionStatus `json:"status"`         // Accepted, Wrong Answer, etc
-	Output         []byte               `json:"output"`         // User code output
-	ExpectedOutput []byte               `json:"expectedOutput"` // Solution code output
+	Output         string               `json:"output"`         // User code output
+	ExpectedOutput string               `json:"expectedOutput"` // Solution code output
 }
 
 type RunResult struct {
@@ -56,7 +56,7 @@ type RunsResponse struct {
 	Data []RunResult `json:"data"`
 }
 
-func SummarizeSubmissionResponses(userId string, problemId int32, sourceCode []byte, submissionResponses []judge0.SubmissionResult) (sql.CreateSubmissionParams, error) {
+func SummarizeSubmissionResponses(userId string, problemId int32, sourceCode string, submissionResponses []judge0.SubmissionResult) (sql.CreateSubmissionParams, error) {
 	// Calculate averages from all submission responses
 	var totalMemory int
 	var totalTime float64
@@ -170,18 +170,18 @@ func (h *Handler) CreateRun(w http.ResponseWriter, r *http.Request) {
 			// Create solution run
 			solutionRun := judge0.Submission{
 				LanguageID:     languageID,
-				SourceCode:     []byte(problemCode.Code),
-				Stdin:          []byte(testCase.Input),
-				ExpectedOutput: []byte(testCase.Output),
+				SourceCode:     problemCode.Code,
+				Stdin:          testCase.Input,
+				ExpectedOutput: testCase.Output,
 				Wait:           true,
 			}
 
 			// Create user run
 			userRun := judge0.Submission{
 				LanguageID:     languageID,
-				SourceCode:     []byte(runRequest.SourceCode),
-				Stdin:          []byte(testCase.Input),
-				ExpectedOutput: []byte(testCase.Output),
+				SourceCode:     runRequest.SourceCode,
+				Stdin:          testCase.Input,
+				ExpectedOutput: testCase.Output,
 				Wait:           true,
 			}
 
@@ -229,8 +229,8 @@ func (h *Handler) CreateRun(w http.ResponseWriter, r *http.Request) {
 			Time:           userResp.Time,
 			Memory:         int(userResp.Memory),
 			Status:         sql.SubmissionStatus(userResp.Status.Description),
-			Output:         []byte(userResp.Stdout),
-			ExpectedOutput: []byte(solutionResp.Stdout), // solution code output
+			Output:         userResp.Stdout,
+			ExpectedOutput: solutionResp.Stdout, // solution code output
 		})
 
 		log.Printf("TEST CASE: %d USER: %s SOLUTION: %s", i, strings.TrimSuffix(string(userResp.Stdout), "\n"), strings.TrimSuffix(string(solutionResp.Stdout), "\n"))
