@@ -11,40 +11,61 @@ INSERT INTO problem_hint (problem_id, description, answer) VALUES ($1, $2, $3);
 SELECT * FROM problem WHERE id = ANY(@ids::int[]);
 
 -- name: GetProblem :one
-SELECT 
-    p.id,
-    p.title,
-    p.description,
-    p.tags,
-    p.difficulty,
-    p.points,
-    json_agg(
-        json_build_object(
-            'language', pc.language,
-            'code', pc.code
+SELECT
+    p.*,
+    (
+        SELECT COALESCE(
+            json_agg(
+                json_build_object('language', pc.language, 'code', pc.code)
+            ),
+            '[]'
         )
-    ) FILTER (WHERE pc.id IS NOT NULL) as code,
-    json_agg(
-        json_build_object(
-            'id', ph.id,
-            'description', ph.description,
-            'answer', ph.answer
-        ) ORDER BY ph.id
-    ) FILTER (WHERE ph.id IS NOT NULL) as hint,
-    json_agg(
-        json_build_object(
-            'id', pt.id,
-            'input', pt.input,
-            'output', pt.output
-        ) ORDER BY pt.id
-    ) FILTER (WHERE pt.id IS NOT NULL) as test_cases,
-    CASE WHEN EXISTS (SELECT 1 FROM starred_problem WHERE problem_id = p.id AND user_id = @user_id) THEN true ELSE false END AS starred
+        FROM problem_code pc 
+        WHERE pc.problem_id = p.id
+    ) AS code_json,
+    
+    (
+        SELECT COALESCE(
+            json_agg(
+                json_build_object(
+                    'description', ph.description,
+                    'answer', ph.answer
+                )
+            ),
+            '[]'
+        )
+        FROM problem_hint ph 
+        WHERE ph.problem_id = p.id
+    ) AS hints_json,
+    
+    (
+        SELECT COALESCE(
+            json_agg(
+                json_build_object('description', pt.description, 'input', pt.input, 'output', pt.output)
+            ),
+            '[]'
+        )
+        FROM problem_test_case pt 
+        WHERE pt.problem_id = p.id AND pt.visibility = 'public'
+    ) AS test_cases_json,
+    
+    (
+        SELECT COALESCE(
+            json_agg(solution),
+            '[]'
+        )
+        FROM problem_solution ps 
+        WHERE ps.problem_id = p.id
+    ) AS solutions_json,
+    
+    EXISTS(
+        SELECT 1 
+        FROM starred_problem sp 
+        WHERE sp.problem_id = p.id 
+        AND sp.user_id = @user_id
+    ) AS starred
 FROM problem p
-LEFT JOIN problem_code pc ON p.id = pc.problem_id
-LEFT JOIN problem_hint ph ON p.id = ph.problem_id
-LEFT JOIN problem_test_case pt ON p.id = pt.problem_id
-WHERE p.id = @id
-GROUP BY p.id, p.title, p.description, p.tags, p.difficulty, p.points;
+WHERE p.id = @id;
 
 -- name: GetProblems :many
 WITH problem_data AS (
@@ -69,6 +90,7 @@ WITH problem_data AS (
         ) FILTER (WHERE ph.id IS NOT NULL) as hint,
         json_agg(
             json_build_object(
+                'description', pt.description,
                 'input', pt.input,
                 'output', pt.output
             )
@@ -110,8 +132,8 @@ SELECT
         SELECT COALESCE(
             json_agg(
                 json_build_object(
-                    'description', encode(ph.description, 'escape'),
-                    'answer', encode(ph.answer, 'escape')
+                    'description', ph.description,
+                    'answer', ph.answer
                 )
             ),
             '[]'
@@ -123,12 +145,12 @@ SELECT
     (
         SELECT COALESCE(
             json_agg(
-                json_build_object('input', pt.input, 'output', pt.output)
+                json_build_object('description', pt.description, 'input', pt.input, 'output', pt.output)
             ),
             '[]'
         )
         FROM problem_test_case pt 
-        WHERE pt.problem_id = p.id
+        WHERE pt.problem_id = p.id AND pt.visibility = 'public'
     ) AS test_cases_json,
     
     (

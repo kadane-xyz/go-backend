@@ -16,12 +16,12 @@ import (
 
 type ProblemHint struct {
 	Description string `json:"description"`
-	Answer      []byte `json:"answer"`
+	Answer      string `json:"answer"`
 }
 
 type ProblemCode struct {
 	Language string `json:"language"`
-	Code     []byte `json:"code"`
+	Code     string `json:"code"`
 }
 
 type ProblemRequestHint struct {
@@ -29,10 +29,7 @@ type ProblemRequestHint struct {
 	Answer      string `json:"answer"`
 }
 
-type ProblemRequestCode struct {
-	Language string `json:"language"`
-	Code     string `json:"code"`
-}
+type ProblemRequestCode map[string]string
 
 type ProblemRequest struct {
 	Title       string               `json:"title"`
@@ -165,14 +162,16 @@ func (h *Handler) GetProblems(w http.ResponseWriter, r *http.Request) {
 	paginatedProblems := problems[fromIndex:toIndex]
 
 	responseData := []Problem{}
+
 	for _, problem := range paginatedProblems {
+		codeMap := InterfaceToMap(problem.CodeJson)
 		responseData = append(responseData, Problem{
 			ID:          int(problem.ID),
 			Title:       problem.Title,
 			Description: problem.Description.String,
 			Tags:        problem.Tags,
 			Difficulty:  string(problem.Difficulty),
-			Code:        problem.CodeJson,
+			Code:        codeMap,
 			Hints:       problem.HintsJson,
 			Points:      int(problem.Points),
 			Solution:    problem.SolutionsJson,
@@ -211,7 +210,7 @@ func (h *Handler) CreateProblem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if request.Code.Language == "" || request.Code.Code == "" {
+	if len(request.Code) == 0 {
 		apierror.SendError(w, http.StatusBadRequest, "At least one code is required")
 		return
 	}
@@ -252,15 +251,16 @@ func (h *Handler) CreateProblem(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// 3. Create codes using the problem ID
-	err = h.PostgresQueries.CreateProblemCode(context.Background(), sql.CreateProblemCodeParams{
-		ProblemID: pgtype.Int4{Int32: int32(problemID), Valid: true},
-		Language:  sql.ProblemLanguage(request.Code.Language),
-		Code:      request.Code.Code,
-	})
-	if err != nil {
-		apierror.SendError(w, http.StatusInternalServerError, "Failed to create code")
-		return
+	for language, code := range request.Code {
+		err = h.PostgresQueries.CreateProblemCode(context.Background(), sql.CreateProblemCodeParams{
+			ProblemID: pgtype.Int4{Int32: int32(problemID), Valid: true},
+			Language:  sql.ProblemLanguage(language),
+			Code:      code,
+		})
+		if err != nil {
+			apierror.SendError(w, http.StatusInternalServerError, "Failed to create code")
+			return
+		}
 	}
 
 	// 4. Create test cases using the problem ID
@@ -306,6 +306,7 @@ func (h *Handler) GetProblem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// test cases should not contain visibility on response
+	codeMap := InterfaceToMap(problem.CodeJson)
 
 	response := ProblemResponse{
 		Data: Problem{
@@ -314,14 +315,33 @@ func (h *Handler) GetProblem(w http.ResponseWriter, r *http.Request) {
 			Description: problem.Description.String,
 			Tags:        problem.Tags,
 			Difficulty:  string(problem.Difficulty),
-			Code:        problem.Code,
-			Hints:       problem.Hint,
+			Code:        codeMap,
+			Hints:       problem.HintsJson,
 			Points:      int(problem.Points),
-			TestCases:   problem.TestCases,
+			TestCases:   problem.TestCasesJson,
 			Starred:     problem.Starred,
 		},
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+}
+
+func InterfaceToMap(object interface{}) map[string]string {
+	response := make(map[string]string)
+
+	// Convert to array of code entries
+	if codeEntries, ok := object.([]interface{}); ok {
+		for _, entry := range codeEntries {
+			if codeMap, ok := entry.(map[string]interface{}); ok {
+				if language, ok := codeMap["language"].(string); ok {
+					if code, ok := codeMap["code"].(string); ok {
+						response[language] = code
+					}
+				}
+			}
+		}
+	}
+
+	return response
 }
