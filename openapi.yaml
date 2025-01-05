@@ -932,7 +932,7 @@ paths:
     get:
       operationId: getStarredProblems
       tags:
-        - starred
+        - Starred
       summary: Get starred problems
       responses:
         '200':
@@ -971,7 +971,7 @@ paths:
     put:
       operationId: putStarProblem
       tags:
-        - starred
+        - Starred
       summary: Star/unstar a problem
       requestBody:
         required: true
@@ -1010,7 +1010,7 @@ paths:
     get:
       operationId: getStarredSolutions
       tags:
-        - starred
+        - Starred
       summary: Get starred solutions
       responses:
         '200':
@@ -1057,7 +1057,7 @@ paths:
     put:
       operationId: putStarSolution
       tags:
-        - starred
+        - Starred
       summary: Star/unstar a solution
       requestBody:
         required: true
@@ -1096,7 +1096,7 @@ paths:
     get:
       operationId: getStarredSubmissions
       tags:
-        - starred
+        - Starred
       summary: Get starred submissions
       responses:
         '200':
@@ -1155,7 +1155,7 @@ paths:
     put:
       operationId: putStarSubmission
       tags:
-        - starred
+        - Starred
       summary: Star/unstar a submission
       requestBody:
         required: true
