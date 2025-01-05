@@ -42,6 +42,7 @@ CREATE TABLE problem_hint (
 CREATE TABLE problem_test_case (
     id SERIAL PRIMARY KEY,
     problem_id INT REFERENCES problem(id) ON DELETE CASCADE,
+    description TEXT NOT NULL,
     input TEXT NOT NULL,
     output TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

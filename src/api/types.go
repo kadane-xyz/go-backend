@@ -10,7 +10,8 @@ type Pagination struct {
 }
 
 type TestCase struct {
-	Input      []byte         `json:"input"`  //base64 encoded
-	Output     []byte         `json:"output"` //base64 encoded
-	Visibility sql.Visibility `json:"visibility"`
+	Description string         `json:"description"`
+	Input       string         `json:"input"`
+	Output      string         `json:"output"`
+	Visibility  sql.Visibility `json:"visibility"`
 }
