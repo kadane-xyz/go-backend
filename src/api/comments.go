@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -91,12 +90,13 @@ func (h *Handler) GetComments(w http.ResponseWriter, r *http.Request) {
 	}
 
 	dbComments, err := h.PostgresQueries.GetCommentsSorted(r.Context(), sql.GetCommentsSortedParams{
-		PSolutionID:    id,
-		POrderBy:       sort,
-		PSortDirection: order,
+		SolutionID:    id,
+		UserID:        userId,
+		Sort:          sort,
+		SortDirection: order,
 	})
 	if err != nil {
-		apierror.SendError(w, http.StatusInternalServerError, "Error retrieving comments from database")
+		EmptyDataArrayResponse(w)
 		return
 	}
 
@@ -108,32 +108,17 @@ func (h *Handler) GetComments(w http.ResponseWriter, r *http.Request) {
 
 	// First pass: Create CommentsData objects
 	for _, dbComment := range dbComments {
-		username, err := h.PostgresQueries.GetAccountUsername(r.Context(), dbComment.UserID)
-		if err != nil {
-			username = "unknown" // Fallback to a default value
-		}
-
-		avatarUrl, err := h.PostgresQueries.GetAccountAvatarUrl(r.Context(), dbComment.UserID)
-		if err != nil {
-			avatarUrl = pgtype.Text{String: ""} // Fallback to a default
-		}
-
-		level, err := h.PostgresQueries.GetAccountLevel(r.Context(), dbComment.UserID)
-		if err != nil {
-			level = pgtype.Int4{Int32: 1} // Fallback to a default value
-		}
-
 		comment := &CommentsData{
 			ID:              dbComment.ID,
 			SolutionId:      dbComment.SolutionID,
-			Username:        username,
-			AvatarUrl:       avatarUrl.String,
-			Level:           level.Int32,
+			Username:        dbComment.UserUsername,
+			AvatarUrl:       dbComment.UserAvatarUrl.String,
+			Level:           dbComment.UserLevel.Int32,
 			Body:            dbComment.Body,
 			CreatedAt:       dbComment.CreatedAt.Time,
-			Votes:           dbComment.Votes.Int32,
+			Votes:           int32(dbComment.VotesCount),
 			Children:        []*CommentsData{},
-			CurrentUserVote: "none", // Will be updated later
+			CurrentUserVote: dbComment.UserVote,
 		}
 		commentMap[comment.ID] = comment
 
@@ -149,29 +134,6 @@ func (h *Handler) GetComments(w http.ResponseWriter, r *http.Request) {
 			if parent, exists := commentMap[parentId]; exists {
 				parent.Children = append(parent.Children, commentMap[dbComment.ID])
 			}
-		}
-	}
-
-	// Collect all comment IDs
-	commentIds := make([]int64, 0, len(commentMap))
-	for id := range commentMap {
-		commentIds = append(commentIds, id)
-	}
-
-	// Fetch votes for all comments in a single query
-	votes, err := h.PostgresQueries.GetCommentVotesBatch(r.Context(), sql.GetCommentVotesBatchParams{
-		UserID:  pgtype.Text{String: userId, Valid: true},
-		Column2: commentIds,
-	})
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// Update CurrentUserVote for all comments
-	for _, vote := range votes {
-		if comment, exists := commentMap[vote.CommentID.Int64]; exists {
-			comment.CurrentUserVote = vote.Vote
 		}
 	}
 
@@ -218,7 +180,10 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 
 	// Check if parent comment exists if ParentId is provided
 	if comment.ParentId != 0 {
-		_, err := h.PostgresQueries.GetComment(r.Context(), comment.ParentId)
+		_, err := h.PostgresQueries.GetComment(r.Context(), sql.GetCommentParams{
+			ID:     comment.ParentId,
+			UserID: userId,
+		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				http.Error(w, "Parent comment not found", http.StatusNotFound)
@@ -244,7 +209,6 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 		Body:       comment.Body,
 	})
 	if err != nil {
-		log.Println(err)
 		apierror.SendError(w, http.StatusInternalServerError, "Error creating comment in database")
 		return
 	}
@@ -274,7 +238,10 @@ func (h *Handler) GetComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	comment, err := h.PostgresQueries.GetComment(r.Context(), id)
+	comment, err := h.PostgresQueries.GetComment(r.Context(), sql.GetCommentParams{
+		ID:     id,
+		UserID: userId,
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			apierror.SendError(w, http.StatusNotFound, "Comment not found")
@@ -284,41 +251,18 @@ func (h *Handler) GetComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	username, err := h.PostgresQueries.GetAccountUsername(r.Context(), comment.UserID)
-	if err != nil {
-		username = "unknown" // Fallback to a default value
-	}
-
-	avatarUrl, err := h.PostgresQueries.GetAccountAvatarUrl(r.Context(), comment.UserID)
-	if err != nil {
-		avatarUrl = pgtype.Text{String: ""} // Fallback to a default value
-	}
-
-	level, err := h.PostgresQueries.GetAccountLevel(r.Context(), comment.UserID)
-	if err != nil {
-		level = pgtype.Int4{Int32: 1} // Fallback to a default value
-	}
-
-	vote, err := h.PostgresQueries.GetCommentVote(r.Context(), sql.GetCommentVoteParams{
-		UserID:    pgtype.Text{String: userId, Valid: true},
-		CommentID: pgtype.Int8{Int64: id, Valid: true},
-	})
-	if err != nil || vote == "" {
-		vote = "none"
-	}
-
 	commentData := CommentsData{
 		ID:              comment.ID,
 		SolutionId:      comment.SolutionID,
-		Username:        username,
-		AvatarUrl:       avatarUrl.String,
-		Level:           level.Int32,
+		Username:        comment.UserUsername,
+		AvatarUrl:       comment.UserAvatarUrl.String,
+		Level:           comment.UserLevel.Int32,
 		Body:            comment.Body,
 		CreatedAt:       comment.CreatedAt.Time,
 		Votes:           comment.Votes.Int32,
 		ParentId:        &comment.ParentID.Int64,
 		Children:        []*CommentsData{},
-		CurrentUserVote: vote,
+		CurrentUserVote: comment.UserVote,
 	}
 
 	response := CommentResponse{
@@ -468,7 +412,10 @@ func (h *Handler) VoteComment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if the comment exists
-	_, err = h.PostgresQueries.GetComment(r.Context(), id)
+	_, err = h.PostgresQueries.GetComment(r.Context(), sql.GetCommentParams{
+		ID:     id,
+		UserID: userId,
+	})
 	if err != nil {
 		http.Error(w, "comment not found", http.StatusBadRequest)
 		return

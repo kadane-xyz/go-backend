@@ -83,25 +83,3 @@ CREATE TRIGGER update_comment_vote_delete
 AFTER DELETE ON comment_user_vote
 FOR EACH ROW
 EXECUTE FUNCTION update_comment_votes();
-
-CREATE OR REPLACE FUNCTION get_comments_sorted(
-    p_solution_id BIGINT,
-    p_order_by TEXT DEFAULT 'created_at',
-    p_sort_direction TEXT DEFAULT 'DESC'
-) 
-RETURNS SETOF comment AS $$
-BEGIN
-    RETURN QUERY EXECUTE format(
-        'SELECT * FROM comment
-         WHERE solution_id = $1
-         ORDER BY %s %s',
-        -- Only allow sorting by 'votes' or 'created_at'
-        CASE WHEN p_order_by = 'votes' THEN 'votes'
-             WHEN p_order_by = 'created_at' THEN 'created_at'
-             ELSE 'created_at'  -- Default to 'created_at' if invalid input
-        END,
-        -- Only allow 'ASC' or 'DESC' for sort direction
-        CASE WHEN UPPER(p_sort_direction) = 'DESC' THEN 'DESC' ELSE 'ASC' END
-    ) USING p_solution_id;
-END;
-$$ LANGUAGE plpgsql;
