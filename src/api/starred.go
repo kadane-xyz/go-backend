@@ -84,8 +84,8 @@ type StarredSubmission struct {
 	Language      string               `json:"language"`
 	// custom fields
 	AccountID      string    `json:"accountId"`
-	SubmittedCode  []byte    `json:"submittedCode"`
-	SubmittedStdin []byte    `json:"submittedStdin"`
+	SubmittedCode  string    `json:"submittedCode"`
+	SubmittedStdin string    `json:"submittedStdin"`
 	ProblemID      int32     `json:"problemId"`
 	CreatedAt      time.Time `json:"createdAt"`
 	Starred        bool      `json:"starred"`
@@ -251,7 +251,7 @@ func (h *Handler) GetStarredSubmissions(w http.ResponseWriter, r *http.Request) 
 			Language:       judge0.LanguageIDToLanguage(int(submission.LanguageID)),
 			AccountID:      submission.AccountID,
 			SubmittedCode:  submission.SubmittedCode,
-			SubmittedStdin: submission.SubmittedStdin,
+			SubmittedStdin: submission.SubmittedStdin.String,
 			ProblemID:      submission.ProblemID,
 			CreatedAt:      submission.CreatedAt.Time,
 			Starred:        true,
