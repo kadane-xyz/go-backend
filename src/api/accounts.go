@@ -9,7 +9,6 @@ import (
 	_ "image/jpeg" // Register JPEG format
 	_ "image/png"  // Register PNG format
 	"io"
-	"log"
 	"net/http"
 	"net/mail"
 	"strings"
@@ -96,14 +95,49 @@ type AvatarResponse struct {
 
 // GET: /accounts
 func (h *Handler) GetAccounts(w http.ResponseWriter, r *http.Request) {
-	accounts, err := h.PostgresQueries.GetAccounts(r.Context(), true)
-	if err != nil {
-		apierror.SendError(w, http.StatusInternalServerError, "Error getting accounts")
+	usernames := r.URL.Query().Get("usernames")
+	var usernamesFilter []string
+	if usernames != "" {
+		usernamesFilter = strings.Split(usernames, ",")
 	}
 
-	accountsResponse := AccountsAttributesResponse{Data: []AccountAttributesWithAccount{}}
+	locations := r.URL.Query().Get("locations")
+	var locationsFilter []string
+	if locations != "" {
+		locationsFilter = strings.Split(locations, ",")
+	}
+
+	sort := r.URL.Query().Get("sort")
+	if sort != "level" {
+		sort = ""
+	}
+
+	order := r.URL.Query().Get("order")
+	if order == "asc" {
+		order = "ASC"
+	} else {
+		order = "DESC"
+	}
+
+	accounts, err := h.PostgresQueries.GetAccounts(r.Context(), sql.GetAccountsParams{
+		UsernamesFilter:   usernamesFilter,
+		LocationsFilter:   locationsFilter,
+		Sort:              sort,
+		SortDirection:     order,
+		IncludeAttributes: true,
+	})
+	if err != nil {
+		apierror.SendError(w, http.StatusInternalServerError, "Error getting accounts")
+		return
+	}
+
+	response := AccountsAttributesResponse{Data: []AccountAttributesWithAccount{}}
 	for _, account := range accounts {
-		accountsResponse.Data = append(accountsResponse.Data, AccountAttributesWithAccount{
+		if account.Attributes == nil {
+			account.Attributes = AccountAttributes{}
+		}
+
+		response.Data = append(response.Data, AccountAttributesWithAccount{
 			ID:         account.ID,
 			Username:   account.Username,
 			Email:      account.Email,
@@ -114,7 +148,7 @@ func (h *Handler) GetAccounts(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(accountsResponse)
+	json.NewEncoder(w).Encode(response)
 }
 
 type CreateAccountRequest struct {
@@ -172,7 +206,6 @@ func (h *Handler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 			default:
-				log.Printf("Error creating account: %v", err)
 				apierror.SendError(w, http.StatusInternalServerError, "Failed to create account")
 				return
 			}
@@ -180,7 +213,6 @@ func (h *Handler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 			apierror.SendError(w, http.StatusNotFound, "Account not found")
 			return
 		} else {
-			log.Printf("Error creating account: %v", err)
 			apierror.SendError(w, http.StatusInternalServerError, "Failed to create account")
 			return
 		}
@@ -202,7 +234,6 @@ func (h *Handler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 		WebsiteUrl:   pgtype.Text{String: "", Valid: true},
 	})
 	if err != nil {
-		log.Println("Error creating account attributes: ", err)
 		apierror.SendError(w, http.StatusInternalServerError, "Error creating account attributes")
 		return
 	}
@@ -212,7 +243,6 @@ func (h *Handler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 		IncludeAttributes: true,
 	})
 	if err != nil {
-		log.Println("Error getting account: ", err)
 		apierror.SendError(w, http.StatusInternalServerError, "Error getting account")
 		return
 	}
@@ -280,7 +310,6 @@ func (h *Handler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 		Body:   bytes.NewReader(imageData),
 	})
 	if err != nil {
-		log.Println("Error uploading avatar: ", err)
 		apierror.SendError(w, http.StatusInternalServerError, "Error uploading avatar")
 		return
 	}
@@ -345,7 +374,6 @@ func (h *Handler) GetAccount(w http.ResponseWriter, r *http.Request) {
 		IncludeAttributes: attributes == "true",
 	})
 	if err != nil {
-		log.Println("Error getting account: ", err)
 		apierror.SendError(w, http.StatusInternalServerError, "Error getting account")
 		return
 	}
@@ -412,7 +440,6 @@ func (h *Handler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	// Update account in database
 	_, err = h.PostgresQueries.UpdateAccountAttributes(r.Context(), updateParams.Params)
 	if err != nil {
-		log.Println("Error updating account attributes: ", err)
 		apierror.SendError(w, http.StatusInternalServerError, "Failed to update account")
 		return
 	}
@@ -423,7 +450,6 @@ func (h *Handler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 		IncludeAttributes: true,
 	})
 	if err != nil {
-		log.Println("Error getting account: ", err)
 		apierror.SendError(w, http.StatusInternalServerError, "Error getting account")
 		return
 	}
