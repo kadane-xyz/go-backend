@@ -37,6 +37,37 @@ paths:
       summary: Get all accounts
       description: Retrieve a list of all user accounts.
       operationId: getAccounts
+      parameters:
+        - in: query
+          name: usernames
+          required: false
+          schema:
+            type: array
+            items:
+              type: string
+          description: Comma-separated list of usernames to include in the response
+        - in: query
+          name: locations
+          required: false
+          schema:
+            type: array
+            items:
+              type: string
+          description: Comma-separated list of locations to include in the response
+        - in: query
+          name: sort 
+          required: false
+          schema:
+            type: string
+            enum: [level]
+          description: Sort by level
+        - in: query
+          name: order
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+          description: Order by ascending or descending
       responses:
         '200':
           description: Successful operation
