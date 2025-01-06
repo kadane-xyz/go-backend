@@ -2,32 +2,44 @@
 
 -- name: GetAccount :one
 SELECT 
-    a.id,
-    a.username,
-    a.email,
-    a.avatar_url,
-    a.level,
-    a.created_at,
-    CASE WHEN @include_attributes::boolean THEN
-        json_build_object(
-            'bio', COALESCE(aa.bio, ''),
-            'contactEmail', COALESCE(aa.contact_email, ''),
-            'location', COALESCE(aa.location, ''),
-            'realName', COALESCE(aa.real_name, ''),
-            'githubUrl', COALESCE(aa.github_url, ''),
-            'linkedinUrl', COALESCE(aa.linkedin_url, ''),
-            'facebookUrl', COALESCE(aa.facebook_url, ''),
-            'instagramUrl', COALESCE(aa.instagram_url, ''),
-            'twitterUrl', COALESCE(aa.twitter_url, ''),
-            'school', COALESCE(aa.school, ''),
-            'websiteUrl', COALESCE(aa.website_url, '')
-        )
-    ELSE
-        NULL
-    END as attributes
-FROM account a
-LEFT JOIN account_attribute aa ON a.id = aa.id
-WHERE a.id = @id;
+    a.*,
+    CASE 
+        WHEN @include_attributes::boolean THEN
+            json_build_object(
+                'bio', COALESCE(aa.bio, ''),
+                'contactEmail', COALESCE(aa.contact_email, ''),
+                'location', COALESCE(aa.location, ''),
+                'realName', COALESCE(aa.real_name, ''),
+                'githubUrl', COALESCE(aa.github_url, ''),
+                'linkedinUrl', COALESCE(aa.linkedin_url, ''),
+                'facebookUrl', COALESCE(aa.facebook_url, ''),
+                'instagramUrl', COALESCE(aa.instagram_url, ''),
+                'twitterUrl', COALESCE(aa.twitter_url, ''),
+                'school', COALESCE(aa.school, ''),
+                'websiteUrl', COALESCE(aa.website_url, '')
+            )
+        ELSE
+            NULL
+        END as attributes
+    FROM account a
+    LEFT JOIN account_attribute aa ON a.id = aa.id
+    WHERE
+        a.id = $1 AND
+        CASE WHEN array_length(@usernames_filter::text[], 1) > 0 THEN
+            a.username = ANY(@usernames_filter::text[])
+        ELSE
+            TRUE
+        END
+        AND 
+        CASE WHEN @include_attributes::boolean AND array_length(@locations_filter::text[], 1) > 0 THEN
+            aa.location = ANY(@locations_filter::text[])
+        ELSE
+            TRUE
+        END
+    ORDER BY 
+        (CASE WHEN @sort = 'level' AND @sort_direction = 'ASC' THEN a.level END) ASC,
+        (CASE WHEN @sort = 'level' AND @sort_direction = 'DESC' THEN a.level END) DESC
+    LIMIT 1;
 
 -- name: GetAccounts :many
 SELECT 
@@ -49,9 +61,24 @@ SELECT
             )
         ELSE
             NULL
-    END as attributes
-FROM account a
-LEFT JOIN account_attribute aa ON a.id = aa.id;
+        END as attributes
+    FROM account a
+    LEFT JOIN account_attribute aa ON a.id = aa.id
+    WHERE
+        CASE WHEN array_length(@usernames_filter::text[], 1) > 0 THEN
+            a.username = ANY(@usernames_filter::text[])
+        ELSE
+            TRUE
+        END
+        AND 
+        CASE WHEN @include_attributes::boolean AND array_length(@locations_filter::text[], 1) > 0 THEN
+            aa.location = ANY(@locations_filter::text[])
+        ELSE
+            TRUE
+        END
+    ORDER BY 
+        (CASE WHEN @sort = 'level' AND @sort_direction = 'ASC' THEN a.level END) ASC,
+        (CASE WHEN @sort = 'level' AND @sort_direction = 'DESC' THEN a.level END) DESC;
 
 -- name: GetAccountExists :one
 SELECT EXISTS (SELECT 1 FROM account WHERE id = $1);
