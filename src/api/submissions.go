@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -63,7 +62,6 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 	var submissionRequest SubmissionRequest
 	err := json.NewDecoder(r.Body).Decode(&submissionRequest)
 	if err != nil {
-		log.Println(err)
 		apierror.SendError(w, http.StatusBadRequest, "Invalid submission data format")
 		return
 	}
