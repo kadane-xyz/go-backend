@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -33,6 +34,7 @@ type Submission struct {
 	SubmittedStdin string    `json:"submittedStdin"`
 	ProblemID      int       `json:"problemId"`
 	CreatedAt      time.Time `json:"createdAt"`
+	Starred        bool      `json:"starred"`
 }
 
 type SubmissionRequest struct {
@@ -61,6 +63,7 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 	var submissionRequest SubmissionRequest
 	err := json.NewDecoder(r.Body).Decode(&submissionRequest)
 	if err != nil {
+		log.Println(err)
 		apierror.SendError(w, http.StatusBadRequest, "Invalid submission data format")
 		return
 	}
@@ -217,7 +220,10 @@ func (h *Handler) GetSubmission(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.PostgresQueries.GetSubmissionByID(r.Context(), pgtype.UUID{Bytes: idUUID, Valid: true})
+	result, err := h.PostgresQueries.GetSubmissionByID(r.Context(), sql.GetSubmissionByIDParams{
+		ID:     pgtype.UUID{Bytes: idUUID, Valid: true},
+		UserID: userId,
+	})
 	if err != nil {
 		EmptyDataResponse(w) // { data: {} }
 		return
@@ -239,6 +245,7 @@ func (h *Handler) GetSubmission(w http.ResponseWriter, r *http.Request) {
 			SubmittedStdin: result.SubmittedStdin.String,
 			ProblemID:      int(result.ProblemID),
 			CreatedAt:      result.CreatedAt.Time,
+			Starred:        result.Starred,
 		},
 	}
 
@@ -248,6 +255,13 @@ func (h *Handler) GetSubmission(w http.ResponseWriter, r *http.Request) {
 
 // GET: /submissions/username/:username
 func (h *Handler) GetSubmissionsByUsername(w http.ResponseWriter, r *http.Request) {
+	// Get userid from middleware context
+	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	if userId == "" {
+		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for comment creation")
+		return
+	}
+
 	username := chi.URLParam(r, "username")
 	if username == "" {
 		apierror.SendError(w, http.StatusBadRequest, "Missing username")
@@ -318,6 +332,7 @@ func (h *Handler) GetSubmissionsByUsername(w http.ResponseWriter, r *http.Reques
 		Sort:          sort,
 		SortDirection: order,
 		Status:        sql.SubmissionStatus(status),
+		UserID:        userId,
 	})
 	if err != nil {
 		EmptyDataArrayResponse(w) // { data: [] }
@@ -342,6 +357,7 @@ func (h *Handler) GetSubmissionsByUsername(w http.ResponseWriter, r *http.Reques
 			SubmittedStdin: submission.SubmittedStdin.String,
 			ProblemID:      int(submission.ProblemID),
 			CreatedAt:      submission.CreatedAt.Time,
+			Starred:        submission.Starred,
 		})
 	}
 
