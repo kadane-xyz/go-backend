@@ -38,7 +38,7 @@ type SolutionsData struct {
 	Username        string           `json:"username,omitempty"`
 	Level           int32            `json:"level,omitempty"`
 	AvatarUrl       string           `json:"avatarUrl,omitempty"`
-	Votes           int32            `json:"votes"`
+	Votes           int64            `json:"votes"`
 	CurrentUserVote sql.VoteType     `json:"currentUserVote"`
 	Starred         bool             `json:"starred"`
 }
@@ -121,6 +121,7 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 		Page:          int32(offset),
 		Sort:          sort,
 		SortDirection: order,
+		UserID:        userId,
 	})
 	if err != nil {
 		EmptyDataArrayResponse(w) // { data: [] }
@@ -150,14 +151,6 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		vote, err := h.PostgresQueries.GetSolutionVote(r.Context(), sql.GetSolutionVoteParams{
-			UserID:     userId,
-			SolutionID: solution.ID,
-		})
-		if err != nil {
-			vote = "none"
-		}
-
 		// If tags is nil, set it to an empty array
 		if solution.Tags == nil {
 			solution.Tags = []string{}
@@ -173,8 +166,9 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 			Username:        solution.UserUsername,
 			Level:           solution.UserLevel.Int32,
 			AvatarUrl:       solution.UserAvatarUrl.String,
-			Votes:           solution.Votes.Int32,
-			CurrentUserVote: vote,
+			Votes:           solution.VotesCount,
+			CurrentUserVote: solution.UserVote,
+			Starred:         solution.Starred,
 		}
 
 		// If preview is not true, include the body
@@ -288,11 +282,12 @@ func (h *Handler) GetSolution(w http.ResponseWriter, r *http.Request) {
 		Date:            solution.CreatedAt,
 		Tags:            solution.Tags,
 		Title:           solution.Title,
-		Username:        solution.UserUsername.String,
+		Username:        solution.UserUsername,
 		Level:           solution.UserLevel.Int32,
 		AvatarUrl:       solution.UserAvatarUrl.String,
-		Votes:           solution.Votes.Int32,
+		Votes:           solution.VotesCount,
 		CurrentUserVote: solution.UserVote,
+		Starred:         solution.Starred,
 	}
 
 	response := SolutionResponse{

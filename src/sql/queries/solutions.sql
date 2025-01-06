@@ -8,9 +8,13 @@ SELECT
     a.level as user_level,
     COALESCE(c.comment_count, 0) AS comments_count,
     COALESCE(v.vote_count, 0) AS votes_count,
-    COALESCE(uv.vote, 'none') as user_vote
+    COALESCE(uv.vote, 'none') as user_vote,
+    CASE WHEN EXISTS (SELECT 1 FROM starred_solution WHERE solution_id = s.id AND starred_solution.user_id = @user_id) THEN true ELSE false END AS starred
 FROM solution s
-LEFT JOIN account a ON s.user_id = a.id
+LEFT JOIN (
+    SELECT id, username, avatar_url, level
+    FROM account
+) a ON s.user_id = a.id
 LEFT JOIN (
     SELECT solution_id, COUNT(*) AS comment_count
     FROM comment
@@ -24,9 +28,9 @@ LEFT JOIN (
 LEFT JOIN (
     SELECT solution_id, vote, user_id
     FROM solution_user_vote suv
-    WHERE suv.user_id = $2
+    WHERE suv.user_id = @user_id
 ) uv ON s.id = uv.solution_id
-WHERE s.id = $1;
+WHERE s.id = @id;
 
 -- name: GetSolutions :many
 SELECT 
@@ -83,7 +87,9 @@ SELECT
     a.avatar_url as user_avatar_url,
     a.level as user_level,
     COALESCE(c.comment_count, 0) AS comments_count,
-    COALESCE(v.vote_count, 0) AS votes_count
+    COALESCE(v.vote_count, 0) AS votes_count,
+    COALESCE(uv.vote, 'none') as user_vote,
+    CASE WHEN EXISTS (SELECT 1 FROM starred_solution WHERE solution_id = s.id AND starred_solution.user_id = @user_id) THEN true ELSE false END AS starred
 FROM solution s
 LEFT JOIN (
     SELECT id, username, avatar_url, level
@@ -99,9 +105,14 @@ LEFT JOIN (
     FROM solution_user_vote
     GROUP BY solution_id
 ) v ON s.id = v.solution_id
+LEFT JOIN (
+    SELECT solution_id, vote, user_id
+    FROM solution_user_vote suv
+    WHERE suv.user_id = @user_id
+) uv ON s.id = uv.solution_id
 WHERE s.problem_id = @problem_id
-  AND (@tags IS NULL OR s.tags && @tags)
-  AND (@title IS NULL OR s.title ILIKE '%' || @title || '%')
+  AND (@tags::text[] IS NULL OR s.tags && @tags::text[])
+  AND (@title::text IS NULL OR s.title ILIKE '%' || @title || '%')
 ORDER BY 
     (CASE WHEN @sort = 'id' AND @sort_direction = 'ASC' THEN s.id END) ASC,
     (CASE WHEN @sort = 'id' AND @sort_direction = 'DESC' THEN s.id END) DESC,
