@@ -2,7 +2,11 @@
 INSERT INTO submission (id, stdout, time, memory, stderr, compile_output, message, status, language_id, language_name, account_id, problem_id, submitted_code, submitted_stdin) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *;
 
 -- name: GetSubmissionByID :one
-SELECT * FROM submission WHERE id = $1;
+SELECT 
+    *,
+    CASE WHEN EXISTS (SELECT 1 FROM starred_submission WHERE submission_id = s.id AND starred_submission.user_id = @user_id) THEN true ELSE false END AS starred
+FROM submission s
+WHERE s.id = $1;
 
 -- name: GetSubmissionsByID :many
 SELECT * FROM submission WHERE id = ANY(@ids::uuid[]);
@@ -32,7 +36,8 @@ WITH user_submissions AS (
         p.description       AS problem_description,
         p.difficulty        AS problem_difficulty,
         p.points            AS problem_points,
-        a.username
+        a.username,
+        CASE WHEN EXISTS (SELECT 1 FROM starred_submission WHERE submission_id = s.id AND starred_submission.user_id = @user_id::text) THEN true ELSE false END AS starred
     FROM submission s
     JOIN account a
         ON s.account_id = a.id
@@ -71,7 +76,8 @@ SELECT
     problem_description,
     problem_difficulty,
     problem_points,
-    username
+    username,
+    starred
 FROM user_submissions
 ORDER BY
     -- 1) Sort by 'time' (the "time" column cast to float)
