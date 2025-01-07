@@ -57,7 +57,7 @@ SELECT
         FROM problem_solution ps 
         WHERE ps.problem_id = p.id
     ) AS solutions_json,
-    CASE WHEN EXISTS (SELECT 1 FROM starred_problem sp WHERE sp.problem_id = p.id AND sp.user_id = @user_id) THEN true ELSE false END AS starred
+    CASE WHEN EXISTS (SELECT 1 FROM starred_problem sp WHERE sp.problem_id = p.id AND sp.user_id = @user_id) THEN true ELSE false END AS starred,
     CASE WHEN EXISTS (SELECT 1 FROM submission s WHERE s.problem_id = p.id AND s.status = 'Accepted' AND s.account_id = @user_id) THEN true ELSE false END AS solved
 FROM problem p
 WHERE p.id = @id;
