@@ -94,11 +94,14 @@ WITH problem_data AS (
                 'input', pt.input,
                 'output', pt.output
             )
-        ) FILTER (WHERE pt.id IS NOT NULL) as test_cases
+        ) FILTER (WHERE pt.id IS NOT NULL) as test_cases,
+        COUNT(s.id) as totalAttempts,
+        COUNT(s.id) FILTER (WHERE s.status = 'completed' AND s.correct = true) as totalCorrect
     FROM problem p
     LEFT JOIN problem_code pc ON p.id = pc.problem_id
     LEFT JOIN problem_hint ph ON p.id = ph.problem_id
     LEFT JOIN problem_test_case pt ON p.id = pt.problem_id
+    LEFT JOIN submission s ON p.id = s.problem_id
     GROUP BY p.id, p.title, p.description, p.tags, p.difficulty, p.points
 )
 SELECT 
@@ -165,9 +168,11 @@ SELECT
     COUNT(s.id) FILTER (WHERE s.status = 'Accepted') as total_correct,
     CASE WHEN EXISTS (SELECT 1 FROM starred_problem sp WHERE sp.problem_id = p.id AND sp.user_id = @user_id) THEN true ELSE false END AS starred
 FROM problem p
+LEFT JOIN submission s ON p.id = s.problem_id
 WHERE
     (@title = '' OR p.title ILIKE '%' || @title || '%')
     AND (@difficulty = '' OR p.difficulty = @difficulty::problem_difficulty)
+GROUP BY p.id
 ORDER BY
     CASE WHEN @sort = 'alpha' AND @sort_direction = 'asc' THEN p.title END ASC,
     CASE WHEN @sort = 'alpha' AND @sort_direction = 'desc' THEN p.title END DESC,

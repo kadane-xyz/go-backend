@@ -1516,6 +1516,12 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ProblemTestCase'
+        starred:
+          type: boolean
+        totalAttempts:
+          type: integer
+        totalCorrect:
+          type: integer
 
     ProblemCode:
       type: object
