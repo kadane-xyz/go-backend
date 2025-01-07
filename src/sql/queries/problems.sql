@@ -161,13 +161,9 @@ SELECT
         FROM problem_solution ps 
         WHERE ps.problem_id = p.id
     ) AS solutions_json,
-    
-    EXISTS(
-        SELECT 1 
-        FROM starred_problem sp 
-        WHERE sp.problem_id = p.id 
-        AND sp.user_id = @user_id
-    ) AS starred
+    COUNT(s.id) as total_attempts,
+    COUNT(s.id) FILTER (WHERE s.status = 'Accepted') as total_correct,
+    CASE WHEN EXISTS (SELECT 1 FROM starred_problem sp WHERE sp.problem_id = p.id AND sp.user_id = @user_id) THEN true ELSE false END AS starred
 FROM problem p
 WHERE
     (@title = '' OR p.title ILIKE '%' || @title || '%')
@@ -178,7 +174,7 @@ ORDER BY
     CASE WHEN @sort = 'index' AND @sort_direction = 'asc' THEN p.id END ASC,
     CASE WHEN @sort = 'index' AND @sort_direction = 'desc' THEN p.id END DESC,
     p.id DESC
-LIMIT @per_page OFFSET @page;
+LIMIT @per_page OFFSET (@page - 1) * @per_page;
 
 -- name: GetProblemCodeByLanguage :one
 SELECT * FROM problem_code WHERE problem_id = $1 AND language = $2;
