@@ -44,17 +44,19 @@ type ProblemRequest struct {
 }
 
 type Problem struct {
-	ID          int         `json:"id"`
-	Title       string      `json:"title"`
-	Description string      `json:"description"`
-	Tags        []string    `json:"tags"`
-	Difficulty  string      `json:"difficulty"`
-	Code        interface{} `json:"code"`
-	Hints       interface{} `json:"hints"`
-	Points      int         `json:"points"`
-	Solution    interface{} `json:"solution,omitempty"`
-	TestCases   interface{} `json:"testCases"`
-	Starred     bool        `json:"starred"`
+	ID            int         `json:"id"`
+	Title         string      `json:"title"`
+	Description   string      `json:"description"`
+	Tags          []string    `json:"tags"`
+	Difficulty    string      `json:"difficulty"`
+	Code          interface{} `json:"code"`
+	Hints         interface{} `json:"hints"`
+	Points        int         `json:"points"`
+	Solution      interface{} `json:"solution,omitempty"`
+	TestCases     interface{} `json:"testCases"`
+	Starred       bool        `json:"starred"`
+	TotalAttempts int64       `json:"totalAttempts"`
+	TotalCorrect  int64       `json:"totalCorrect"`
 }
 
 type ProblemResponse struct {
@@ -166,17 +168,19 @@ func (h *Handler) GetProblems(w http.ResponseWriter, r *http.Request) {
 	for _, problem := range paginatedProblems {
 		codeMap := InterfaceToMap(problem.CodeJson)
 		responseData = append(responseData, Problem{
-			ID:          int(problem.ID),
-			Title:       problem.Title,
-			Description: problem.Description.String,
-			Tags:        problem.Tags,
-			Difficulty:  string(problem.Difficulty),
-			Code:        codeMap,
-			Hints:       problem.HintsJson,
-			Points:      int(problem.Points),
-			Solution:    problem.SolutionsJson,
-			TestCases:   problem.TestCasesJson,
-			Starred:     problem.Starred,
+			ID:            int(problem.ID),
+			Title:         problem.Title,
+			Description:   problem.Description.String,
+			Tags:          problem.Tags,
+			Difficulty:    string(problem.Difficulty),
+			Code:          codeMap,
+			Hints:         problem.HintsJson,
+			Points:        int(problem.Points),
+			Solution:      problem.SolutionsJson,
+			TestCases:     problem.TestCasesJson,
+			Starred:       problem.Starred,
+			TotalAttempts: problem.TotalAttempts,
+			TotalCorrect:  problem.TotalCorrect,
 		})
 	}
 
