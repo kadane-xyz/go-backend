@@ -57,13 +57,7 @@ SELECT
         FROM problem_solution ps 
         WHERE ps.problem_id = p.id
     ) AS solutions_json,
-    
-    EXISTS(
-        SELECT 1 
-        FROM starred_problem sp 
-        WHERE sp.problem_id = p.id 
-        AND sp.user_id = @user_id
-    ) AS starred
+    CASE WHEN EXISTS (SELECT 1 FROM starred_problem sp WHERE sp.problem_id = p.id AND sp.user_id = @user_id) THEN true ELSE false END AS starred
 FROM problem p
 WHERE p.id = @id;
 
@@ -166,13 +160,17 @@ SELECT
     ) AS solutions_json,
     COUNT(s.id) as total_attempts,
     COUNT(s.id) FILTER (WHERE s.status = 'Accepted') as total_correct,
-    CASE WHEN EXISTS (SELECT 1 FROM starred_problem sp WHERE sp.problem_id = p.id AND sp.user_id = @user_id) THEN true ELSE false END AS starred
+    CASE
+        WHEN sp.problem_id IS NOT NULL THEN TRUE
+        ELSE FALSE
+    END AS starred
 FROM problem p
 LEFT JOIN submission s ON p.id = s.problem_id
+LEFT JOIN starred_problem sp ON p.id = sp.problem_id
 WHERE
     (@title = '' OR p.title ILIKE '%' || @title || '%')
     AND (@difficulty = '' OR p.difficulty = @difficulty::problem_difficulty)
-GROUP BY p.id
+GROUP BY p.id, sp.problem_id 
 ORDER BY
     CASE WHEN @sort = 'alpha' AND @sort_direction = 'asc' THEN p.title END ASC,
     CASE WHEN @sort = 'alpha' AND @sort_direction = 'desc' THEN p.title END DESC,
