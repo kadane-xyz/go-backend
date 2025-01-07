@@ -58,6 +58,7 @@ SELECT
         WHERE ps.problem_id = p.id
     ) AS solutions_json,
     CASE WHEN EXISTS (SELECT 1 FROM starred_problem sp WHERE sp.problem_id = p.id AND sp.user_id = @user_id) THEN true ELSE false END AS starred
+    CASE WHEN EXISTS (SELECT 1 FROM submission s WHERE s.problem_id = p.id AND s.status = 'Accepted' AND s.account_id = @user_id) THEN true ELSE false END AS solved
 FROM problem p
 WHERE p.id = @id;
 
@@ -90,7 +91,8 @@ WITH problem_data AS (
             )
         ) FILTER (WHERE pt.id IS NOT NULL) as test_cases,
         COUNT(s.id) as totalAttempts,
-        COUNT(s.id) FILTER (WHERE s.status = 'completed' AND s.correct = true) as totalCorrect
+        COUNT(s.id) FILTER (WHERE s.status = 'completed' AND s.correct = true) as totalCorrect,
+        CASE WHEN EXISTS (SELECT 1 FROM submission s WHERE s.problem_id = p.id AND s.status = 'Accepted' AND s.account_id = @user_id) THEN true ELSE false END AS solved
     FROM problem p
     LEFT JOIN problem_code pc ON p.id = pc.problem_id
     LEFT JOIN problem_hint ph ON p.id = ph.problem_id
@@ -163,10 +165,16 @@ SELECT
     CASE
         WHEN sp.problem_id IS NOT NULL THEN TRUE
         ELSE FALSE
-    END AS starred
+    END AS starred,
+    CASE WHEN EXISTS (SELECT 1 FROM submission s WHERE s.problem_id = p.id AND s.status = 'Accepted' AND s.account_id = @user_id) THEN true ELSE false END AS solved
 FROM problem p
 LEFT JOIN submission s ON p.id = s.problem_id
 LEFT JOIN starred_problem sp ON p.id = sp.problem_id
+LEFT JOIN (
+    SELECT status, problem_id
+    FROM submission
+    WHERE account_id = @user_id
+) AS user_submissions ON p.id = user_submissions.problem_id
 WHERE
     (@title = '' OR p.title ILIKE '%' || @title || '%')
     AND (@difficulty = '' OR p.difficulty = @difficulty::problem_difficulty)
