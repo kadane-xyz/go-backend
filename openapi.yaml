@@ -1518,6 +1518,8 @@ components:
             $ref: '#/components/schemas/ProblemTestCase'
         starred:
           type: boolean
+        solved:
+          type: boolean
         totalAttempts:
           type: integer
         totalCorrect:
