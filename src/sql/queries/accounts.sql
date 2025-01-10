@@ -42,6 +42,7 @@ SELECT
         ELSE
             TRUE
         END
+    GROUP BY a.id, aa.id
     ORDER BY 
         (CASE WHEN @sort = 'level' AND @sort_direction = 'ASC' THEN a.level END) ASC,
         (CASE WHEN @sort = 'level' AND @sort_direction = 'DESC' THEN a.level END) DESC
@@ -64,9 +65,9 @@ SELECT
                 'twitterUrl', COALESCE(aa.twitter_url, ''),
                 'school', COALESCE(aa.school, ''),
                 'websiteUrl', COALESCE(aa.website_url, ''),
-                'friendCount', COALESCE(COUNT(DISTINCT f.user_id_1), 0),
-                'blockedCount', COALESCE(COUNT(DISTINCT f2.user_id_1), 0),
-                'friendRequestCount', COALESCE(COUNT(DISTINCT f3.user_id_1), 0),
+                'friendCount', COUNT(DISTINCT f.id) FILTER (WHERE f.status = 'accepted'),
+                'blockedCount', COUNT(DISTINCT f.id) FILTER (WHERE f.status = 'blocked'),
+                'friendRequestCount', COUNT(DISTINCT f.id) FILTER (WHERE f.status = 'pending')
             )
         ELSE
             NULL

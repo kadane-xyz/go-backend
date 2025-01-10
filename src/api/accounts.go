@@ -57,18 +57,21 @@ type AccountAttributesInput struct {
 }
 
 type AccountAttributes struct {
-	ID           string `json:"id,omitempty"`
-	Bio          string `json:"bio,omitempty"`
-	ContactEmail string `json:"contactEmail,omitempty"`
-	Location     string `json:"location,omitempty"`
-	RealName     string `json:"realName,omitempty"`
-	GithubUrl    string `json:"githubUrl,omitempty"`
-	LinkedinUrl  string `json:"linkedinUrl,omitempty"`
-	FacebookUrl  string `json:"facebookUrl,omitempty"`
-	InstagramUrl string `json:"instagramUrl,omitempty"`
-	TwitterUrl   string `json:"twitterUrl,omitempty"`
-	School       string `json:"school,omitempty"`
-	WebsiteUrl   string `json:"websiteUrl,omitempty"`
+	ID                 string `json:"id,omitempty"`
+	Bio                string `json:"bio,omitempty"`
+	ContactEmail       string `json:"contactEmail,omitempty"`
+	Location           string `json:"location,omitempty"`
+	RealName           string `json:"realName,omitempty"`
+	GithubUrl          string `json:"githubUrl,omitempty"`
+	LinkedinUrl        string `json:"linkedinUrl,omitempty"`
+	FacebookUrl        string `json:"facebookUrl,omitempty"`
+	InstagramUrl       string `json:"instagramUrl,omitempty"`
+	TwitterUrl         string `json:"twitterUrl,omitempty"`
+	School             string `json:"school,omitempty"`
+	WebsiteUrl         string `json:"websiteUrl,omitempty"`
+	FriendCount        int64  `json:"friends,omitempty"`
+	BlockedCount       int64  `json:"blockedUsers,omitempty"`
+	FriendRequestCount int64  `json:"friendRequests,omitempty"`
 }
 
 type AccountAttributesWithAccount struct {
