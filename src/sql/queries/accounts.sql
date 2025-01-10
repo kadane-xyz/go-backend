@@ -16,13 +16,19 @@ SELECT
                 'instagramUrl', COALESCE(aa.instagram_url, ''),
                 'twitterUrl', COALESCE(aa.twitter_url, ''),
                 'school', COALESCE(aa.school, ''),
-                'websiteUrl', COALESCE(aa.website_url, '')
+                'websiteUrl', COALESCE(aa.website_url, ''),
+                'friends', COALESCE(f.count, 0),
+                'blockedUsers', COALESCE(f2.count, 0),
+                'friendRequests', COALESCE(f3.count, 0)
             )
         ELSE
             NULL
         END as attributes
     FROM account a
     LEFT JOIN account_attribute aa ON a.id = aa.id
+    LEFT JOIN friendship f ON a.id = f.user_id_1 OR a.id = f.user_id_2 AND f.status = 'accepted'
+    LEFT JOIN friendship f2 ON a.id = f2.user_id_1 OR a.id = f2.user_id_2 AND f2.status = 'blocked'
+    LEFT JOIN friendship f3 ON a.id = f3.user_id_1 OR a.id = f3.user_id_2 AND f3.status = 'pending'
     WHERE
         a.id = $1 AND
         CASE WHEN array_length(@usernames_filter::text[], 1) > 0 THEN
@@ -57,13 +63,19 @@ SELECT
                 'instagramUrl', COALESCE(aa.instagram_url, ''),
                 'twitterUrl', COALESCE(aa.twitter_url, ''),
                 'school', COALESCE(aa.school, ''),
-                'websiteUrl', COALESCE(aa.website_url, '')
+                'websiteUrl', COALESCE(aa.website_url, ''),
+                'friendCount', COALESCE(COUNT(DISTINCT f.user_id_1), 0),
+                'blockedCount', COALESCE(COUNT(DISTINCT f2.user_id_1), 0),
+                'friendRequestCount', COALESCE(COUNT(DISTINCT f3.user_id_1), 0),
             )
         ELSE
             NULL
         END as attributes
     FROM account a
     LEFT JOIN account_attribute aa ON a.id = aa.id
+    LEFT JOIN friendship f ON a.id = f.user_id_1 OR a.id = f.user_id_2 AND f.status = 'accepted'
+    LEFT JOIN friendship f2 ON a.id = f2.user_id_1 OR a.id = f2.user_id_2 AND f2.status = 'blocked'
+    LEFT JOIN friendship f3 ON a.id = f3.user_id_1 OR a.id = f3.user_id_2 AND f3.status = 'pending'
     WHERE
         CASE WHEN array_length(@usernames_filter::text[], 1) > 0 THEN
             a.username = ANY(@usernames_filter::text[])
@@ -76,6 +88,7 @@ SELECT
         ELSE
             TRUE
         END
+    GROUP BY a.id, aa.id
     ORDER BY 
         (CASE WHEN @sort = 'level' AND @sort_direction = 'ASC' THEN a.level END) ASC,
         (CASE WHEN @sort = 'level' AND @sort_direction = 'DESC' THEN a.level END) DESC;
