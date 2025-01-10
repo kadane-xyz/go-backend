@@ -72,6 +72,7 @@ func (h *Handler) GetFriends(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(friendsResponse)
 }
 
+// POST: /friends
 // CreateFriendRequest creates a friend request
 func (h *Handler) CreateFriendRequest(w http.ResponseWriter, r *http.Request) {
 	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
@@ -134,6 +135,8 @@ func (h *Handler) CreateFriendRequest(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
+// GET: /friends/requests
+// GetFriendRequests gets all friend requests
 func (h *Handler) GetFriendRequests(w http.ResponseWriter, r *http.Request) {
 	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
 	if userId == "" {
