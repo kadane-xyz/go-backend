@@ -1,8 +1,9 @@
 -- name: CreateFriendRequest :exec
-INSERT INTO friendship (user_id_1, user_id_2, status)
+INSERT INTO friendship (user_id_1, user_id_2, initiator_id, status)
 SELECT 
     CASE WHEN @user_id < a.id THEN @user_id ELSE a.id END,
     CASE WHEN @user_id < a.id THEN a.id ELSE @user_id END,
+    @user_id::text,
     'pending'
 FROM account a
 WHERE a.username = @friend_name
@@ -74,23 +75,41 @@ JOIN account a ON (
 LEFT JOIN account_attribute aa ON a.id = aa.id
 WHERE (f.user_id_1 = @user_id OR f.user_id_2 = @user_id) AND f.status = 'accepted';
 
--- name: GetFriendRequests :many
+-- name: GetFriendRequestsSent :many
 SELECT 
-    a.id as friend_id,
-    a.username as friend_username,
-    COALESCE(a.avatar_url, '')::text as avatar_url,
-    COALESCE(a.level, 0)::int as level,
-    COALESCE(aa.location, '')::text as location,
+    a.id AS friend_id,
+    a.username AS friend_username,
+    COALESCE(a.avatar_url, '')::text AS avatar_url,
+    COALESCE(a.level, 0)::int AS level,
+    COALESCE(aa.location, '')::text AS location,
     f.created_at
 FROM friendship f
-JOIN account a ON ( 
-    CASE
-        WHEN f.user_id_1 = @user_id THEN a.id = f.user_id_2
-        ELSE a.id = f.user_id_1
+JOIN account a 
+    ON a.id = f.initiator_id
+LEFT JOIN account_attribute aa 
+    ON a.id = aa.id
+WHERE f.initiator_id = @user_id::text
+  AND f.status = 'pending';
+
+-- name: GetFriendRequestsReceived :many
+SELECT
+    friend.id                         AS friend_id,
+    friend.username                   AS friend_username,
+    COALESCE(friend.avatar_url, '')::text AS avatar_url,
+    COALESCE(friend.level, 0)::int        AS level,
+    COALESCE(aa.location, '')::text      AS location,
+    f.created_at
+FROM friendship f
+JOIN account friend
+  ON friend.id = CASE
+      WHEN f.user_id_1 = @user_id::text THEN f.user_id_2
+      ELSE f.user_id_1
     END
-)
-LEFT JOIN account_attribute aa ON a.id = aa.id
-WHERE (f.user_id_1 = @user_id OR f.user_id_2 = @user_id) AND f.status = 'pending';
+LEFT JOIN account_attribute aa
+  ON friend.id = aa.id
+WHERE f.status = 'pending'
+  AND (f.user_id_1 = @user_id::text OR f.user_id_2 = @user_id::text)
+  AND f.initiator_id != @user_id::text;
 
 -- name: GetFriendsByUsername :many
 WITH user_info AS (
