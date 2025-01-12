@@ -138,16 +138,50 @@ func (h *Handler) CreateFriendRequest(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-// GET: /friends/requests
-// GetFriendRequests gets all friend requests
-func (h *Handler) GetFriendRequests(w http.ResponseWriter, r *http.Request) {
+// GET: /friends/requests/sent
+// GetFriendRequestsSent gets all friend requests sent
+func (h *Handler) GetFriendRequestsSent(w http.ResponseWriter, r *http.Request) {
 	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
 	if userId == "" {
 		http.Error(w, "Missing user id", http.StatusBadRequest)
 		return
 	}
 
-	friendRequests, err := h.PostgresQueries.GetFriendRequests(r.Context(), userId)
+	friendRequests, err := h.PostgresQueries.GetFriendRequestsSent(r.Context(), userId)
+	if err != nil {
+		EmptyDataArrayResponse(w)
+		return
+	}
+
+	friendRequestsResponseData := []FriendRequest{}
+	for _, friendRequest := range friendRequests {
+		friendRequestsResponseData = append(friendRequestsResponseData, FriendRequest{
+			FriendId:   friendRequest.FriendID,
+			FriendName: friendRequest.FriendUsername,
+			AvatarUrl:  friendRequest.AvatarUrl,
+			Level:      friendRequest.Level,
+			CreatedAt:  friendRequest.CreatedAt.Time,
+			Location:   friendRequest.Location,
+		})
+	}
+
+	friendRequestsResponse := FriendRequestsResponse{
+		Data: friendRequestsResponseData,
+	}
+
+	json.NewEncoder(w).Encode(friendRequestsResponse)
+}
+
+// GET: /friends/requests/received
+// GetFriendRequestsReceived gets all friend requests received
+func (h *Handler) GetFriendRequestsReceived(w http.ResponseWriter, r *http.Request) {
+	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	if userId == "" {
+		http.Error(w, "Missing user id", http.StatusBadRequest)
+		return
+	}
+
+	friendRequests, err := h.PostgresQueries.GetFriendRequestsReceived(r.Context(), userId)
 	if err != nil {
 		EmptyDataArrayResponse(w)
 		return
