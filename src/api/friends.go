@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"kadane.xyz/go-backend/v2/src/apierror"
 	"kadane.xyz/go-backend/v2/src/middleware"
 	"kadane.xyz/go-backend/v2/src/sql/sql"
@@ -273,4 +274,35 @@ func (h *Handler) DeleteFriend(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error deleting friend request", http.StatusInternalServerError)
 		return
 	}
+}
+
+func (h *Handler) GetFriendsUsername(w http.ResponseWriter, r *http.Request) {
+	username := chi.URLParam(r, "username")
+	if username == "" {
+		apierror.SendError(w, http.StatusBadRequest, "Missing username")
+		return
+	}
+
+	friends, err := h.PostgresQueries.GetFriendsByUsername(r.Context(), username)
+	if err != nil {
+		EmptyDataArrayResponse(w)
+		return
+	}
+	responseData := make([]Friend, len(friends))
+	for i := range friends {
+		responseData[i] = Friend{
+			Id:         friends[i].FriendID,
+			Username:   friends[i].FriendUsername,
+			AvatarUrl:  friends[i].AvatarUrl,
+			Level:      friends[i].Level,
+			Location:   friends[i].Location,
+			AcceptedAt: friends[i].AcceptedAt.Time,
+		}
+	}
+
+	response := FriendsResponse{
+		Data: responseData,
+	}
+
+	json.NewEncoder(w).Encode(response)
 }
