@@ -65,18 +65,18 @@ SELECT
                 'twitterUrl', COALESCE(aa.twitter_url, ''),
                 'school', COALESCE(aa.school, ''),
                 'websiteUrl', COALESCE(aa.website_url, ''),
-                'friendCount', COUNT(DISTINCT f.id) FILTER (WHERE f.status = 'accepted'),
-                'blockedCount', COUNT(DISTINCT f.id) FILTER (WHERE f.status = 'blocked'),
-                'friendRequestCount', COUNT(DISTINCT f.id) FILTER (WHERE f.status = 'pending')
+                'friendCount', COUNT(DISTINCT CASE WHEN f.status = 'accepted' THEN f.user_id_1 END),
+                'blockedCount', COUNT(DISTINCT CASE WHEN f2.status = 'blocked' THEN f2.user_id_1 END),
+                'friendRequestCount', COUNT(DISTINCT CASE WHEN f3.status = 'pending' THEN f3.user_id_1 END)
             )
         ELSE
             NULL
         END as attributes
     FROM account a
     LEFT JOIN account_attribute aa ON a.id = aa.id
-    LEFT JOIN friendship f ON a.id = f.user_id_1 OR a.id = f.user_id_2 AND f.status = 'accepted'
-    LEFT JOIN friendship f2 ON a.id = f2.user_id_1 OR a.id = f2.user_id_2 AND f2.status = 'blocked'
-    LEFT JOIN friendship f3 ON a.id = f3.user_id_1 OR a.id = f3.user_id_2 AND f3.status = 'pending'
+    LEFT JOIN friendship f ON (a.id = f.user_id_1 OR a.id = f.user_id_2)
+    LEFT JOIN friendship f2 ON (a.id = f2.user_id_1 OR a.id = f2.user_id_2)
+    LEFT JOIN friendship f3 ON (a.id = f3.user_id_1 OR a.id = f3.user_id_2)
     WHERE
         CASE WHEN array_length(@usernames_filter::text[], 1) > 0 THEN
             a.username = ANY(@usernames_filter::text[])
@@ -89,7 +89,9 @@ SELECT
         ELSE
             TRUE
         END
-    GROUP BY a.id, aa.id
+    GROUP BY a.id, aa.id, aa.bio, aa.contact_email, aa.location, aa.real_name, 
+             aa.github_url, aa.linkedin_url, aa.facebook_url, aa.instagram_url, 
+             aa.twitter_url, aa.school, aa.website_url
     ORDER BY 
         (CASE WHEN @sort = 'level' AND @sort_direction = 'ASC' THEN a.level END) ASC,
         (CASE WHEN @sort = 'level' AND @sort_direction = 'DESC' THEN a.level END) DESC;
