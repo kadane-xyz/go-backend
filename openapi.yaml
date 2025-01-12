@@ -312,8 +312,7 @@ paths:
             application/json:
               schema:
                 type: object
-                items:
-                  $ref: '#/components/schemas/FriendResponse'
+                $ref: '#/components/schemas/FriendResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '500':
@@ -398,7 +397,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/FriendResponse'
+              $ref: '#/components/schemas/FriendRequest'
       responses:
         '201':
           description: Friend request accepted successfully
@@ -423,7 +422,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/FriendResponse'
+              $ref: '#/components/schemas/FriendRequest'
       responses:
         '201':
           description: Friend request blocked successfully
@@ -444,7 +443,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/FriendResponse'
+              $ref: '#/components/schemas/FriendRequest'
       responses:
         '201':
           description: Friend request unblocked successfully
@@ -469,7 +468,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/FriendResponse'
+              $ref: '#/components/schemas/FriendRequest'
       responses:
         '201':
           description: Friend request denied successfully
@@ -1483,7 +1482,7 @@ components:
           type: string
         username:
           type: string
-        avatar_url:
+        avatarUrl:
           type: string
         location:
           type: string
