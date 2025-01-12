@@ -51,6 +51,16 @@ func RegisterApiRoutes(h *Handler, r chi.Router) {
 				r.Get("/", h.GetAccountByUsername)
 			})
 		})
+		r.Route("/friends", func(r chi.Router) {
+			r.Get("/", h.GetFriends)
+			r.Delete("/", h.DeleteFriend)
+			r.Post("/", h.CreateFriendRequest)
+			r.Post("/accept", h.AcceptFriendRequest)
+			r.Post("/block", h.BlockFriendRequest)
+			r.Post("/unblock", h.UnblockFriendRequest)
+			r.Post("/deny", h.DeleteFriend)
+			r.Get("/requests", h.GetFriendRequests)
+		})
 		//problems
 		r.Route("/problems", func(r chi.Router) {
 			r.Get("/", h.GetProblems)
@@ -99,6 +109,15 @@ func RegisterApiRoutes(h *Handler, r chi.Router) {
 	})
 	//generate a route to catch anything not defined and error/block spam
 	r.Get("/*", func(w http.ResponseWriter, r *http.Request) {
+		apierror.SendError(w, http.StatusNotFound, "Not Found")
+	})
+	r.Put("/*", func(w http.ResponseWriter, r *http.Request) {
+		apierror.SendError(w, http.StatusNotFound, "Not Found")
+	})
+	r.Post("/*", func(w http.ResponseWriter, r *http.Request) {
+		apierror.SendError(w, http.StatusNotFound, "Not Found")
+	})
+	r.Delete("/*", func(w http.ResponseWriter, r *http.Request) {
 		apierror.SendError(w, http.StatusNotFound, "Not Found")
 	})
 }
