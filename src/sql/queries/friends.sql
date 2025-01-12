@@ -91,3 +91,27 @@ JOIN account a ON (
 )
 LEFT JOIN account_attribute aa ON a.id = aa.id
 WHERE (f.user_id_1 = @user_id OR f.user_id_2 = @user_id) AND f.status = 'pending';
+
+-- name: GetFriendsByUsername :many
+WITH user_info AS (
+    SELECT a.id, a.username
+    FROM account a
+    WHERE a.username = @friend_name
+)
+SELECT 
+    a.id as friend_id,
+    a.username as friend_username,
+    COALESCE(a.avatar_url, '')::text as avatar_url,
+    COALESCE(a.level, 0)::int as level,
+    COALESCE(aa.location, '')::text as location,
+    f.accepted_at
+FROM friendship f
+JOIN user_info u ON (f.user_id_1 = u.id OR f.user_id_2 = u.id)
+JOIN account a ON (
+    CASE 
+        WHEN f.user_id_1 = u.id THEN a.id = f.user_id_2
+        ELSE a.id = f.user_id_1
+    END
+)
+LEFT JOIN account_attribute aa ON a.id = aa.id
+WHERE f.status = 'accepted';
