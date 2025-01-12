@@ -4,6 +4,7 @@ CREATE TYPE friendship_status AS ENUM ('pending', 'accepted', 'blocked');
 CREATE TABLE IF NOT EXISTS friendship (
     user_id_1 TEXT REFERENCES account(id),
     user_id_2 TEXT REFERENCES account(id),
+    initiator_id TEXT REFERENCES account(id), -- the user who initiated the friend request
     status friendship_status NOT NULL DEFAULT 'pending',
     accepted_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), -- default to now and update on friend request change

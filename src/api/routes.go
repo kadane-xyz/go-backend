@@ -59,7 +59,13 @@ func RegisterApiRoutes(h *Handler, r chi.Router) {
 			r.Post("/block", h.BlockFriendRequest)
 			r.Post("/unblock", h.UnblockFriendRequest)
 			r.Post("/deny", h.DeleteFriend)
-			r.Get("/requests", h.GetFriendRequests)
+			r.Route("/requests", func(r chi.Router) {
+				r.Get("/sent", h.GetFriendRequestsSent)
+				r.Get("/received", h.GetFriendRequestsReceived)
+			})
+			r.Route("/username/{username}", func(r chi.Router) {
+				r.Get("/", h.GetFriendsUsername)
+			})
 		})
 		//problems
 		r.Route("/problems", func(r chi.Router) {
