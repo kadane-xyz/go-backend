@@ -55,6 +55,7 @@ type Problem struct {
 	Solution      interface{} `json:"solution,omitempty"`
 	TestCases     interface{} `json:"testCases"`
 	Starred       bool        `json:"starred"`
+	Solved        bool        `json:"solved"`
 	TotalAttempts int64       `json:"totalAttempts"`
 	TotalCorrect  int64       `json:"totalCorrect"`
 }
@@ -179,6 +180,7 @@ func (h *Handler) GetProblems(w http.ResponseWriter, r *http.Request) {
 			Solution:      problem.SolutionsJson,
 			TestCases:     problem.TestCasesJson,
 			Starred:       problem.Starred,
+			Solved:        problem.Solved,
 			TotalAttempts: problem.TotalAttempts,
 			TotalCorrect:  problem.TotalCorrect,
 		})

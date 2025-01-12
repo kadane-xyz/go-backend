@@ -1488,6 +1488,9 @@ components:
           type: string
         level:
           type: integer
+        acceptedAt:
+          type: string
+          format: date-time
     FriendRequest:
       type: object
       properties:

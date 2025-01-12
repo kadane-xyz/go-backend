@@ -25,14 +25,14 @@ WHERE (user_id_1 = @user_id AND user_id_2 = (SELECT a.id FROM account a WHERE a.
 
 -- name: AcceptFriendRequest :exec
 UPDATE friendship
-SET status = 'accepted'
+SET status = 'accepted', accepted_at = NOW()
 WHERE ((user_id_1 = @user_id AND user_id_2 = (SELECT a.id FROM account a WHERE a.username = @friend_name))
    OR (user_id_2 = @user_id AND user_id_1 = (SELECT a.id FROM account a WHERE a.username = @friend_name)))
 AND status = 'pending';
 
 -- name: BlockFriend :exec
 UPDATE friendship
-SET status = 'blocked'
+SET status = 'blocked', accepted_at = NULL
 WHERE ((user_id_1 = @user_id AND user_id_2 = (SELECT a.id FROM account a WHERE a.username = @friend_name))
    OR (user_id_2 = @user_id AND user_id_1 = (SELECT a.id FROM account a WHERE a.username = @friend_name)))
 AND status IN ('pending', 'accepted');
@@ -40,7 +40,7 @@ AND status IN ('pending', 'accepted');
 
 -- name: UnblockFriend :exec
 UPDATE friendship
-SET status = 'accepted'
+SET status = 'accepted', accepted_at = NOW()
 WHERE ((user_id_1 = @user_id AND user_id_2 = (SELECT a.id FROM account a WHERE a.username = @friend_name))
    OR (user_id_2 = @user_id AND user_id_1 = (SELECT a.id FROM account a WHERE a.username = @friend_name)))
 AND status = 'blocked';
@@ -63,7 +63,7 @@ SELECT
     COALESCE(a.avatar_url, '')::text as avatar_url,
     COALESCE(a.level, 0)::int as level,
     COALESCE(aa.location, '')::text as location,
-    f.created_at
+    f.accepted_at
 FROM friendship f
 JOIN account a ON (
     CASE 
