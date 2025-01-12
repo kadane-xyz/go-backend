@@ -11,11 +11,12 @@ import (
 )
 
 type Friend struct {
-	Id        string `json:"id"`
-	Username  string `json:"username"`
-	AvatarUrl string `json:"avatar_url"`
-	Location  string `json:"location"`
-	Level     int32  `json:"level"`
+	Id         string    `json:"id"`
+	Username   string    `json:"username"`
+	AvatarUrl  string    `json:"avatarUrl"`
+	Location   string    `json:"location"`
+	Level      int32     `json:"level"`
+	AcceptedAt time.Time `json:"acceptedAt"`
 }
 
 type FriendRequestRequest struct {
@@ -29,9 +30,9 @@ type FriendsResponse struct {
 type FriendRequest struct {
 	FriendId   string    `json:"friendId"`
 	FriendName string    `json:"friendName"`
-	AvatarUrl  string    `json:"avatar_url"`
+	AvatarUrl  string    `json:"avatarUrl"`
 	Level      int32     `json:"level"`
-	CreatedAt  time.Time `json:"created_at"`
+	CreatedAt  time.Time `json:"createdAt"`
 	Location   string    `json:"location"`
 }
 
@@ -57,11 +58,12 @@ func (h *Handler) GetFriends(w http.ResponseWriter, r *http.Request) {
 	friendsResponseData := []Friend{}
 	for _, friend := range friends {
 		friendsResponseData = append(friendsResponseData, Friend{
-			Id:        friend.FriendID,
-			Username:  friend.FriendUsername,
-			AvatarUrl: friend.AvatarUrl,
-			Level:     friend.Level,
-			Location:  friend.Location,
+			Id:         friend.FriendID,
+			Username:   friend.FriendUsername,
+			AvatarUrl:  friend.AvatarUrl,
+			Level:      friend.Level,
+			Location:   friend.Location,
+			AcceptedAt: friend.AcceptedAt.Time,
 		})
 	}
 
@@ -146,7 +148,7 @@ func (h *Handler) GetFriendRequests(w http.ResponseWriter, r *http.Request) {
 
 	friendRequests, err := h.PostgresQueries.GetFriendRequests(r.Context(), userId)
 	if err != nil {
-		http.Error(w, "Error getting friend requests", http.StatusInternalServerError)
+		EmptyDataArrayResponse(w)
 		return
 	}
 

@@ -243,11 +243,7 @@ func (h *Handler) GetComment(w http.ResponseWriter, r *http.Request) {
 		UserID: userId,
 	})
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			apierror.SendError(w, http.StatusNotFound, "Comment not found")
-		} else {
-			apierror.SendError(w, http.StatusInternalServerError, "Error retrieving comment from database")
-		}
+		EmptyDataResponse(w)
 		return
 	}
 

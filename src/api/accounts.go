@@ -130,7 +130,7 @@ func (h *Handler) GetAccounts(w http.ResponseWriter, r *http.Request) {
 		IncludeAttributes: true,
 	})
 	if err != nil {
-		apierror.SendError(w, http.StatusInternalServerError, "Error getting accounts")
+		EmptyDataArrayResponse(w)
 		return
 	}
 
@@ -246,7 +246,7 @@ func (h *Handler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 		IncludeAttributes: true,
 	})
 	if err != nil {
-		apierror.SendError(w, http.StatusInternalServerError, "Error getting account")
+		EmptyDataResponse(w)
 		return
 	}
 
@@ -377,7 +377,7 @@ func (h *Handler) GetAccount(w http.ResponseWriter, r *http.Request) {
 		IncludeAttributes: attributes == "true",
 	})
 	if err != nil {
-		apierror.SendError(w, http.StatusInternalServerError, "Error getting account")
+		EmptyDataResponse(w)
 		return
 	}
 
@@ -611,7 +611,7 @@ func (h *Handler) GetAccountByUsername(w http.ResponseWriter, r *http.Request) {
 
 	accountId, err := h.PostgresQueries.GetAccountByUsername(r.Context(), username)
 	if err != nil {
-		apierror.SendError(w, http.StatusInternalServerError, "Error getting account")
+		EmptyDataResponse(w)
 		return
 	}
 
