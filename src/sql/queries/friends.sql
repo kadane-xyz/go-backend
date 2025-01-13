@@ -82,14 +82,13 @@ SELECT
     COALESCE(a.avatar_url, '')::text AS avatar_url,
     COALESCE(a.level, 0)::int AS level,
     COALESCE(aa.location, '')::text AS location,
-    f.created_at
+    f.created_at,
+    f.initiator_id
 FROM friendship f
-JOIN account a 
-    ON a.id = f.initiator_id
-LEFT JOIN account_attribute aa 
-    ON a.id = aa.id
-WHERE f.initiator_id = @user_id::text
-  AND f.status = 'pending';
+JOIN account a ON a.id = f.user_id_1 OR a.id = f.user_id_2  -- Join with recipient's account (the friend)
+LEFT JOIN account_attribute aa ON a.id = aa.id
+WHERE f.initiator_id = @user_id::text  -- Filter by who sent the request
+AND f.status = 'pending';
 
 -- name: GetFriendRequestsReceived :many
 SELECT
