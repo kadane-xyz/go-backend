@@ -82,8 +82,7 @@ SELECT
     COALESCE(a.avatar_url, '')::text AS avatar_url,
     COALESCE(a.level, 0)::int AS level,
     COALESCE(aa.location, '')::text AS location,
-    f.created_at,
-    f.initiator_id
+    f.created_at
 FROM friendship f
 JOIN account a ON a.id = f.user_id_1 OR a.id = f.user_id_2  -- Join with recipient's account (the friend)
 LEFT JOIN account_attribute aa ON a.id = aa.id
@@ -122,7 +121,11 @@ SELECT
     COALESCE(a.avatar_url, '')::text as avatar_url,
     COALESCE(a.level, 0)::int as level,
     COALESCE(aa.location, '')::text as location,
-    f.accepted_at
+    f.accepted_at,
+    CASE 
+        WHEN (f.user_id_1 = u.id OR f.user_id_2 = u.id) AND f.status = 'accepted' THEN TRUE
+        ELSE FALSE
+    END AS is_friend
 FROM friendship f
 JOIN user_info u ON (f.user_id_1 = u.id OR f.user_id_2 = u.id)
 JOIN account a ON (
