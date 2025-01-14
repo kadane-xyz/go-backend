@@ -84,9 +84,13 @@ SELECT
     COALESCE(aa.location, '')::text AS location,
     f.created_at
 FROM friendship f
-JOIN account a ON a.id = f.user_id_1 OR a.id = f.user_id_2  -- Join with recipient's account (the friend)
+JOIN account a ON a.id = CASE 
+    WHEN f.user_id_1 = @user_id::text THEN f.user_id_2
+    WHEN f.user_id_2 = @user_id::text THEN f.user_id_1
+    ELSE f.user_id_2  -- fallback, though this case shouldn't occur
+END
 LEFT JOIN account_attribute aa ON a.id = aa.id
-WHERE f.initiator_id = @user_id::text  -- Filter by who sent the request
+WHERE f.initiator_id = @user_id::text
 AND f.status = 'pending';
 
 -- name: GetFriendRequestsReceived :many
