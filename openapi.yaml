@@ -74,9 +74,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Account'
+                $ref: '#/components/schemas/AccountsResponse'
         '500':
           $ref: '#/components/responses/InternalServerError'
                   
@@ -98,6 +96,104 @@ paths:
           description: Account created successfully
         '400':
           $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /accounts/{id}:
+    get:
+      tags:
+        - Accounts
+      summary: Get an account by ID
+      description: Get an account by ID.
+      operationId: getAccountById
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: The ID of the account to get.
+      responses:
+        '200':
+          description: Account response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    put:
+      tags:
+        - Accounts
+      summary: Update an account by ID
+      description: Update an account by ID.
+      operationId: updateAccountById
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: The ID of the account to update.
+      requestBody:
+        description: Account data to be updated
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountUpdateRequest'
+      responses:
+        '204':
+          description: Account updated successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      tags:
+        - Accounts
+      summary: Delete an account by ID
+      description: Delete an account by ID.
+      operationId: deleteAccountById
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: The ID of the account to delete.
+      responses:
+        '204':
+          description: Account deleted successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /accounts/username/{username}:
+    get:
+      tags:
+        - Accounts
+      summary: Get an account by username
+      description: Get an account by username.
+      operationId: getAccountByUsername
+      parameters:
+        - in: path
+          name: username
+          required: true
+          schema:
+            type: string
+          description: The username of the account to get.
+      responses:
+        '200':
+          description: Account response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalServerError'
                   
@@ -527,6 +623,23 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '500':
           $ref: '#/components/responses/InternalServerError'
+  /friends/requests/{username}:
+    delete:
+      tags:
+        - Friends
+      summary: Delete a friend request
+      description: Delete a friend request by username.
+      operationId: deleteFriendRequest
+      parameters:
+        - in: path
+          name: username
+          required: true
+          schema:
+            type: string
+          description: The username of the friend request to delete.
+      responses:
+        '204':
+          description: Friend request deleted successfully
   /solutions:
     get:
       tags:
@@ -870,191 +983,6 @@ paths:
           $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalServerError'
-
-  /accounts/{id}:
-    get:
-      summary: Get account by ID
-      description: Retrieves an account and its attributes by account ID
-      tags:
-        - Accounts
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-          description: Account ID
-      responses:
-        '200':
-          description: Account found
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                      username:
-                        type: string
-                      email:
-                        type: string
-                      avatarUrl:
-                        type: string
-                      level:
-                        type: integer
-                      attributes:
-                        type: object
-                        properties:
-                          bio:
-                            type: string
-                          location:
-                            type: string
-                          realName:
-                            type: string
-                          githubUrl:
-                            type: string
-                          linkedinUrl:
-                            type: string
-                          facebookUrl:
-                            type: string
-                          instagramUrl:
-                            type: string
-                          twitterUrl:
-                            type: string
-                          school:
-                            type: string
-        '400':
-          description: Missing account ID
-        '404':
-          description: Account not found
-        '500':
-          description: Internal server error
-
-    put:
-      summary: Update account attributes
-      description: Updates an account's attributes
-      tags:
-        - Accounts
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-          description: Account ID
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                bio:
-                  type: string
-                contactEmail:
-                  type: string
-                location:
-                  type: string
-                realName:
-                  type: string
-                githubUrl:
-                  type: string
-                linkedinUrl:
-                  type: string
-                facebookUrl:
-                  type: string
-                instagramUrl:
-                  type: string
-                twitterUrl:
-                  type: string
-                school:
-                  type: string
-      responses:
-        '200':
-          description: Account updated successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                      username:
-                        type: string
-                      email:
-                        type: string
-                      avatarUrl:
-                        type: string
-                      level:
-                        type: integer
-                      attributes:
-                        type: object
-                        properties:
-                          bio:
-                            type: string
-                          location:
-                            type: string
-                          realName:
-                            type: string
-                          githubUrl:
-                            type: string
-                          linkedinUrl:
-                            type: string
-                          facebookUrl:
-                            type: string
-                          instagramUrl:
-                            type: string
-                          twitterUrl:
-                            type: string
-                          school:
-                            type: string
-        '400':
-          description: Invalid request body or no changes detected
-        '404':
-          description: Account not found
-        '500':
-          description: Internal server error
-
-  /accounts/username/{username}:
-    get:
-      summary: Get account by username
-      description: Retrieves an account by username
-      tags:
-        - Accounts
-      parameters:
-        - name: username
-          in: path
-          required: true
-          schema:
-            type: string
-          description: Account username
-      responses:
-        '200':
-          description: Account found successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                      username:
-                        type: string
-                      email:
-                        type: string
-        '400':
-          description: Missing username
-        '500':
-          description: Error getting account
 
   /problems:
     get:
@@ -1457,7 +1385,120 @@ components:
       scheme: bearer
       bearerFormat: jwt 
   schemas:
+    # Accounts
+    Account:
+      allOf:
+        - type: object
+          properties:
+            id:
+              type: string
+            username:
+              type: string
+            email:
+              type: string
+              format: email
+            avatarUrl:
+              type: string
+            level:
+              type: integer
+            createdAt:
+              type: string
+              format: date-time
+            friendStatus:
+              type: string
+              enum: [none, friend, blocked, request_sent, request_received]
+            attributes:
+              $ref: '#/components/schemas/AccountAttributes'
+          required:
+            - id
+            - username
+            - email
+    AccountAttributes:
+      description: Account attributes
+      type: object
+      properties:
+        bio:
+          type: string
+          nullable: true
+        contactEmail:
+          type: string
+          format: email
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        realName:
+          type: string
+          nullable: true
+        githubUrl:
+          type: string
+          nullable: true
+        linkedinUrl:
+          type: string
+          nullable: true
+        facebookUrl:
+          type: string
+          nullable: true
+        instagramUrl:
+          type: string
+          nullable: true
+        twitterUrl:
+          type: string
+          nullable: true
+        school:
+          type: string
+          nullable: true
+        websiteUrl:
+          type: string
+          nullable: true
+        friendCount:
+          type: integer
+        blockedCount:
+          type: integer
+        friendRequestCount:
+          type: integer
+    AccountUpdateRequest:
+      type: object
+      properties:
+        bio:
+          type: string
+        contactEmail:
+          type: string
+          format: email
+        location:
+          type: string
+        realName:
+          type: string
+        githubUrl:
+          type: string
+        linkedinUrl:
+          type: string
+        facebookUrl:
+          type: string
+        instagramUrl:
+          type: string
+        twitterUrl:
+          type: string
+        school:
+          type: string
+        websiteUrl:
+          type: string
+    AccountResponse:
+      description: Account response
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/Account'
+    AccountsResponse:
+      description: Accounts response
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Account'
     CreateAccountRequest:
+      description: Create Account Request
       type: object
       properties:
         id:
@@ -1478,7 +1519,9 @@ components:
         id: "12345"
         username: "john_doe"
         email: "john@example.com"
+    # Comments
     Comment:
+      description: Comment
       type: object
       properties:
         solutionId:
@@ -1522,6 +1565,7 @@ components:
         currentUserVote:
           type: string
           enum: [up, down, none]
+    # Friends
     Friend:
       type: object
       properties:
@@ -1538,8 +1582,6 @@ components:
         acceptedAt:
           type: string
           format: date-time
-        isFriend:
-          type: boolean
     FriendRequest:
       type: object
       properties:
@@ -1560,6 +1602,7 @@ components:
           enum: [up, down, none]
       required:
         - vote
+    # Solutions
     Solutions:
       type: object
       properties:
@@ -1634,22 +1677,7 @@ components:
       properties:
         data:
           $ref: '#/components/schemas/SolutionsData'
-    Account:
-      type: object
-      properties:
-        id:
-          type: string
-        username:
-          type: string
-        email:
-          type: string
-          format: email
-        avatar_url:
-          type: string
-      required:
-        - id
-        - username
-        - email
+    # Error
     Error:
       type: object
       required:
@@ -1661,6 +1689,7 @@ components:
           format: int32
         message:
           type: string
+    # Submissions
     SubmissionResponse:
       type: object
       properties:
@@ -1721,7 +1750,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ProblemTestCase'
-
+    # Problems
     ProblemRequestCode:
       type: object
       required:
