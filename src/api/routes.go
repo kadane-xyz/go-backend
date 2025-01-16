@@ -62,6 +62,7 @@ func RegisterApiRoutes(h *Handler, r chi.Router) {
 			r.Route("/requests", func(r chi.Router) {
 				r.Get("/sent", h.GetFriendRequestsSent)
 				r.Get("/received", h.GetFriendRequestsReceived)
+				r.Delete("/", h.DeleteFriendRequest)
 			})
 			r.Route("/username/{username}", func(r chi.Router) {
 				r.Get("/", h.GetFriendsUsername)
