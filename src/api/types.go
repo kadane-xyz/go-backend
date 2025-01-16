@@ -15,3 +15,13 @@ type TestCase struct {
 	Output      string         `json:"output"`
 	Visibility  sql.Visibility `json:"visibility"`
 }
+
+type FriendshipStatus string
+
+const (
+	FriendshipStatusNone            FriendshipStatus = "none"
+	FriendshipStatusFriend          FriendshipStatus = "friend"
+	FriendshipStatusBlocked         FriendshipStatus = "blocked"
+	FriendshipStatusRequestSent     FriendshipStatus = "request_sent"
+	FriendshipStatusRequestReceived FriendshipStatus = "request_received"
+)
