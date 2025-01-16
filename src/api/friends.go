@@ -352,3 +352,31 @@ func (h *Handler) GetFriendsUsername(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(response)
 }
+
+// DELETE: /friends/requests
+// DeleteFriendRequest deletes a friend request
+func (h *Handler) DeleteFriendRequest(w http.ResponseWriter, r *http.Request) {
+	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	if userId == "" {
+		http.Error(w, "Missing user id", http.StatusBadRequest)
+		return
+	}
+
+	var friendRequest FriendRequest
+	err := json.NewDecoder(r.Body).Decode(&friendRequest)
+	if err != nil {
+		apierror.SendError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	err = h.PostgresQueries.DeleteFriendship(r.Context(), sql.DeleteFriendshipParams{
+		UserID:     userId,
+		FriendName: friendRequest.FriendName,
+	})
+	if err != nil {
+		http.Error(w, "Error deleting friend request", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
