@@ -434,30 +434,25 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /friends/{username}:
     delete:
       tags:
         - Friends
       summary: Delete a friend
-      description: Delete a friend by their ID.
+      description: Delete a friend by their username.
       operationId: deleteFriend
-      requestBody:
-        description: Friend request object to be created
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                friendName:
-                  type: string
-                  description: The name of the friend to delete.
+      parameters:
+        - in: path
+          name: username
+          required: true
+          schema:
+            type: string
+          description: The username of the friend to delete.
       responses:
         '204':
           description: Friend deleted successfully
         '400':
           $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalServerError'
   /friends/username/{username}:
