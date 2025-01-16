@@ -30,7 +30,7 @@ const (
 	minDimension = 500
 )
 
-type AccountAttributesInput struct {
+type AccountUpdateRequest struct {
 	Bio          *string `json:"bio,omitempty"`
 	ContactEmail *string `json:"contactEmail,omitempty"`
 	Location     *string `json:"location,omitempty"`
@@ -403,7 +403,7 @@ func (h *Handler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Decode request body
-	var requestAttrs AccountAttributesInput
+	var requestAttrs AccountUpdateRequest
 	if err := json.NewDecoder(r.Body).Decode(&requestAttrs); err != nil {
 		apierror.SendError(w, http.StatusBadRequest, "Invalid JSON format in request body")
 		return
@@ -506,7 +506,7 @@ type UpdateParamsResult struct {
 
 // buildUpdateParams compares request attributes with current attributes
 // and returns an UpdateParamsResult with all provided fields, including empty strings
-func buildUpdateParams(req AccountAttributesInput, current AccountAttributes) UpdateParamsResult {
+func buildUpdateParams(req AccountUpdateRequest, current AccountAttributes) UpdateParamsResult {
 	result := UpdateParamsResult{
 		Params: sql.UpdateAccountAttributesParams{
 			ID: current.ID,
@@ -541,7 +541,7 @@ func buildUpdateParams(req AccountAttributesInput, current AccountAttributes) Up
 }
 
 // validateAccountAttributes performs validation on account attributes
-func validateAccountAttributes(attrs AccountAttributesInput) error {
+func validateAccountAttributes(attrs AccountUpdateRequest) error {
 	// Only validate non-empty email addresses
 	if attrs.ContactEmail != nil && *attrs.ContactEmail != "" {
 		if !isValidEmail(*attrs.ContactEmail) {
