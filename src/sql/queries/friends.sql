@@ -38,7 +38,6 @@ WHERE ((user_id_1 = @user_id AND user_id_2 = (SELECT a.id FROM account a WHERE a
    OR (user_id_2 = @user_id AND user_id_1 = (SELECT a.id FROM account a WHERE a.username = @friend_name)))
 AND status IN ('pending', 'accepted');
 
-
 -- name: UnblockFriend :exec
 UPDATE friendship
 SET status = 'accepted', accepted_at = NOW()
@@ -125,11 +124,7 @@ SELECT
     COALESCE(a.avatar_url, '')::text as avatar_url,
     COALESCE(a.level, 0)::int as level,
     COALESCE(aa.location, '')::text as location,
-    f.accepted_at,
-    CASE 
-        WHEN (f.user_id_1 = u.id OR f.user_id_2 = u.id) AND f.status = 'accepted' THEN TRUE
-        ELSE FALSE
-    END AS is_friend
+    f.accepted_at
 FROM friendship f
 JOIN user_info u ON (f.user_id_1 = u.id OR f.user_id_2 = u.id)
 JOIN account a ON (

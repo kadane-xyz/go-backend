@@ -18,7 +18,6 @@ type Friend struct {
 	Location   string    `json:"location"`
 	Level      int32     `json:"level"`
 	AcceptedAt time.Time `json:"acceptedAt"`
-	IsFriend   bool      `json:"isFriend"`
 }
 
 type FriendRequestRequest struct {
@@ -320,7 +319,10 @@ func (h *Handler) GetFriendsUsername(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := h.PostgresQueries.GetAccountByUsername(r.Context(), username)
+	_, err := h.PostgresQueries.GetAccountByUsername(r.Context(), sql.GetAccountByUsernameParams{
+		Username:          username,
+		IncludeAttributes: false,
+	})
 	if err != nil {
 		apierror.SendError(w, http.StatusNotFound, "User not found")
 		return
@@ -341,7 +343,6 @@ func (h *Handler) GetFriendsUsername(w http.ResponseWriter, r *http.Request) {
 			Level:      friends[i].Level,
 			Location:   friends[i].Location,
 			AcceptedAt: friends[i].AcceptedAt.Time,
-			IsFriend:   friends[i].IsFriend,
 		}
 	}
 

@@ -30,18 +30,6 @@ const (
 	minDimension = 500
 )
 
-type AccountResponse struct {
-	Data sql.Account `json:"data"`
-}
-
-type AccountsResponse struct {
-	Data []sql.Account `json:"data"`
-}
-
-type AccountsAttributesResponse struct {
-	Data []AccountAttributesWithAccount `json:"data"`
-}
-
 type AccountAttributesInput struct {
 	Bio          *string `json:"bio,omitempty"`
 	ContactEmail *string `json:"contactEmail,omitempty"`
@@ -74,22 +62,23 @@ type AccountAttributes struct {
 	FriendRequestCount int64  `json:"friendRequests,omitempty"`
 }
 
-type AccountAttributesWithAccount struct {
-	ID         string      `json:"id"`
-	Username   string      `json:"username"`
-	Email      string      `json:"email"`
-	AvatarUrl  string      `json:"avatarUrl,omitempty"`
-	Level      int32       `json:"level"`
-	CreatedAt  time.Time   `json:"created"`
-	Attributes interface{} `json:"attributes"`
+type Account struct {
+	ID           string           `json:"id"`
+	Username     string           `json:"username"`
+	Email        string           `json:"email"`
+	AvatarUrl    string           `json:"avatarUrl,omitempty"`
+	Level        int32            `json:"level"`
+	CreatedAt    time.Time        `json:"created"`
+	FriendStatus FriendshipStatus `json:"friendStatus,omitempty"`
+	Attributes   interface{}      `json:"attributes"`
 }
 
-type AccountAttributesResponse struct {
-	Data sql.GetAccountRow `json:"data"`
+type AccountResponse struct {
+	Data Account `json:"data"`
 }
 
-type AccountAttributesUpdateResponse struct {
-	Data AccountAttributes `json:"data"`
+type AccountsResponse struct {
+	Data []Account `json:"data"`
 }
 
 type AvatarResponse struct {
@@ -134,13 +123,13 @@ func (h *Handler) GetAccounts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := AccountsAttributesResponse{Data: []AccountAttributesWithAccount{}}
+	response := AccountsResponse{Data: []Account{}}
 	for _, account := range accounts {
 		if account.Attributes == nil {
 			account.Attributes = AccountAttributes{}
 		}
 
-		response.Data = append(response.Data, AccountAttributesWithAccount{
+		response.Data = append(response.Data, Account{
 			ID:         account.ID,
 			Username:   account.Username,
 			Email:      account.Email,
@@ -251,7 +240,15 @@ func (h *Handler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Prepare response
-	response := AccountAttributesResponse{Data: account}
+	response := AccountResponse{Data: Account{
+		ID:         account.ID,
+		Username:   account.Username,
+		Email:      account.Email,
+		CreatedAt:  account.CreatedAt.Time,
+		AvatarUrl:  account.AvatarUrl.String,
+		Level:      account.Level.Int32,
+		Attributes: account.Attributes,
+	}}
 
 	// Send response
 	w.Header().Set("Content-Type", "application/json")
@@ -381,7 +378,15 @@ func (h *Handler) GetAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := AccountAttributesResponse{Data: account}
+	response := AccountResponse{Data: Account{
+		ID:         account.ID,
+		Username:   account.Username,
+		Email:      account.Email,
+		CreatedAt:  account.CreatedAt.Time,
+		AvatarUrl:  account.AvatarUrl.String,
+		Level:      account.Level.Int32,
+		Attributes: account.Attributes,
+	}}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -458,7 +463,15 @@ func (h *Handler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Prepare response
-	response := AccountAttributesResponse{Data: account}
+	response := AccountResponse{Data: Account{
+		ID:         account.ID,
+		Username:   account.Username,
+		Email:      account.Email,
+		CreatedAt:  account.CreatedAt.Time,
+		AvatarUrl:  account.AvatarUrl.String,
+		Level:      account.Level.Int32,
+		Attributes: account.Attributes,
+	}}
 
 	// Send response
 	w.Header().Set("Content-Type", "application/json")
@@ -598,6 +611,12 @@ func (h *Handler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 
 // GET: /accounts/username
 func (h *Handler) GetAccountByUsername(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	if userID == "" {
+		apierror.SendError(w, http.StatusBadRequest, "Missing user ID")
+		return
+	}
+
 	username := chi.URLParam(r, "username")
 	if username == "" {
 		apierror.SendError(w, http.StatusBadRequest, "Missing username")
@@ -609,22 +628,27 @@ func (h *Handler) GetAccountByUsername(w http.ResponseWriter, r *http.Request) {
 		attributes = "false"
 	}
 
-	accountId, err := h.PostgresQueries.GetAccountByUsername(r.Context(), username)
+	// check if account exists
+	account, err := h.PostgresQueries.GetAccountByUsername(r.Context(), sql.GetAccountByUsernameParams{
+		Username:          username,
+		UserID:            userID,
+		IncludeAttributes: attributes == "true",
+	})
 	if err != nil {
 		EmptyDataResponse(w)
 		return
 	}
 
-	account, err := h.PostgresQueries.GetAccount(r.Context(), sql.GetAccountParams{
-		ID:                accountId.ID,
-		IncludeAttributes: attributes == "true",
-	})
-	if err != nil {
-		apierror.SendError(w, http.StatusInternalServerError, "Error getting account attributes")
-		return
-	}
-
-	response := AccountAttributesResponse{Data: account}
+	response := AccountResponse{Data: Account{
+		ID:           account.ID,
+		Username:     account.Username,
+		Email:        account.Email,
+		CreatedAt:    account.CreatedAt.Time,
+		AvatarUrl:    account.AvatarUrl.String,
+		Level:        account.Level.Int32,
+		FriendStatus: FriendshipStatus(account.FriendStatus),
+		Attributes:   account.Attributes,
+	}}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

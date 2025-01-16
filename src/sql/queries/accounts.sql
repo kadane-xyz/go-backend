@@ -120,7 +120,52 @@ JOIN account ON account_attribute.id = account.id
 WHERE account.id = $1;
 
 -- name: GetAccountByUsername :one
-SELECT * FROM account WHERE username = $1;
+SELECT 
+    a.*,
+    CASE
+        WHEN f.user_id_1 = @user_id::text OR f.user_id_2 = @user_id::text THEN 
+            CASE
+                WHEN f.status = 'accepted' THEN 'friend'::text
+                WHEN f.status = 'blocked' THEN 'blocked'::text
+                WHEN f.status = 'pending' THEN 
+                    CASE 
+                        WHEN f.initiator_id = @user_id::text THEN 'request_sent'::text
+                        ELSE 'request_received'::text
+                    END
+                ELSE 'none'::text
+            END
+        ELSE 'none'::text
+    END as friend_status,
+    CASE 
+        WHEN @include_attributes::boolean THEN
+            json_build_object(
+                'bio', COALESCE(aa.bio, ''),
+                'contactEmail', COALESCE(aa.contact_email, ''),
+                'location', COALESCE(aa.location, ''),
+                'realName', COALESCE(aa.real_name, ''),
+                'githubUrl', COALESCE(aa.github_url, ''),
+                'linkedinUrl', COALESCE(aa.linkedin_url, ''),
+                'facebookUrl', COALESCE(aa.facebook_url, ''),
+                'instagramUrl', COALESCE(aa.instagram_url, ''),
+                'twitterUrl', COALESCE(aa.twitter_url, ''),
+                'school', COALESCE(aa.school, ''),
+                'websiteUrl', COALESCE(aa.website_url, ''),
+                'friendCount', COUNT(DISTINCT CASE WHEN f2.status = 'accepted' THEN f2.user_id_1 END),
+                'blockedCount', COUNT(DISTINCT CASE WHEN f3.status = 'blocked' THEN f3.user_id_1 END),
+                'friendRequestCount', COUNT(DISTINCT CASE WHEN f4.status = 'pending' THEN f4.user_id_1 END)
+            )
+        ELSE
+            NULL
+        END as attributes
+    FROM account a
+    LEFT JOIN account_attribute aa ON a.id = aa.id
+    LEFT JOIN friendship f ON (a.id = f.user_id_1 AND f.user_id_2 = @user_id::text) 
+        OR (a.id = f.user_id_2 AND f.user_id_1 = @user_id::text)
+    LEFT JOIN friendship f2 ON (a.id = f2.user_id_1 OR a.id = f2.user_id_2) AND f2.status = 'accepted'
+    LEFT JOIN friendship f3 ON (a.id = f3.user_id_1 OR a.id = f3.user_id_2) AND f3.status = 'blocked'
+    LEFT JOIN friendship f4 ON (a.id = f4.user_id_1 OR a.id = f4.user_id_2) AND f4.status = 'pending'
+    WHERE a.username = @username::text
+    GROUP BY a.id, aa.id, f.status, f.user_id_1, f.user_id_2;
 
 -- POST --
 
