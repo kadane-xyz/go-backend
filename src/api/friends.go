@@ -362,16 +362,15 @@ func (h *Handler) DeleteFriendRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var friendRequest FriendRequest
-	err := json.NewDecoder(r.Body).Decode(&friendRequest)
-	if err != nil {
-		apierror.SendError(w, http.StatusBadRequest, "Invalid request body")
+	username := chi.URLParam(r, "username")
+	if username == "" {
+		apierror.SendError(w, http.StatusBadRequest, "Missing username")
 		return
 	}
 
-	err = h.PostgresQueries.DeleteFriendship(r.Context(), sql.DeleteFriendshipParams{
+	err := h.PostgresQueries.DeleteFriendship(r.Context(), sql.DeleteFriendshipParams{
 		UserID:     userId,
-		FriendName: friendRequest.FriendName,
+		FriendName: username,
 	})
 	if err != nil {
 		http.Error(w, "Error deleting friend request", http.StatusInternalServerError)
