@@ -68,7 +68,7 @@ type Account struct {
 	Email        string           `json:"email"`
 	AvatarUrl    string           `json:"avatarUrl,omitempty"`
 	Level        int32            `json:"level"`
-	CreatedAt    time.Time        `json:"created"`
+	CreatedAt    time.Time        `json:"createdAt"`
 	FriendStatus FriendshipStatus `json:"friendStatus,omitempty"`
 	Attributes   interface{}      `json:"attributes"`
 }
