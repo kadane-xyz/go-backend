@@ -6,3 +6,6 @@ src/sql/sql/*
 
 .DS_Store
 */.DS_Store
+go.mod
+docker-compose.yml
+.env
