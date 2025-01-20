@@ -31,7 +31,7 @@ type Submission struct {
 	AccountID      string    `json:"accountId"`
 	SubmittedCode  string    `json:"submittedCode"`
 	SubmittedStdin string    `json:"submittedStdin"`
-	ProblemID      int       `json:"problemId"`
+	ProblemID      int32     `json:"problemId"`
 	CreatedAt      time.Time `json:"createdAt"`
 	Starred        bool      `json:"starred"`
 }
@@ -39,7 +39,7 @@ type Submission struct {
 type SubmissionRequest struct {
 	Language   string `json:"language"`
 	SourceCode string `json:"sourceCode"`
-	ProblemID  int    `json:"problemId"`
+	ProblemID  int32  `json:"problemId"`
 }
 
 type SubmissionResponse struct {
@@ -72,33 +72,113 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	languageID := judge0.LanguageToLanguageID(submissionRequest.Language)
+	if submissionRequest.Language == "" {
+		apierror.SendError(w, http.StatusBadRequest, "Missing language")
+		return
+	}
 
-	submissionId := uuid.New() // unique id for the batch submission to use for db reference
+	// add check for language
+
+	if submissionRequest.SourceCode == "" {
+		apierror.SendError(w, http.StatusBadRequest, "Missing source code")
+		return
+	}
+
+	problem, err := h.PostgresQueries.GetProblem(r.Context(), sql.GetProblemParams{
+		ID:     problemId,
+		UserID: userId,
+	})
+	if err != nil {
+		apierror.SendError(w, http.StatusInternalServerError, "Failed to get problem")
+		return
+	}
+
+	if problem.FunctionName == "" {
+		apierror.SendError(w, http.StatusBadRequest, "Function name is missing from problem")
+		return
+	}
 
 	// get expected output from all test cases
-	testCases, err := h.PostgresQueries.GetProblemTestCases(r.Context(), pgtype.Int4{Int32: int32(problemId), Valid: true})
+	problemTestCases, err := h.PostgresQueries.GetProblemTestCases(r.Context(), sql.GetProblemTestCasesParams{
+		ProblemID:  problemId,
+		Visibility: sql.VisibilityPrivate,
+	})
 	if err != nil {
 		apierror.SendError(w, http.StatusInternalServerError, "Failed to get problem solution")
+		return
+	}
+
+	if len(problemTestCases) == 0 {
+		apierror.SendError(w, http.StatusBadRequest, "No test cases found")
 		return
 	}
 
 	// create submissions for each test case to be used in judge0 batch submission
 	submissions := []judge0.Submission{}
 
-	for _, testCase := range testCases {
-		submissions = append(submissions, judge0.Submission{
-			LanguageID:     languageID,
-			SourceCode:     submissionRequest.SourceCode,
-			Stdin:          testCase.Input,
-			ExpectedOutput: testCase.Output,
+	var privateTestCases []TestCase
+	for _, testCase := range problemTestCases {
+		var testCaseInput []TestCaseInput
+
+		// Handle both empty array and populated array cases
+		switch input := testCase.Input.(type) {
+		case []interface{}:
+			for _, item := range input {
+				inputMap := item.(map[string]interface{})
+				testCaseInput = append(testCaseInput, TestCaseInput{
+					Value: inputMap["value"].(string),
+					Type:  TestCaseType(inputMap["type"].(string)), // Use TestCaseType instead of sql.ProblemTestCaseType
+				})
+			}
+		default:
+			// Empty array or null case - use empty slice
+			testCaseInput = []TestCaseInput{}
+		}
+
+		privateTestCases = append(privateTestCases, TestCase{
+			Input:  testCaseInput,
+			Output: testCase.Output,
 		})
+	}
+
+	if len(privateTestCases) == 0 {
+		apierror.SendError(w, http.StatusBadRequest, "No test cases found")
+		return
+	}
+
+	for _, testCase := range privateTestCases {
+		submissionRun := TemplateCreate(TemplateInput{
+			Language:     submissionRequest.Language,
+			SourceCode:   submissionRequest.SourceCode,
+			FunctionName: problem.FunctionName,
+			TestCases:    testCase,
+			Problem: Problem{
+				Title:       problem.Title,
+				Description: problem.Description.String,
+				Tags:        problem.Tags,
+				Difficulty:  problem.Difficulty,
+				Hints:       problem.HintsJson,
+				Points:      problem.Points,
+				Solved:      problem.Solved,
+			},
+		})
+		submissions = append(submissions, submissionRun)
+	}
+
+	if len(submissions) == 0 {
+		apierror.SendError(w, http.StatusBadRequest, "Failed to create submissions")
+		return
 	}
 
 	// create judge0 batch submission
 	submissionResponses, err := h.Judge0Client.CreateSubmissionBatchAndWait(submissions)
 	if err != nil {
 		apierror.SendError(w, http.StatusInternalServerError, "Failed to create submission")
+		return
+	}
+
+	if len(submissionResponses) == 0 {
+		apierror.SendError(w, http.StatusBadRequest, "Failed to create submissions")
 		return
 	}
 
@@ -109,6 +189,7 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 
 	// First pass: check for any failures and collect totals
 	for _, resp := range submissionResponses {
+		language := judge0.LanguageIDToLanguage(int(resp.Language.ID))
 		if resp.Status.Description != "Accepted" {
 			failedSubmission = &Submission{
 				Status:        sql.SubmissionStatus(resp.Status.Description),
@@ -118,7 +199,7 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 				Stderr:        resp.Stderr,
 				CompileOutput: resp.CompileOutput,
 				Message:       resp.Message,
-				Language:      judge0.LanguageIDToLanguage(int(resp.Language.ID)),
+				Language:      language,
 			}
 			break
 		}
@@ -134,9 +215,10 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 	lastResp := submissionResponses[len(submissionResponses)-1]
 
 	// If any test failed, use its details, otherwise use averages
+	memory := totalMemory / count
 	avgSubmission := Submission{
 		Status:        sql.SubmissionStatus(lastResp.Status.Description),
-		Memory:        int(totalMemory / count),
+		Memory:        memory,
 		Time:          fmt.Sprintf("%.3f", totalTime/float64(count)),
 		Stdout:        lastResp.Stdout,
 		Stderr:        lastResp.Stderr,
@@ -144,7 +226,7 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 		Message:       lastResp.Message,
 	}
 	// store language id and name for db
-	lastLanguageID := lastResp.Language.ID
+	lastLanguageID := int32(lastResp.Language.ID)
 	lastLanguageName := lastResp.Language.Name
 
 	if failedSubmission != nil {
@@ -154,16 +236,16 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 	dbSubmission := sql.CreateSubmissionParams{
 		ID:            pgtype.UUID{Bytes: uuid.New(), Valid: true},
 		AccountID:     userId,
-		ProblemID:     int32(problemId),
+		ProblemID:     problemId,
 		SubmittedCode: submissionRequest.SourceCode,
 		Status:        avgSubmission.Status,
-		Stdout:        pgtype.Text{String: avgSubmission.Stdout, Valid: true},
-		Time:          pgtype.Text{String: avgSubmission.Time, Valid: true},
-		Memory:        pgtype.Int4{Int32: int32(avgSubmission.Memory), Valid: true},
-		Stderr:        pgtype.Text{String: avgSubmission.Stderr, Valid: true},
-		CompileOutput: pgtype.Text{String: avgSubmission.CompileOutput, Valid: true},
-		Message:       pgtype.Text{String: avgSubmission.Message, Valid: true},
-		LanguageID:    int32(lastLanguageID),
+		Stdout:        avgSubmission.Stdout,
+		Time:          avgSubmission.Time,
+		Memory:        int32(avgSubmission.Memory),
+		Stderr:        avgSubmission.Stderr,
+		CompileOutput: avgSubmission.CompileOutput,
+		Message:       avgSubmission.Message,
+		LanguageID:    lastLanguageID,
 		LanguageName:  lastLanguageName,
 	}
 
@@ -174,17 +256,20 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	language := judge0.LanguageIDToLanguage(int(lastLanguageID))
+	submissionId := uuid.New() // unique id for the batch submission to use for db reference
+
 	response := SubmissionResponse{
 		Data: Submission{
 			Id:             submissionId.String(),
 			Stdout:         avgSubmission.Stdout,
 			Time:           avgSubmission.Time,
-			Memory:         int(avgSubmission.Memory),
+			Memory:         avgSubmission.Memory,
 			Stderr:         avgSubmission.Stderr,
 			CompileOutput:  avgSubmission.CompileOutput,
 			Message:        avgSubmission.Message,
 			Status:         avgSubmission.Status,
-			Language:       judge0.LanguageIDToLanguage(int(lastLanguageID)),
+			Language:       language,
 			AccountID:      userId,
 			SubmittedCode:  submissionRequest.SourceCode,
 			SubmittedStdin: "",
@@ -241,7 +326,7 @@ func (h *Handler) GetSubmission(w http.ResponseWriter, r *http.Request) {
 			AccountID:      userId,
 			SubmittedCode:  result.SubmittedCode,
 			SubmittedStdin: result.SubmittedStdin.String,
-			ProblemID:      int(result.ProblemID),
+			ProblemID:      result.ProblemID,
 			CreatedAt:      result.CreatedAt.Time,
 			Starred:        result.Starred,
 		},
@@ -353,7 +438,7 @@ func (h *Handler) GetSubmissionsByUsername(w http.ResponseWriter, r *http.Reques
 			AccountID:      submission.AccountID,
 			SubmittedCode:  submission.SubmittedCode,
 			SubmittedStdin: submission.SubmittedStdin.String,
-			ProblemID:      int(submission.ProblemID),
+			ProblemID:      submission.ProblemID,
 			CreatedAt:      submission.CreatedAt.Time,
 			Starred:        submission.Starred,
 		})
