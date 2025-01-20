@@ -3,10 +3,8 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -44,8 +42,17 @@ type RunResult struct {
 	Status    sql.SubmissionStatus `json:"status"` // Accepted, Wrong Answer, etc
 	// Our custom fields
 	AccountID string    `json:"accountId"`
-	ProblemID int       `json:"problemId"`
+	ProblemID int32     `json:"problemId"`
 	CreatedAt time.Time `json:"createdAt"`
+}
+
+type RunTemplateInput struct {
+	Language       string   `json:"language"`
+	FunctionName   string   `json:"functionName"`
+	SourceCode     string   `json:"sourceCode"`
+	ExpectedOutput string   `json:"expectedOutput"`
+	Problem        Problem  `json:"problem"`
+	TestCases      TestCase `json:"testCases"`
 }
 
 type RunResultResponse struct {
@@ -122,6 +129,18 @@ func SummarizeSubmissionResponses(userId string, problemId int32, sourceCode str
 	}, nil
 }
 
+// Create a judge0 template for the given language
+func CreateJudge0Template(runTemplateInput RunTemplateInput) judge0.Submission {
+	// Create a judge0 template for the given language
+	switch runTemplateInput.Language {
+	case "go":
+		return RunGoTemplate(runTemplateInput)
+	}
+	return judge0.Submission{}
+}
+
+// Runs should check public test cases first and then user test cases
+// POST: /runs
 func (h *Handler) CreateRun(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
 	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
@@ -133,72 +152,87 @@ func (h *Handler) CreateRun(w http.ResponseWriter, r *http.Request) {
 	var runRequest RunRequest
 	err := json.NewDecoder(r.Body).Decode(&runRequest)
 	if err != nil {
-		log.Println(err)
 		apierror.SendError(w, http.StatusBadRequest, "Invalid run data format")
 		return
 	}
 
-	problemId := runRequest.ProblemID
+	problemId := int32(runRequest.ProblemID)
 
-	languageID := judge0.LanguageToLanguageID(runRequest.Language)
+	solutionRuns := []judge0.Submission{}
 
-	problemCode, err := h.PostgresQueries.GetProblemCode(r.Context(), pgtype.Int4{Int32: int32(problemId), Valid: true})
+	problem, err := h.PostgresQueries.GetProblem(r.Context(), sql.GetProblemParams{
+		ID:     problemId,
+		UserID: userId,
+	})
 	if err != nil {
 		apierror.SendError(w, http.StatusInternalServerError, "Failed to get problem")
 		return
 	}
 
-	// Validate test cases
-	if len(runRequest.TestCases) == 0 {
-		apierror.SendError(w, http.StatusBadRequest, "At least one test case is required")
+	if problem.FunctionName == "" {
+		apierror.SendError(w, http.StatusBadRequest, "Function name is missing from problem")
 		return
 	}
 
-	solutionRuns := []judge0.Submission{}
-	userRuns := []judge0.Submission{}
-
-	// Track runs by test case input
-	type RunPair struct {
-		solution judge0.Submission
-		user     judge0.Submission
+	problemTestCases, err := h.PostgresQueries.GetProblemTestCases(r.Context(), sql.GetProblemTestCasesParams{
+		ProblemID:  problemId,
+		Visibility: sql.VisibilityPublic,
+	})
+	if err != nil {
+		apierror.SendError(w, http.StatusInternalServerError, "Failed to get problem")
+		return
 	}
-	runMap := make(map[string]RunPair)
 
-	// Create solution and user runs with matching
-	for _, testCase := range runRequest.TestCases {
-		for _, input := range testCase.Input {
-			// Create solution run
-			solutionRun := judge0.Submission{
-				LanguageID:     languageID,
-				SourceCode:     problemCode.Code,
-				Stdin:          testCase.Input,
-				ExpectedOutput: testCase.Output,
-				Wait:           true,
+	var publicTestCases []TestCase
+	for _, testCase := range problemTestCases {
+		var testCaseInput []TestCaseInput
+
+		// Handle both empty array and populated array cases
+		switch input := testCase.Input.(type) {
+		case []interface{}:
+			for _, item := range input {
+				inputMap := item.(map[string]interface{})
+				testCaseInput = append(testCaseInput, TestCaseInput{
+					Value: inputMap["value"].(string),
+					Type:  TestCaseType(inputMap["type"].(string)), // Use TestCaseType instead of sql.ProblemTestCaseType
+				})
 			}
-
-			// Create user run
-			userRun := judge0.Submission{
-				LanguageID:     languageID,
-				SourceCode:     runRequest.SourceCode,
-				Stdin:          testCase.Input,
-				ExpectedOutput: testCase.Output,
-				Wait:           true,
-			}
-
-			// Store both runs mapped to this input
-			runMap[string(input)] = RunPair{
-				solution: solutionRun,
-				user:     userRun,
-			}
-
-			// Also append to slices for batch submission
-			solutionRuns = append(solutionRuns, solutionRun)
-			userRuns = append(userRuns, userRun)
+		default:
+			// Empty array or null case - use empty slice
+			testCaseInput = []TestCaseInput{}
 		}
+
+		publicTestCases = append(publicTestCases, TestCase{
+			Input:  testCaseInput,
+			Output: testCase.Output,
+		})
+	}
+
+	runRequest.TestCases = append(runRequest.TestCases, publicTestCases...) // Add public test cases to the end of the user test cases
+
+	// Test Case Runs
+	for _, testCase := range runRequest.TestCases {
+		// Test Case Runs
+		solutionRun := CreateJudge0Template(RunTemplateInput{
+			Language:     runRequest.Language,
+			SourceCode:   runRequest.SourceCode,
+			FunctionName: problem.FunctionName,
+			TestCases:    testCase,
+			Problem: Problem{
+				Title:       problem.Title,
+				Description: problem.Description.String,
+				Tags:        problem.Tags,
+				Difficulty:  string(problem.Difficulty),
+				Hints:       problem.HintsJson,
+				Points:      int(problem.Points),
+				Solved:      problem.Solved,
+			},
+		})
+		solutionRuns = append(solutionRuns, solutionRun)
 	}
 
 	// Validate submissions before sending
-	if len(solutionRuns) == 0 || len(userRuns) == 0 {
+	if len(solutionRuns) == 0 {
 		apierror.SendError(w, http.StatusBadRequest, "Failed to create submissions")
 		return
 	}
@@ -210,53 +244,27 @@ func (h *Handler) CreateRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userResponses, err := h.Judge0Client.CreateSubmissionBatchAndWait(userRuns)
-	if err != nil {
-		apierror.SendError(w, http.StatusInternalServerError, "Failed to create user submission")
-		return
-	}
-
 	var dbSubmission sql.CreateSubmissionParams
 	var testCases []RunTestCase
 
 	// Compare outputs for each test case
-	for i := 0; i < len(solutionResponses); i++ {
-		solutionResp := solutionResponses[i]
-		userResp := userResponses[i]
-
+	for i, solutionResp := range solutionResponses {
 		// store user code test case results
 		testCases = append(testCases, RunTestCase{
-			Time:           userResp.Time,
-			Memory:         int(userResp.Memory),
-			Status:         sql.SubmissionStatus(userResp.Status.Description),
-			Output:         userResp.Stdout,
-			ExpectedOutput: solutionResp.Stdout, // solution code output
+			Time:           solutionResp.Time,
+			Memory:         int(solutionResp.Memory),
+			Status:         sql.SubmissionStatus(solutionResp.Status.Description),
+			Output:         solutionResp.Stdout,
+			ExpectedOutput: runRequest.TestCases[i].Output, // solution code output
 		})
-
-		log.Printf("TEST CASE: %d USER: %s SOLUTION: %s", i, strings.TrimSuffix(string(userResp.Stdout), "\n"), strings.TrimSuffix(string(solutionResp.Stdout), "\n"))
 
 		// First check if both executions were successful
 		if solutionResp.Status.Description != "Accepted" {
-			continue // Skip this test case if solution failed
-		}
-
-		if userResp.Status.Description != "Accepted" {
-			// User code failed to execute properly
-			dbSubmission, err = SummarizeSubmissionResponses(userId, int32(problemId), runRequest.SourceCode, userResponses[i:i+1])
-			if err != nil {
-				apierror.SendError(w, http.StatusInternalServerError, "Failed to process submission")
-				return
-			}
-			break // Stop at first failure
-		}
-
-		// Both executions were successful, compare outputs for this pair
-		if solutionResp.Stdout != userResp.Stdout {
 			// store user code test case results
 			testCases[i].Status = sql.SubmissionStatus("Wrong Answer")
 
 			// Test case failed - outputs don't match
-			dbSubmission, err = SummarizeSubmissionResponses(userId, int32(problemId), runRequest.SourceCode, userResponses[i:i+1])
+			dbSubmission, err = SummarizeSubmissionResponses(userId, int32(problemId), runRequest.SourceCode, solutionResponses[i:i+1])
 			if err != nil {
 				apierror.SendError(w, http.StatusInternalServerError, "Failed to process submission")
 				return
@@ -269,24 +277,24 @@ func (h *Handler) CreateRun(w http.ResponseWriter, r *http.Request) {
 
 	// If all test cases passed, create submission with averaged results
 	if dbSubmission.Status == "" {
-		dbSubmission, err = SummarizeSubmissionResponses(userId, int32(problemId), runRequest.SourceCode, userResponses)
+		dbSubmission, err = SummarizeSubmissionResponses(userId, int32(problemId), runRequest.SourceCode, solutionResponses)
 		if err != nil {
 			apierror.SendError(w, http.StatusInternalServerError, "Failed to process submission")
 			return
 		}
 	}
 
+	language := judge0.LanguageIDToLanguage(int(dbSubmission.LanguageID))
+	dbSubmission.LanguageName = language // Add language name to submission
+
 	// create submission in db
 	_, err = h.PostgresQueries.CreateSubmission(r.Context(), dbSubmission)
 	if err != nil {
-		log.Println(err)
 		apierror.SendError(w, http.StatusInternalServerError, "Failed to create submission")
 		return
 	}
 
 	submissionId := uuid.UUID(dbSubmission.ID.Bytes)
-
-	language := judge0.LanguageIDToLanguage(int(dbSubmission.LanguageID))
 
 	var responseState string
 	if dbSubmission.Status == "Accepted" {
