@@ -9,7 +9,7 @@ import (
 
 // Convert the type of the test case to the type of the Go language
 // Convert the test case inputs to a comma separated string
-func RunGoTemplateInputs(testCases TestCase) string {
+func TemplateGoInputs(testCases TestCase) string {
 	var inputs []string
 
 	for _, input := range testCases.Input {
@@ -37,9 +37,13 @@ func RunGoTemplateInputs(testCases TestCase) string {
 }
 
 // Golang template
-func RunGoTemplateSourceCode(sourceCode string, functionName string, inputs string) string {
+func TemplateGoSourceCode(sourceCode string, functionName string, inputs string) string {
 	return fmt.Sprintf(`
 package main
+
+import (
+	"fmt"
+)
 
 func main() {
 	%s(%s)
@@ -49,14 +53,14 @@ func main() {
 %s`, functionName, inputs, sourceCode)
 }
 
-func RunGoTemplate(runTemplateInput RunTemplateInput) judge0.Submission {
-	inputs := RunGoTemplateInputs(runTemplateInput.TestCases)                                                 // Get the inputs
-	sourceCode := RunGoTemplateSourceCode(runTemplateInput.SourceCode, runTemplateInput.FunctionName, inputs) // Get the source code
+func TemplateGo(templateInput TemplateInput) judge0.Submission {
+	inputs := TemplateGoInputs(templateInput.TestCases)                                              // Get the inputs
+	sourceCode := TemplateGoSourceCode(templateInput.SourceCode, templateInput.FunctionName, inputs) // Get the source code
 
 	submission := judge0.Submission{
 		LanguageID:     judge0.LanguageToLanguageID("go"),
 		SourceCode:     sourceCode,
-		ExpectedOutput: runTemplateInput.ExpectedOutput,
+		ExpectedOutput: templateInput.ExpectedOutput,
 	}
 
 	return submission

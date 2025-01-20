@@ -1,5 +1,5 @@
 -- name: CreateSubmission :one
-INSERT INTO submission (id, stdout, time, memory, stderr, compile_output, message, status, language_id, language_name, account_id, problem_id, submitted_code, submitted_stdin) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *;
+INSERT INTO submission (id, stdout, time, memory, stderr, compile_output, message, status, language_id, language_name, account_id, problem_id, submitted_code, submitted_stdin) VALUES (@id::uuid, @stdout::text, @time::text, @memory::int, @stderr::text, @compile_output::text, @message::text, @status, @language_id, @language_name, @account_id, @problem_id, @submitted_code, @submitted_stdin) RETURNING *;
 
 -- name: GetSubmissionByID :one
 SELECT 

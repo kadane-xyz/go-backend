@@ -45,21 +45,21 @@ type ProblemRequest struct {
 }
 
 type Problem struct {
-	ID            int         `json:"id"`
-	Title         string      `json:"title"`
-	Description   string      `json:"description"`
-	FunctionName  string      `json:"functionName"`
-	Tags          []string    `json:"tags"`
-	Difficulty    string      `json:"difficulty"`
-	Code          interface{} `json:"code"`
-	Hints         interface{} `json:"hints"`
-	Points        int         `json:"points"`
-	Solution      interface{} `json:"solution,omitempty"`
-	TestCases     interface{} `json:"testCases"`
-	Starred       bool        `json:"starred"`
-	Solved        bool        `json:"solved"`
-	TotalAttempts int64       `json:"totalAttempts"`
-	TotalCorrect  int64       `json:"totalCorrect"`
+	ID            int                   `json:"id"`
+	Title         string                `json:"title"`
+	Description   string                `json:"description"`
+	FunctionName  string                `json:"functionName"`
+	Tags          []string              `json:"tags"`
+	Difficulty    sql.ProblemDifficulty `json:"difficulty"`
+	Code          interface{}           `json:"code"`
+	Hints         interface{}           `json:"hints"`
+	Points        int32                 `json:"points"`
+	Solution      interface{}           `json:"solution,omitempty"`
+	TestCases     interface{}           `json:"testCases"`
+	Starred       bool                  `json:"starred"`
+	Solved        bool                  `json:"solved"`
+	TotalAttempts int64                 `json:"totalAttempts"`
+	TotalCorrect  int64                 `json:"totalCorrect"`
 }
 
 type ProblemResponse struct {
@@ -175,10 +175,10 @@ func (h *Handler) GetProblems(w http.ResponseWriter, r *http.Request) {
 			Title:         problem.Title,
 			Description:   problem.Description.String,
 			Tags:          problem.Tags,
-			Difficulty:    string(problem.Difficulty),
+			Difficulty:    problem.Difficulty,
 			Code:          codeMap,
 			Hints:         problem.HintsJson,
-			Points:        int(problem.Points),
+			Points:        problem.Points,
 			Solution:      problem.SolutionsJson,
 			TestCases:     problem.TestCasesJson,
 			Starred:       problem.Starred,
@@ -342,10 +342,10 @@ func (h *Handler) GetProblem(w http.ResponseWriter, r *http.Request) {
 			Title:       problem.Title,
 			Description: problem.Description.String,
 			Tags:        problem.Tags,
-			Difficulty:  string(problem.Difficulty),
+			Difficulty:  problem.Difficulty,
 			Code:        codeMap,
 			Hints:       problem.HintsJson,
-			Points:      int(problem.Points),
+			Points:      problem.Points,
 			TestCases:   problem.TestCasesJson,
 			Starred:     problem.Starred,
 		},

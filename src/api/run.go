@@ -46,15 +46,6 @@ type RunResult struct {
 	CreatedAt time.Time `json:"createdAt"`
 }
 
-type RunTemplateInput struct {
-	Language       string   `json:"language"`
-	FunctionName   string   `json:"functionName"`
-	SourceCode     string   `json:"sourceCode"`
-	ExpectedOutput string   `json:"expectedOutput"`
-	Problem        Problem  `json:"problem"`
-	TestCases      TestCase `json:"testCases"`
-}
-
 type RunResultResponse struct {
 	Data *RunResult `json:"data"`
 }
@@ -118,25 +109,15 @@ func SummarizeSubmissionResponses(userId string, problemId int32, sourceCode str
 		ProblemID:     int32(problemId),
 		SubmittedCode: sourceCode,
 		Status:        avgSubmission.Status,
-		Stdout:        pgtype.Text{String: avgSubmission.Stdout, Valid: true},
-		Time:          pgtype.Text{String: avgSubmission.Time, Valid: true},
-		Memory:        pgtype.Int4{Int32: int32(avgSubmission.Memory), Valid: true},
-		Stderr:        pgtype.Text{String: avgSubmission.Stderr, Valid: true},
-		CompileOutput: pgtype.Text{String: avgSubmission.CompileOutput, Valid: true},
-		Message:       pgtype.Text{String: avgSubmission.Message, Valid: true},
+		Stdout:        avgSubmission.Stdout,
+		Time:          avgSubmission.Time,
+		Memory:        int32(avgSubmission.Memory),
+		Stderr:        avgSubmission.Stderr,
+		CompileOutput: avgSubmission.CompileOutput,
+		Message:       avgSubmission.Message,
 		LanguageID:    int32(languageID),
 		LanguageName:  languageName,
 	}, nil
-}
-
-// Create a judge0 template for the given language
-func CreateJudge0Template(runTemplateInput RunTemplateInput) judge0.Submission {
-	// Create a judge0 template for the given language
-	switch runTemplateInput.Language {
-	case "go":
-		return RunGoTemplate(runTemplateInput)
-	}
-	return judge0.Submission{}
 }
 
 // Runs should check public test cases first and then user test cases
@@ -153,6 +134,21 @@ func (h *Handler) CreateRun(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&runRequest)
 	if err != nil {
 		apierror.SendError(w, http.StatusBadRequest, "Invalid run data format")
+		return
+	}
+
+	if runRequest.ProblemID == 0 {
+		apierror.SendError(w, http.StatusBadRequest, "Missing problem ID")
+		return
+	}
+
+	if runRequest.Language == "" {
+		apierror.SendError(w, http.StatusBadRequest, "Missing language")
+		return
+	}
+
+	if runRequest.SourceCode == "" {
+		apierror.SendError(w, http.StatusBadRequest, "Missing source code")
 		return
 	}
 
@@ -213,7 +209,7 @@ func (h *Handler) CreateRun(w http.ResponseWriter, r *http.Request) {
 	// Test Case Runs
 	for _, testCase := range runRequest.TestCases {
 		// Test Case Runs
-		solutionRun := CreateJudge0Template(RunTemplateInput{
+		solutionRun := TemplateCreate(TemplateInput{
 			Language:     runRequest.Language,
 			SourceCode:   runRequest.SourceCode,
 			FunctionName: problem.FunctionName,
@@ -222,9 +218,9 @@ func (h *Handler) CreateRun(w http.ResponseWriter, r *http.Request) {
 				Title:       problem.Title,
 				Description: problem.Description.String,
 				Tags:        problem.Tags,
-				Difficulty:  string(problem.Difficulty),
+				Difficulty:  problem.Difficulty,
 				Hints:       problem.HintsJson,
-				Points:      int(problem.Points),
+				Points:      problem.Points,
 				Solved:      problem.Solved,
 			},
 		})
@@ -233,12 +229,11 @@ func (h *Handler) CreateRun(w http.ResponseWriter, r *http.Request) {
 
 	// Validate submissions before sending
 	if len(solutionRuns) == 0 {
-		apierror.SendError(w, http.StatusBadRequest, "Failed to create submissions")
+		apierror.SendError(w, http.StatusBadRequest, "Failed to create runs")
 		return
 	}
 
-	// Create and run both batches
-	solutionResponses, err := h.Judge0Client.CreateSubmissionBatchAndWait(solutionRuns)
+	runResponses, err := h.Judge0Client.CreateSubmissionBatchAndWait(solutionRuns)
 	if err != nil {
 		apierror.SendError(w, http.StatusInternalServerError, "Failed to create solution submission")
 		return
@@ -248,7 +243,7 @@ func (h *Handler) CreateRun(w http.ResponseWriter, r *http.Request) {
 	var testCases []RunTestCase
 
 	// Compare outputs for each test case
-	for i, solutionResp := range solutionResponses {
+	for i, solutionResp := range runResponses {
 		// store user code test case results
 		testCases = append(testCases, RunTestCase{
 			Time:           solutionResp.Time,
@@ -264,7 +259,7 @@ func (h *Handler) CreateRun(w http.ResponseWriter, r *http.Request) {
 			testCases[i].Status = sql.SubmissionStatus("Wrong Answer")
 
 			// Test case failed - outputs don't match
-			dbSubmission, err = SummarizeSubmissionResponses(userId, int32(problemId), runRequest.SourceCode, solutionResponses[i:i+1])
+			dbSubmission, err = SummarizeSubmissionResponses(userId, int32(problemId), runRequest.SourceCode, runResponses[i:i+1])
 			if err != nil {
 				apierror.SendError(w, http.StatusInternalServerError, "Failed to process submission")
 				return
@@ -277,7 +272,7 @@ func (h *Handler) CreateRun(w http.ResponseWriter, r *http.Request) {
 
 	// If all test cases passed, create submission with averaged results
 	if dbSubmission.Status == "" {
-		dbSubmission, err = SummarizeSubmissionResponses(userId, int32(problemId), runRequest.SourceCode, solutionResponses)
+		dbSubmission, err = SummarizeSubmissionResponses(userId, int32(problemId), runRequest.SourceCode, runResponses)
 		if err != nil {
 			apierror.SendError(w, http.StatusInternalServerError, "Failed to process submission")
 			return
@@ -307,7 +302,7 @@ func (h *Handler) CreateRun(w http.ResponseWriter, r *http.Request) {
 		Data: &RunResult{
 			Id:        submissionId.String(),
 			TestCases: testCases,
-			Time:      dbSubmission.Time.String,            // average of test case times
+			Time:      dbSubmission.Time,                   // average of test case times
 			Status:    sql.SubmissionStatus(responseState), // if all test cases passed, then Accepted, otherwise Wrong Answer
 			Language:  language,
 			AccountID: userId,
