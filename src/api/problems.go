@@ -32,21 +32,23 @@ type ProblemRequestHint struct {
 type ProblemRequestCode map[string]string
 
 type ProblemRequest struct {
-	Title       string               `json:"title"`
-	Description string               `json:"description"`
-	Tags        []string             `json:"tags"`
-	Difficulty  string               `json:"difficulty"`
-	Code        ProblemRequestCode   `json:"code"`
-	Hints       []ProblemRequestHint `json:"hints"`
-	Points      int                  `json:"points"`
-	Solution    string               `json:"solution"`
-	TestCases   []TestCase           `json:"testCases"`
+	Title        string               `json:"title"`
+	Description  string               `json:"description"`
+	FunctionName string               `json:"functionName"`
+	Tags         []string             `json:"tags"`
+	Difficulty   string               `json:"difficulty"`
+	Code         ProblemRequestCode   `json:"code"`
+	Hints        []ProblemRequestHint `json:"hints"`
+	Points       int                  `json:"points"`
+	Solution     string               `json:"solution"`
+	TestCases    []TestCase           `json:"testCases"`
 }
 
 type Problem struct {
 	ID            int         `json:"id"`
 	Title         string      `json:"title"`
 	Description   string      `json:"description"`
+	FunctionName  string      `json:"functionName"`
 	Tags          []string    `json:"tags"`
 	Difficulty    string      `json:"difficulty"`
 	Code          interface{} `json:"code"`
@@ -211,8 +213,8 @@ func (h *Handler) CreateProblem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check problem fields
-	if request.Title == "" || request.Description == "" || len(request.Solution) == 0 {
-		apierror.SendError(w, http.StatusBadRequest, "Title, description, and solution are required")
+	if request.Title == "" || request.Description == "" || request.FunctionName == "" || len(request.Solution) == 0 {
+		apierror.SendError(w, http.StatusBadRequest, "Title, description, function name, and solution are required")
 		return
 	}
 
@@ -271,15 +273,35 @@ func (h *Handler) CreateProblem(w http.ResponseWriter, r *http.Request) {
 
 	// 4. Create test cases using the problem ID
 	for _, testCase := range request.TestCases {
-		_, err = h.PostgresQueries.CreateProblemTestCase(context.Background(), sql.CreateProblemTestCaseParams{
+		testCaseID, err := h.PostgresQueries.CreateProblemTestCase(context.Background(), sql.CreateProblemTestCaseParams{
 			Description: testCase.Description,
 			ProblemID:   pgtype.Int4{Int32: int32(problemID), Valid: true},
-			Input:       testCase.Input,
-			Output:      testCase.Output,
 			Visibility:  sql.Visibility(testCase.Visibility),
 		})
 		if err != nil {
 			apierror.SendError(w, http.StatusInternalServerError, "Failed to create test case")
+			return
+		}
+
+		for _, input := range testCase.Input {
+			_, err = h.PostgresQueries.CreateProblemTestCaseInput(context.Background(), sql.CreateProblemTestCaseInputParams{
+				ProblemTestCaseID: pgtype.Int4{Int32: int32(testCaseID.ID), Valid: true},
+				Value:             input.Value,
+				Type:              sql.ProblemTestCaseType(input.Type),
+				Name:              input.Name,
+			})
+			if err != nil {
+				apierror.SendError(w, http.StatusInternalServerError, "Failed to create test case input")
+				return
+			}
+		}
+
+		_, err = h.PostgresQueries.CreateProblemTestCaseOutput(context.Background(), sql.CreateProblemTestCaseOutputParams{
+			ProblemTestCaseID: pgtype.Int4{Int32: int32(testCaseID.ID), Valid: true},
+			Value:             testCase.Output,
+		})
+		if err != nil {
+			apierror.SendError(w, http.StatusInternalServerError, "Failed to create test case output")
 			return
 		}
 	}

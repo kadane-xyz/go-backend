@@ -1,5 +1,5 @@
 -- name: CreateProblem :one
-INSERT INTO problem (title, description, points, tags, difficulty) VALUES ($1, $2, $3, $4, $5) RETURNING id;
+INSERT INTO problem (title, description, function_name, points, tags, difficulty) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id;
 
 -- name: CreateProblemCode :exec
 INSERT INTO problem_code (problem_id, language, code) VALUES ($1, $2, $3);
@@ -41,7 +41,7 @@ SELECT
     (
         SELECT COALESCE(
             json_agg(
-                json_build_object('description', pt.description, 'input', pt.input, 'output', pt.output)
+                json_build_object('description', pt.description)
             ),
             '[]'
         )
@@ -71,6 +71,7 @@ WITH problem_data AS (
         p.tags,
         p.difficulty,
         p.points,
+        p.function_name,
         json_agg(
             json_build_object(
                 'language', pc.language,
@@ -144,7 +145,7 @@ SELECT
     (
         SELECT COALESCE(
             json_agg(
-                json_build_object('description', pt.description, 'input', pt.input, 'output', pt.output)
+                json_build_object('description', pt.description)
             ),
             '[]'
         )
@@ -206,7 +207,29 @@ SELECT * FROM problem WHERE title = $1;
 SELECT * FROM problem WHERE difficulty = $1 ORDER BY RANDOM()LIMIT $2;
 
 -- name: CreateProblemTestCase :one
-INSERT INTO problem_test_case (problem_id, description, input, output, visibility) VALUES ($1, $2, $3, $4, $5) RETURNING *;
+INSERT INTO problem_test_case (problem_id, description, visibility) VALUES ($1, $2, $3) RETURNING *;
+
+-- name: CreateProblemTestCaseInput :one
+INSERT INTO problem_test_case_input (problem_test_case_id, name, value, type) VALUES ($1, $2, $3, $4) RETURNING *;
+
+-- name: CreateProblemTestCaseOutput :one
+INSERT INTO problem_test_case_output (problem_test_case_id, value) VALUES ($1, $2) RETURNING *;
 
 -- name: GetProblemTestCases :many
-SELECT * FROM problem_test_case WHERE problem_id = $1;
+SELECT ptc.*,
+    (
+        SELECT COALESCE(json_agg(
+            json_build_object(
+                'type', pti.type,
+                'value', pti.value
+            )
+        ), '[]')
+        FROM problem_test_case_input pti 
+        WHERE pti.problem_test_case_id = ptc.id
+    ) AS input,
+    (
+        SELECT COALESCE(value,'') FROM problem_test_case_output pto WHERE pto.problem_test_case_id = ptc.id
+    ) AS output
+FROM problem_test_case ptc
+WHERE ptc.problem_id = @problem_id::int 
+    AND (@visibility::visibility IS NULL OR ptc.visibility = @visibility::visibility);
