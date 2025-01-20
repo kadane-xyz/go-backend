@@ -7,7 +7,6 @@ import (
 	"kadane.xyz/go-backend/v2/src/judge0"
 )
 
-// Convert the type of the test case to the type of the Go language
 // Convert the test case inputs to a comma separated string
 func TemplateGoInputs(testCases TestCase) string {
 	var inputs []string
@@ -37,25 +36,21 @@ func TemplateGoInputs(testCases TestCase) string {
 }
 
 // Golang template
-func TemplateGoSourceCode(sourceCode string, functionName string, inputs string) string {
+func TemplateGoSourceCode(functionName string, inputs string, sourceCode string) string {
 	return fmt.Sprintf(`
 package main
 
-import (
-	"fmt"
-)
+// Source Code
+%s
 
 func main() {
 	%s(%s)
-}
-
-// Source Code
-%s`, functionName, inputs, sourceCode)
+}`, sourceCode, functionName, inputs)
 }
 
 func TemplateGo(templateInput TemplateInput) judge0.Submission {
 	inputs := TemplateGoInputs(templateInput.TestCases)                                              // Get the inputs
-	sourceCode := TemplateGoSourceCode(templateInput.SourceCode, templateInput.FunctionName, inputs) // Get the source code
+	sourceCode := TemplateGoSourceCode(templateInput.FunctionName, inputs, templateInput.SourceCode) // Get the source code
 
 	submission := judge0.Submission{
 		LanguageID:     judge0.LanguageToLanguageID("go"),
