@@ -1,4 +1,3 @@
-CREATE TYPE visibility AS ENUM ('PUBLIC', 'PRIVATE');
 CREATE TYPE mode as ENUM ('CLASSIC', 'TEAM');
 
 CREATE TABLE room (
