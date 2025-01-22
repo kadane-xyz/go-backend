@@ -1,6 +1,8 @@
 package judge0
 
-import "encoding/base64"
+import (
+	"encoding/base64"
+)
 
 func LanguageToLanguageID(language string) int {
 	return languageIDMap[language]
@@ -41,5 +43,6 @@ func EncodeInputSubmissionsInput(submissions []Submission) []Submission {
 		submission.ExpectedOutput = EncodeBase64(submission.ExpectedOutput)
 		submissions[i] = submission
 	}
+
 	return submissions
 }
