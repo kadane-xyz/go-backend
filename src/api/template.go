@@ -15,6 +15,8 @@ func TemplateCreate(templateInput TemplateInput) judge0.Submission {
 	switch templateInput.Language {
 	case "go":
 		return TemplateGo(templateInput)
+	case "cpp":
+		return TemplateCpp(templateInput)
 	}
 	return judge0.Submission{}
 }
