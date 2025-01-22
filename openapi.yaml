@@ -1812,12 +1812,8 @@ components:
 
     ProblemCode:
       type: object
-      properties:
-        language:
-          type: string
-        code:
-          type: string
-          format: byte
+      additionalProperties:
+        type: string
 
     ProblemHint:
       type: object

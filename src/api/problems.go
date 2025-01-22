@@ -19,11 +19,6 @@ type ProblemHint struct {
 	Answer      string `json:"answer"`
 }
 
-type ProblemCode struct {
-	Language string `json:"language"`
-	Code     string `json:"code"`
-}
-
 type ProblemRequestHint struct {
 	Description string `json:"description"`
 	Answer      string `json:"answer"`
