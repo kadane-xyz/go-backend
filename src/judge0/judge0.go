@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 
 	"kadane.xyz/go-backend/v2/src/config"
@@ -19,11 +20,12 @@ type Judge0Client struct {
 }
 
 type Submission struct {
-	SourceCode     string `json:"source_code"` // plain string that will be base64 encoded
-	LanguageID     int    `json:"language_id"`
-	Stdin          string `json:"stdin,omitempty"`           // plain string that will be base64 encoded
-	ExpectedOutput string `json:"expected_output,omitempty"` // plain string that will be base64 encoded
-	Wait           bool   `json:"wait,omitempty"`
+	SourceCode           string `json:"source_code"` // plain string that will be base64 encoded
+	LanguageID           int    `json:"language_id"`
+	CompilerOptions      string `json:"compiler_options"`
+	CommandLineArguments string `json:"command_line_arguments"`
+	Stdin                string `json:"stdin"`           // plain string that will be base64 encoded
+	ExpectedOutput       string `json:"expected_output"` // plain string that will be base64 encoded
 }
 
 type SubmissionBatch struct {
@@ -36,20 +38,25 @@ type SubmissionResponse struct {
 
 type SubmissionResult struct {
 	Stdout        string `json:"stdout"`
-	Time          string `json:"time"`
-	Memory        int    `json:"memory"`
 	Stderr        string `json:"stderr"`
-	Token         string `json:"token"`
 	CompileOutput string `json:"compile_output"`
-	Language      struct {
-		ID   int    `json:"id"`
-		Name string `json:"name"`
-	} `json:"language"`
-	Message string `json:"message"`
-	Status  struct {
+	Message       string `json:"message"`
+	ExitCode      int    `json:"exit_code"`
+	ExitSignal    int    `json:"exit_signal"`
+	Status        struct {
 		ID          int    `json:"id"`
 		Description string `json:"description"`
 	} `json:"status"`
+	CreatedAt  string `json:"created_at"`
+	FinishedAt string `json:"finished_at"`
+	Token      string `json:"token"`
+	Time       string `json:"time"`
+	WallTime   string `json:"wall_time"`
+	Memory     int    `json:"memory"`
+	Language   struct {
+		ID   int    `json:"id"`
+		Name string `json:"name"`
+	} `json:"language"`
 }
 
 type PaginationMeta struct {
@@ -85,62 +92,31 @@ func NewJudge0Client(cfg *config.Config) *Judge0Client {
 }
 
 func (c *Judge0Client) CreateSubmissionBatchAndWait(submissions []Submission) ([]SubmissionResult, error) {
-	// First base64 encode submissions
-	submissions = EncodeInputSubmissionsInput(submissions)
-	// First create the submission without waiting
-	resp, err := c.CreateSubmissionBatch(submissions)
-	if err != nil {
-		log.Println(err)
-		return nil, fmt.Errorf("batch creation error: %w", err)
-	}
+	var wg sync.WaitGroup
+	results := make([]SubmissionResult, len(submissions))
+	errors := make(chan error, len(submissions))
 
-	// Create a map to track processed submissions
-	results := make([]SubmissionResult, 0, len(submissions))
-	pendingTokens := make(map[string]bool)
-
-	// Initialize pending tokens
-	for _, submission := range resp.Submissions {
-		pendingTokens[submission.Token] = true
-	}
-
-	// Quick first check after submission
-	for token := range pendingTokens {
-		result, err := c.GetSubmission(token)
-		if err == nil && result.Status.ID >= 3 {
-			results = append(results, *result)
-			delete(pendingTokens, token)
-		}
-	}
-
-	// Then poll remaining submissions with exponential backoff
-	startTime := time.Now()
-	currentDelay := initialRetryDelay
-
-	for len(pendingTokens) > 0 {
-		if time.Since(startTime) > maxWaitTime {
-			return nil, fmt.Errorf("submission batch timed out after %v", maxWaitTime)
-		}
-
-		time.Sleep(currentDelay)
-
-		// Check each pending submission
-		for token := range pendingTokens {
-			result, err := c.GetSubmission(token)
+	for i, submission := range submissions {
+		wg.Add(1)
+		go func(i int, submission Submission) {
+			defer wg.Done()
+			resp, err := c.CreateSubmissionAndWait(submission)
 			if err != nil {
-				continue // Skip this token for now if there's an error
+				errors <- fmt.Errorf("submission %d error: %w", i, err)
+				return
 			}
+			results[i] = *resp
+		}(i, submission)
+	}
 
-			if result.Status.ID >= 3 {
-				results = append(results, *result)
-				delete(pendingTokens, token)
-			}
-		}
+	wg.Wait()
+	close(errors)
 
-		// Adjust delay with gentler backoff
-		currentDelay = time.Duration(float64(currentDelay) * 1.5)
-		if currentDelay > maxRetryDelay {
-			currentDelay = maxRetryDelay
+	if len(errors) > 0 {
+		for err := range errors {
+			log.Println(err)
 		}
+		return nil, fmt.Errorf("one or more submissions failed")
 	}
 
 	return results, nil
@@ -228,7 +204,7 @@ func (c *Judge0Client) CreateSubmission(submission Submission) (*SubmissionRespo
 }
 
 func (c *Judge0Client) CreateSubmissionBatch(submissions []Submission) (*SubmissionBatchResponse, error) {
-	url := fmt.Sprintf("%s/submissions/batch?base64_encoded=true&fields=*", c.BaseURL)
+	url := fmt.Sprintf("%s/submissions/batch?base64_encoded=true", c.BaseURL)
 
 	submissionBatch := SubmissionBatch{
 		Submissions: submissions,
@@ -272,7 +248,7 @@ func (c *Judge0Client) CreateSubmissionBatch(submissions []Submission) (*Submiss
 }
 
 func (c *Judge0Client) GetSubmission(token string) (*SubmissionResult, error) {
-	url := fmt.Sprintf("%s/submissions/%s?base64_encoded=false&fields=stdout,time,memory,stderr,token,compile_output,message,status,language", c.BaseURL, token)
+	url := fmt.Sprintf("%s/submissions/%s?base64_encoded=false&fields=*", c.BaseURL, token)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -327,8 +303,6 @@ func (c *Judge0Client) GetSubmissions() (*SubmissionsResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	log.Println(body)
 
 	var response SubmissionsResponse
 	err = json.Unmarshal(body, &response)
