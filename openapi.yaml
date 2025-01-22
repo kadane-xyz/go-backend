@@ -1781,6 +1781,8 @@ components:
           type: string
         description:
           type: string
+        functionName:
+          type: string
         tags:
           type: array
           items:
@@ -1833,8 +1835,24 @@ components:
         description:
           type: string
         input:
+          type: array
+          items:
+            $ref: '#/components/schemas/TestCaseInput'
+        output:
           type: string
-        expectedOutput:
+        visibility:
+          type: string
+          enum: [public, private]
+
+    TestCaseInput:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [int, float, double, string, boolean, array of int, array of float, array of double, array of string, array of boolean]
+        value:
           type: string
 
     Submission:
