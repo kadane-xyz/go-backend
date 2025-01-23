@@ -41,7 +41,27 @@ SELECT
     (
         SELECT COALESCE(
             json_agg(
-                json_build_object('description', pt.description)
+                json_build_object(
+                    'description', pt.description,
+                    'input',
+                        (
+                            SELECT json_agg(
+                                json_build_object(
+                                    'name', pti.name,
+                                    'type', pti.type,
+                                    'value', pti.value
+                                )
+                            )
+                            FROM problem_test_case_input pti
+                            WHERE pti.problem_test_case_id = pt.id
+                        ),
+                    'output',
+                        (
+                            SELECT pto.value
+                            FROM problem_test_case_output pto
+                            WHERE pto.problem_test_case_id = pt.id
+                        )
+                )
             ),
             '[]'
         )
