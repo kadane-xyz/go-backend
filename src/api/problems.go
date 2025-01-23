@@ -235,11 +235,12 @@ func (h *Handler) CreateProblem(w http.ResponseWriter, r *http.Request) {
 
 	// 1. Create problem first
 	problemID, err := h.PostgresQueries.CreateProblem(context.Background(), sql.CreateProblemParams{
-		Title:       request.Title,
-		Description: pgtype.Text{String: request.Description, Valid: true},
-		Points:      int32(request.Points),
-		Tags:        request.Tags,
-		Difficulty:  sql.ProblemDifficulty(request.Difficulty),
+		Title:        request.Title,
+		Description:  pgtype.Text{String: request.Description, Valid: true},
+		FunctionName: request.FunctionName,
+		Points:       int32(request.Points),
+		Tags:         request.Tags,
+		Difficulty:   sql.ProblemDifficulty(request.Difficulty),
 	})
 	if err != nil {
 		apierror.SendError(w, http.StatusInternalServerError, "Failed to create problem")
