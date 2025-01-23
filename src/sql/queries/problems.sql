@@ -104,13 +104,36 @@ WITH problem_data AS (
                 'answer', ph.answer
             )
         ) FILTER (WHERE ph.id IS NOT NULL) as hint,
-        json_agg(
-            json_build_object(
-                'description', pt.description,
-                'input', pt.input,
-                'output', pt.output
-            )
-        ) FILTER (WHERE pt.id IS NOT NULL) as test_cases,
+            (
+        SELECT COALESCE(
+            json_agg(
+                json_build_object(
+                    'description', pt.description,
+                    'input',
+                        (
+                            SELECT json_agg(
+                                json_build_object(
+                                    'name', pti.name,
+                                    'type', pti.type,
+                                    'value', pti.value
+                                )
+                            )
+                            FROM problem_test_case_input pti
+                            WHERE pti.problem_test_case_id = pt.id
+                        ),
+                    'output',
+                        (
+                            SELECT pto.value
+                            FROM problem_test_case_output pto
+                            WHERE pto.problem_test_case_id = pt.id
+                        )
+                )
+            ),
+            '[]'
+        )
+        FROM problem_test_case pt 
+        WHERE pt.problem_id = p.id AND pt.visibility = 'public'
+    ) AS test_cases_json,
         COUNT(s.id) as totalAttempts,
         COUNT(s.id) FILTER (WHERE s.status = 'completed' AND s.correct = true) as totalCorrect,
         CASE WHEN EXISTS (SELECT 1 FROM submission s WHERE s.problem_id = p.id AND s.status = 'Accepted' AND s.account_id = @user_id) THEN true ELSE false END AS solved
@@ -130,7 +153,7 @@ SELECT
     points,
     COALESCE(code, '[]'::json) as code,
     COALESCE(hint, '[]'::json) as hint,
-    COALESCE(test_cases, '[]'::json) as test_cases
+    COALESCE(test_cases_json, '[]'::json) as test_cases_json
 FROM problem_data
 ORDER BY points DESC;
 
@@ -161,17 +184,37 @@ SELECT
         FROM problem_hint ph 
         WHERE ph.problem_id = p.id
     ) AS hints_json,
-    
+
     (
         SELECT COALESCE(
             json_agg(
-                json_build_object('description', pt.description)
+                json_build_object(
+                    'description', pt.description,
+                    'input',
+                        (
+                            SELECT json_agg(
+                                json_build_object(
+                                    'name', pti.name,
+                                    'type', pti.type,
+                                    'value', pti.value
+                                )
+                            )
+                            FROM problem_test_case_input pti
+                            WHERE pti.problem_test_case_id = pt.id
+                        ),
+                    'output',
+                        (
+                            SELECT pto.value
+                            FROM problem_test_case_output pto
+                            WHERE pto.problem_test_case_id = pt.id
+                        )
+                )
             ),
             '[]'
         )
         FROM problem_test_case pt 
         WHERE pt.problem_id = p.id AND pt.visibility = 'public'
-    ) AS test_cases_json,
+    ) AS test_cases_json, 
     
     (
         SELECT COALESCE(
@@ -199,7 +242,7 @@ LEFT JOIN (
 WHERE
     (@title = '' OR p.title ILIKE '%' || @title || '%')
     AND (@difficulty = '' OR p.difficulty = @difficulty::problem_difficulty)
-GROUP BY p.id, sp.problem_id 
+GROUP BY p.id, sp.problem_id
 ORDER BY
     CASE WHEN @sort = 'alpha' AND @sort_direction = 'asc' THEN p.title END ASC,
     CASE WHEN @sort = 'alpha' AND @sort_direction = 'desc' THEN p.title END DESC,
