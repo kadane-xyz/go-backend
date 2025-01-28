@@ -19,6 +19,8 @@ func TemplateCreate(templateInput TemplateInput) judge0.Submission {
 		return TemplateGo(templateInput)
 	case "java":
 		return TemplateJava(templateInput)
+	case "javascript":
+		return TemplateJavascript(templateInput)
 	case "typescript":
 		return TemplateTypescript(templateInput)
 	}
