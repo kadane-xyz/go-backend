@@ -2,7 +2,6 @@ package api
 
 import (
 	"fmt"
-	"log"
 	"strings"
 
 	"kadane.xyz/go-backend/v2/src/judge0"
@@ -38,8 +37,6 @@ func TemplateTypescriptSourceCode(functionName string, inputs string, sourceCode
 func TemplateTypescript(templateInput TemplateInput) judge0.Submission {
 	inputs := TemplateTypescriptInputs(templateInput.TestCases)                                              // Get the inputs
 	sourceCode := TemplateTypescriptSourceCode(templateInput.FunctionName, inputs, templateInput.SourceCode) // Get the source code
-
-	log.Println(sourceCode)
 
 	submission := judge0.Submission{
 		LanguageID: judge0.LanguageToLanguageID("typescript"),
