@@ -13,10 +13,12 @@ type TemplateInput struct {
 
 func TemplateCreate(templateInput TemplateInput) judge0.Submission {
 	switch templateInput.Language {
-	case "go":
-		return TemplateGo(templateInput)
 	case "cpp":
 		return TemplateCpp(templateInput)
+	case "go":
+		return TemplateGo(templateInput)
+	case "java":
+		return TemplateJava(templateInput)
 	}
 	return judge0.Submission{}
 }
