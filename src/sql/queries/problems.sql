@@ -158,6 +158,23 @@ FROM problem_data
 ORDER BY points DESC;
 
 -- name: GetProblemsFilteredPaginated :many
+WITH filtered_problems AS (
+    SELECT p.id
+    FROM problem p
+    LEFT JOIN submission s ON p.id = s.problem_id
+    LEFT JOIN starred_problem sp ON p.id = sp.problem_id
+    LEFT JOIN (
+        SELECT status, problem_id
+        FROM submission
+        WHERE account_id = @user_id
+    ) AS user_submissions ON p.id = user_submissions.problem_id
+    WHERE
+        (@title = '' OR p.title ILIKE '%' || @title || '%')
+        AND (@difficulty = '' OR p.difficulty = @difficulty::problem_difficulty)
+    GROUP BY p.id, sp.problem_id
+
+    -- No ORDER BY / LIMIT / OFFSET here: this is the "full" matching set
+)
 SELECT
     p.*,
     (
@@ -230,7 +247,8 @@ SELECT
         WHEN sp.problem_id IS NOT NULL THEN TRUE
         ELSE FALSE
     END AS starred,
-    CASE WHEN EXISTS (SELECT 1 FROM submission s WHERE s.problem_id = p.id AND s.status = 'Accepted' AND s.account_id = @user_id) THEN true ELSE false END AS solved
+    CASE WHEN EXISTS (SELECT 1 FROM submission s WHERE s.problem_id = p.id AND s.status = 'Accepted' AND s.account_id = @user_id) THEN true ELSE false END AS solved,
+    (SELECT COUNT(*) FROM filtered_problems) AS total_count
 FROM problem p
 LEFT JOIN submission s ON p.id = s.problem_id
 LEFT JOIN starred_problem sp ON p.id = sp.problem_id
@@ -249,7 +267,8 @@ ORDER BY
     CASE WHEN @sort = 'index' AND @sort_direction = 'asc' THEN p.id END ASC,
     CASE WHEN @sort = 'index' AND @sort_direction = 'desc' THEN p.id END DESC,
     p.id DESC
-LIMIT @per_page OFFSET (@page - 1) * @per_page;
+LIMIT @per_page
+OFFSET (@page - 1) * @per_page;
 
 -- name: GetProblemCodeByLanguage :one
 SELECT * FROM problem_code WHERE problem_id = $1 AND language = $2;

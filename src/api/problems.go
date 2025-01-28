@@ -135,14 +135,14 @@ func (h *Handler) GetProblems(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	totalCount := len(problems)
+	if len(problems) == 0 {
+		apierror.SendError(w, http.StatusBadRequest, "No problems found")
+		return
+	}
+
+	totalCount := int64(problems[0].TotalCount)
 	if totalCount == 0 {
-		response := ProblemPaginationResponse{
-			Data:       []Problem{},
-			Pagination: Pagination{},
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		apierror.SendError(w, http.StatusBadRequest, "No problems found")
 		return
 	}
 
@@ -152,23 +152,15 @@ func (h *Handler) GetProblems(w http.ResponseWriter, r *http.Request) {
 		lastPage = 1
 	}
 
-	fromIndex := (page - 1) * perPage
-	toIndex := fromIndex + perPage
-
-	if toIndex > int64(len(problems)) {
-		toIndex = int64(len(problems))
-	}
-
-	if page > lastPage {
+	// check if page is out of bounds
+	if page < 1 || page > lastPage {
 		apierror.SendError(w, http.StatusBadRequest, "Page out of bounds")
 		return
 	}
 
-	paginatedProblems := problems[fromIndex:toIndex]
-
 	responseData := []Problem{}
 
-	for _, problem := range paginatedProblems {
+	for _, problem := range problems {
 		codeMap := InterfaceToMap(problem.CodeJson)
 		responseData = append(responseData, Problem{
 			ID:            int(problem.ID),
@@ -194,7 +186,7 @@ func (h *Handler) GetProblems(w http.ResponseWriter, r *http.Request) {
 		Pagination: Pagination{
 			Page:      page,
 			PerPage:   perPage,
-			DataCount: int64(len(problems)),
+			DataCount: totalCount,
 			LastPage:  lastPage,
 		},
 	}
