@@ -5,11 +5,11 @@ tmp_dir = "tmp"
 [build]
   args_bin = []
   bin = "./tmp/main"
-  cmd = "go build -o ./tmp/main ./src/cmd"
+  cmd = "go test -v ./... && go build -o ./tmp/main ./src/cmd"
   delay = 1000
   exclude_dir = ["assets", "tmp", "vendor", "testdata", "static", "src/sql/sql"]
   exclude_file = []
-  exclude_regex = ["_test.go"]
+  exclude_regex = []
   exclude_unchanged = false
   follow_symlink = false
   full_bin = ""
@@ -25,7 +25,7 @@ tmp_dir = "tmp"
   rerun = false
   rerun_delay = 500
   send_interrupt = false
-  stop_on_error = false
+  stop_on_error = true
 
 [color]
   app = ""
