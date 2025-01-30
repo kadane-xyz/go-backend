@@ -24,8 +24,8 @@ type Submission struct {
 	LanguageID           int    `json:"language_id"`
 	CompilerOptions      string `json:"compiler_options"`
 	CommandLineArguments string `json:"command_line_arguments"`
-	Stdin                string `json:"stdin"`           // plain string that will be base64 encoded
-	ExpectedOutput       string `json:"expected_output"` // plain string that will be base64 encoded
+	Stdin                string `json:"stdin"` // plain string that will be base64 encoded
+	//ExpectedOutput       string `json:"expected_output"` // plain string that will be base64 encoded
 }
 
 type SubmissionBatch struct {
