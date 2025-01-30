@@ -53,9 +53,9 @@ func TemplateGo(templateInput TemplateInput) judge0.Submission {
 	sourceCode := TemplateGoSourceCode(templateInput.FunctionName, inputs, templateInput.SourceCode) // Get the source code
 
 	submission := judge0.Submission{
-		LanguageID:     judge0.LanguageToLanguageID("go"),
-		SourceCode:     sourceCode,
-		ExpectedOutput: templateInput.ExpectedOutput,
+		LanguageID: judge0.LanguageToLanguageID("go"),
+		SourceCode: sourceCode,
+		//ExpectedOutput: templateInput.ExpectedOutput,
 	}
 
 	return submission

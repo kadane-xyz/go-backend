@@ -51,9 +51,9 @@ func TemplateCpp(templateInput TemplateInput) judge0.Submission {
 	languageID := judge0.LanguageToLanguageID("cpp")
 
 	submission := judge0.Submission{
-		LanguageID:     languageID,
-		SourceCode:     sourceCode,
-		ExpectedOutput: templateInput.ExpectedOutput,
+		LanguageID: languageID,
+		SourceCode: sourceCode,
+		//ExpectedOutput: templateInput.ExpectedOutput,
 	}
 
 	return submission

@@ -30,7 +30,7 @@ func DecodeBase64(encodedText string) (string, error) {
 func EncodeSubmissionInputs(submission Submission) Submission {
 	submission.SourceCode = EncodeBase64(submission.SourceCode)
 	submission.Stdin = EncodeBase64(submission.Stdin)
-	submission.ExpectedOutput = EncodeBase64(submission.ExpectedOutput)
+	//submission.ExpectedOutput = EncodeBase64(submission.ExpectedOutput)
 	return submission
 }
 
@@ -38,7 +38,7 @@ func EncodeInputSubmissionsInput(submissions []Submission) []Submission {
 	for i, submission := range submissions {
 		submission.SourceCode = EncodeBase64(submission.SourceCode)
 		submission.Stdin = EncodeBase64(submission.Stdin)
-		submission.ExpectedOutput = EncodeBase64(submission.ExpectedOutput)
+		//submission.ExpectedOutput = EncodeBase64(submission.ExpectedOutput)
 		submissions[i] = submission
 	}
 	return submissions
