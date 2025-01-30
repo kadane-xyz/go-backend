@@ -32,6 +32,8 @@ services:
       - 5432:5432/tcp
     volumes:
       - postgres:/var/lib/postgresql/data
+      - ./src/sql/schemas:/docker-entrypoint-initdb.d/schemas
+      - ./src/sql/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
     env_file:
       - '.env' 
     healthcheck:
@@ -41,40 +43,49 @@ services:
       retries: 5
     restart: unless-stopped
   redis:
-    image: redis:7.2.4
+    image: redis:7.2
     command: [
-      "bash",
-      "-c",
+      "bash", "-c",
       'docker-entrypoint.sh --appendonly no --requirepass "$$REDIS_PASSWORD"'
     ]
     env_file: judge0.conf
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a $${REDIS_PASSWORD} ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
-  judge0-db:
-    image: postgres:16.2
-    container_name: judge0-db
-    ports:
-      - 5433:5432/tcp
-    env_file: judge0.conf
-    restart: unless-stopped
-  # CGROUP v1 required for now
+  #CGROUP v1 required for now
   judge0-server:
-    build:
-      context: .
-      dockerfile: ./docker/judge0/Dockerfile
+    image: judge0/judge0:1.13.1
     volumes:
       - ./judge0.conf:/judge0.conf:ro
     ports:
       - 2358:2358/tcp
     privileged: true
+    depends_on:
+      - db
+      - redis
     restart: unless-stopped
   judge0-worker:
-    build:
-      context: .
-      dockerfile: ./docker/judge0/Dockerfile
+    image: judge0/judge0:1.13.1
     command: ["./scripts/workers"]
     volumes:
       - ./judge0.conf:/judge0.conf:ro
     privileged: true
+    depends_on:
+      - db
+      - redis
     restart: unless-stopped
+  #bytebase:
+  #  container_name: bytebase
+  #  image: bytebase/bytebase:3.1.1
+  #  ports:
+  #    - 8081:8080/tcp
+  #  volumes:
+  #    - bytebase:/var/opt/bytebase
+  #  restart: unless-stopped
 volumes:
   postgres:
+  #bytebase:
+

@@ -1,3 +1,12 @@
+CREATE TABLE account (
+    id TEXT NOT NULL UNIQUE PRIMARY KEY,
+    username TEXT NOT NULL UNIQUE,
+    email TEXT NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    avatar_url TEXT,
+    level INTEGER DEFAULT 1
+);
+
 CREATE TABLE account_attribute (
     id TEXT PRIMARY KEY REFERENCES account(id) ON DELETE CASCADE,
     bio TEXT DEFAULT '',
@@ -11,22 +20,6 @@ CREATE TABLE account_attribute (
     twitter_url TEXT DEFAULT '',
     school TEXT DEFAULT '',
     website_url TEXT DEFAULT ''
-);
-
-CREATE TABLE account (
-    id TEXT NOT NULL UNIQUE PRIMARY KEY,
-    username TEXT NOT NULL UNIQUE,
-    email TEXT NOT NULL UNIQUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    avatar_url TEXT,
-    level INTEGER DEFAULT 1
-);
-
-CREATE TABLE account_solved_problem (
-    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    user_id TEXT REFERENCES account(id) ON DELETE CASCADE,
-    problem_id BIGINT REFERENCES problems(id) ON DELETE CASCADE,
-    solved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE account_game_stat (
