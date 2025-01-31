@@ -18,7 +18,6 @@ sql_files=(
     "comments.sql"
     "problems.sql"
     "account_solved_problem.sql"
-    "room.sql"
     "submissions.sql"
     "starred.sql"
 )
