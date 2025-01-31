@@ -28,72 +28,85 @@ permissions:
 
 jobs:
   # Build and deploy the container
-  deploy:
-    name: Deploy
+  test:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ vars.AWS_REGION }}
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: true
 
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v2
+      - name: Install dependencies
+        run: go mod download
+        working-directory: ./backend
 
-    - name: Build, tag, and push image to Amazon ECR
-      id: build-image
-      env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ github.sha }}
-      run: |
-        # Build a docker container and
-        # push it to ECR so that it can
-        # be deployed to ECS.
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f $DOCKERFILE .
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+      - name: Run tests
+        run: go test -v -race -covermode=atomic ./...
+        working-directory: ./backend
 
-    - name: Fill in the new image ID in the Amazon ECS task definition
-      id: task-def
-      uses: aws-actions/amazon-ecs-render-task-definition@v1
-      with:
-        task-definition: ${{ env.ECS_TASK_DEFINITION }}
-        container-name: ${{ env.CONTAINER_NAME }}
-        image: ${{ steps.build-image.outputs.image }}
-        environment-variables: |
-          PORT=${{ vars.SERVICE_PORT}}
-          POSTGRES_URL=${{ secrets.AWS_DB_HOST }}:${{ secrets.AWS_DB_PORT }}
-          POSTGRES_USER=${{ secrets.AWS_DB_USER }}
-          POSTGRES_PASSWORD=${{ secrets.AWS_DB_PASSWORD }}
-          POSTGRES_DB=${{ secrets.AWS_DB_NAME }}
-          FIREBASE_CRED=${{ secrets.AWS_FIREBASE_CRED }}
-          AWS_KEY=${{ secrets.AWS_KEY }}
-          AWS_SECRET=${{ secrets.AWS_SECRET }}
-          AWS_REGION=${{ vars.AWS_REGION }}
-          AWS_BUCKET_AVATAR=${{ secrets.AWS_BUCKET_AVATAR }}
-          CLOUD_FRONT_URL=${{ secrets.CLOUD_FRONT_URL }}
-          JUDGE0_TOKEN=${{ secrets.JUDGE0_TOKEN }}
-          JUDGE0_URL=${{ secrets.JUDGE0_URL }}
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
 
-    - name: Deploy Amazon ECS task definition
-      uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-      with:
-        task-definition: ${{ steps.task-def.outputs.task-definition }}
-        service: ${{ env.ECS_SERVICE }}
-        cluster: ${{ env.ECS_CLUSTER }}
-        wait-for-service-stability: false 
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
 
-    - name: Update ECS service with load balancer
-      run: |
-        aws ecs update-service \
-          --cluster ${{ env.ECS_CLUSTER }} \
+      - name: Build, tag, and push image to Amazon ECR
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f $DOCKERFILE .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+      - name: Fill in the new image ID in the Amazon ECS task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: ${{ env.ECS_TASK_DEFINITION }}
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ${{ steps.build-image.outputs.image }}
+          environment-variables: |
+            PORT=${{ vars.SERVICE_PORT}}
+            POSTGRES_URL=${{ secrets.AWS_DB_HOST }}:${{ secrets.AWS_DB_PORT }}
+            POSTGRES_USER=${{ secrets.AWS_DB_USER }}
+            POSTGRES_PASSWORD=${{ secrets.AWS_DB_PASSWORD }}
+            POSTGRES_DB=${{ secrets.AWS_DB_NAME }}
+            FIREBASE_CRED=${{ secrets.AWS_FIREBASE_CRED }}
+            AWS_KEY=${{ secrets.AWS_KEY }}
+            AWS_SECRET=${{ secrets.AWS_SECRET }}
+            AWS_REGION=${{ vars.AWS_REGION }}
+            AWS_BUCKET_AVATAR=${{ secrets.AWS_BUCKET_AVATAR }}
+            CLOUD_FRONT_URL=${{ secrets.CLOUD_FRONT_URL }}
+            JUDGE0_TOKEN=${{ secrets.JUDGE0_TOKEN }}
+            JUDGE0_URL=${{ secrets.JUDGE0_URL }}
+
+      - name: Deploy Amazon ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: false 
+
+      - name: Update ECS service with load balancer
+        run: |
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
           --service ${{ env.ECS_SERVICE }} \
           --load-balancers targetGroupArn=${{ env.TARGET_GROUP_ARN }},containerName=${{ env.CONTAINER_NAME }},containerPort=${{ env.CONTAINER_PORT }} \
           --force-new-deployment
