@@ -9,6 +9,8 @@ import (
 )
 
 type Config struct {
+	// DEBUG
+	Debug bool
 	// Postgres
 	PostgresUrl  string
 	PostgresUser string
@@ -41,6 +43,12 @@ func LoadConfig() (*Config, error) {
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "80"
+	}
+
+	debugStr := os.Getenv("DEBUG")
+	debug := debugStr == "true"
+	if debug {
+		log.Println("Debug mode enabled")
 	}
 
 	postgresUrl := os.Getenv("POSTGRES_URL")
@@ -105,6 +113,7 @@ func LoadConfig() (*Config, error) {
 
 	// Return the configuration by fetching environment variables
 	config := &Config{
+		Debug: debug,
 		//Postgres
 		PostgresUrl:  postgresUrl,
 		PostgresUser: postgresUser,
