@@ -4,9 +4,8 @@ set -e
 # Judge0 Initialization
 
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
-    CREATE USER judge0 PASSWORD '$JUDGE0_PASSWORD';
-    CREATE DATABASE judge0;
-    GRANT ALL PRIVILEGES ON DATABASE judge0 TO judge0;
+    CREATE USER judge0 WITH SUPERUSER;
+    ALTER USER "judge0" WITH PASSWORD '$JUDGE0_PASSWORD' SUPERUSER;
 EOSQL
 
 # Array of SQL files in order
