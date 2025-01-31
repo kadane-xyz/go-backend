@@ -106,6 +106,30 @@ func (h *Handler) FirebaseAuth() func(http.Handler) http.Handler {
 	}
 }
 
+func (h *Handler) DebugAuth() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Skip auth for health check endpoint
+			if r.URL.Path == "/health" || r.Method == http.MethodOptions {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			token := "debug"
+
+			claims := FirebaseTokenInfo{
+				UserID: token,
+				Email:  "debug@debug.com",
+				Name:   "Debug User",
+			}
+
+			// Pass the claims to the next handler via the context
+			ctx := context.WithValue(r.Context(), FirebaseTokenKey, claims)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
 func CustomLogger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/health" {
@@ -136,5 +160,12 @@ func Middleware(m *Handler, r chi.Router) {
 		MaxAge:           300,              // Max age for preflight requests
 	}))
 	r.Use(middleware.Recoverer)
-	r.Use(m.FirebaseAuth()) // Firebase Auth middleware
+	// DEBUG bypass firebase auth
+	if m.Config.Debug {
+		r.Use(m.DebugAuth())
+	} else {
+		r.Use(m.FirebaseAuth()) // Firebase Auth middleware
+	}
+
+	log.Println("Middleware initialized")
 }
