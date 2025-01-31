@@ -74,8 +74,10 @@ services:
       - ./judge0.conf:/judge0.conf:ro
     privileged: true
     depends_on:
-      - db
-      - redis
+      redis:
+        condition: service_healthy
+      db:
+        condition: service_healthy
     restart: unless-stopped
   #bytebase:
   #  container_name: bytebase
