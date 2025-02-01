@@ -229,4 +229,23 @@ WHERE id = $12 RETURNING *;
 -- DELETE --
 
 -- name: DeleteAccount :exec
-DELETE FROM account WHERE id = $1;
+WITH deleted_friendships AS (
+    DELETE FROM friendship 
+    WHERE user_id_1 = $1 OR user_id_2 = $1
+), deleted_starred_problems AS (
+    DELETE FROM starred_problem
+    WHERE user_id = $1
+), deleted_starred_submissions AS (
+    DELETE FROM starred_submission
+    WHERE user_id = $1
+), deleted_starred_solutions_user AS (
+    DELETE FROM starred_solution
+    WHERE user_id = $1
+), deleted_starred_solutions_owned AS (
+    DELETE FROM starred_solution
+    WHERE solution_id IN (SELECT id FROM solution WHERE user_id = $1)
+), deleted_solutions AS (
+    DELETE FROM solution
+    WHERE user_id = $1
+)
+DELETE FROM account AS a WHERE a.id = $1;
