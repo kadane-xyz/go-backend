@@ -2,7 +2,6 @@
 package api
 
 import (
-	"log"
 	"os"
 	"testing"
 
@@ -12,9 +11,9 @@ import (
 )
 
 var firebaseToken middleware.FirebaseTokenInfo = middleware.FirebaseTokenInfo{
-	UserID: "test-user-id",
-	Email:  "test-email",
-	Name:   "test-name",
+	UserID: "123abc",
+	Email:  "john@example.com",
+	Name:   "John Doe",
 }
 
 var handler Handler
@@ -26,8 +25,6 @@ func TestMain(m *testing.M) {
 		// If setup fails, exit immediately.
 		panic(err)
 	}
-
-	log.Println("firebaseToken: ", firebaseToken)
 
 	// Setup the handler
 	db := db.DBPool
