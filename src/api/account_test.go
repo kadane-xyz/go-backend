@@ -1,7 +1,10 @@
 package api
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -148,24 +151,146 @@ func TestGetAccounts(t *testing.T) {
 }
 
 func TestGetAccountByUsername(t *testing.T) {
-	t.Parallel()
-
-	req, err := http.NewRequest("GET", "/accounts/username/test", nil)
+	baseReq, err := http.NewRequest("GET", "/accounts/username/test", nil)
 	if err != nil {
 		t.Fatalf("Failed to create request: %v", err)
 	}
+	baseCtx := context.WithValue(baseReq.Context(), middleware.FirebaseTokenKey, firebaseToken)
 
-	newctx := context.WithValue(req.Context(), middleware.FirebaseTokenKey, firebaseToken)
-	req = req.WithContext(newctx)
+	testCases := []struct {
+		name           string
+		params         map[string]string
+		input          string
+		expectedStatus int
+	}{
+		{
+			name:           "Get account by username",
+			input:          "johndoe",
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "Get account by username not found",
+			input:          "notfound",
+			expectedStatus: http.StatusNotFound,
+		},
+		{
+			name:           "Get account by username with attributes",
+			input:          "janesmith",
+			params:         map[string]string{"attributes": "true"},
+			expectedStatus: http.StatusOK,
+		},
+	}
 
-	routeCtx := chi.NewRouteContext()
-	routeCtx.URLParams.Add("username", "test")
-	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+	for _, testCase := range testCases {
+		testcase := testCase
+		t.Run(testcase.name, func(t *testing.T) {
+			t.Parallel()
 
-	w := httptest.NewRecorder()
-	handler.GetAccountByUsername(w, req)
+			req := baseReq.Clone(baseCtx)
+			routeCtx := chi.NewRouteContext()
+			for key, value := range testcase.params {
+				routeCtx.URLParams.Add(key, value)
+			}
+			req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
 
-	if w.Code != http.StatusOK {
-		t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
+			w := httptest.NewRecorder()
+			handler.GetAccountByUsername(w, req)
+
+			if w.Code != testcase.expectedStatus {
+				t.Errorf("Expected status %d, got %d", testcase.expectedStatus, w.Code)
+			}
+		})
+	}
+}
+
+func TestCreateAccount(t *testing.T) {
+	t.Parallel()
+
+	baseReq, err := http.NewRequest("POST", "/accounts", nil)
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+	baseCtx := context.WithValue(baseReq.Context(), middleware.FirebaseTokenKey, firebaseToken)
+
+	testCases := []struct {
+		name           string
+		input          CreateAccountRequest
+		expectedStatus int
+	}{
+		{
+			name: "Create account with empty id",
+			input: CreateAccountRequest{
+				ID:       "",
+				Username: "johndoe13",
+				Email:    "johndoe13@example.com",
+			},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name: "Create account with empty username",
+			input: CreateAccountRequest{
+				ID:       "aabbcc213",
+				Username: "",
+				Email:    "johndoe13@example.com",
+			},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name: "Create account with empty email",
+			input: CreateAccountRequest{
+				ID:       "aabbcc213",
+				Username: "johndoe13",
+				Email:    "",
+			},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name: "Create account",
+			input: CreateAccountRequest{
+				ID:       "aabbcc213",
+				Username: "johndoe13",
+				Email:    "johndoe13@example.com",
+			},
+			expectedStatus: http.StatusCreated,
+		},
+		{
+			name: "Create account with invalid email",
+			input: CreateAccountRequest{
+				ID:       "aabbcc213",
+				Username: "johndoe13",
+				Email:    "johndoe13",
+			},
+			expectedStatus: http.StatusBadRequest,
+		},
+	}
+
+	for _, testCase := range testCases {
+		testcase := testCase
+		t.Run(testcase.name, func(t *testing.T) {
+			t.Parallel()
+
+			req, err := http.NewRequest("POST", "/accounts", nil)
+			if err != nil {
+				t.Fatalf("Failed to create request: %v", err)
+			}
+			req = req.WithContext(baseCtx)
+			req.Header.Set("Content-Type", "application/json")
+
+			body, err := json.Marshal(testcase.input)
+			if err != nil {
+				t.Fatalf("Failed to marshal input: %v", err)
+			}
+			req.Body = io.NopCloser(bytes.NewBuffer(body))
+
+			routeCtx := chi.NewRouteContext()
+			req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+
+			w := httptest.NewRecorder()
+			handler.CreateAccount(w, req)
+
+			if w.Code != testcase.expectedStatus {
+				t.Errorf("Expected status %d, got %d", testcase.expectedStatus, w.Code)
+			}
+		})
 	}
 }

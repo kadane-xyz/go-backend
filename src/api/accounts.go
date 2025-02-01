@@ -3,7 +3,6 @@ package api
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"image"
 	_ "image/jpeg" // Register JPEG format
@@ -16,8 +15,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"kadane.xyz/go-backend/v2/src/apierror"
 	"kadane.xyz/go-backend/v2/src/middleware"
@@ -185,29 +182,8 @@ func (h *Handler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 		Email:    createAccountRequest.Email,
 	})
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) {
-			switch pgErr.Code {
-			case "23505": // unique_violation
-				if pgErr.ConstraintName == "account_username_key" {
-					apierror.SendError(w, http.StatusConflict, "Username already exists")
-				} else if pgErr.ConstraintName == "account_email_key" {
-					apierror.SendError(w, http.StatusConflict, "Email already exists")
-				} else {
-					apierror.SendError(w, http.StatusConflict, "Account with this ID already exists")
-					return
-				}
-			default:
-				apierror.SendError(w, http.StatusInternalServerError, "Failed to create account")
-				return
-			}
-		} else if errors.Is(err, pgx.ErrNoRows) {
-			apierror.SendError(w, http.StatusNotFound, "Account not found")
-			return
-		} else {
-			apierror.SendError(w, http.StatusInternalServerError, "Failed to create account")
-			return
-		}
+		apierror.SendError(w, http.StatusInternalServerError, "Failed to create account")
+		return
 	}
 
 	// Create account attributes in the database
@@ -235,7 +211,7 @@ func (h *Handler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 		IncludeAttributes: true,
 	})
 	if err != nil {
-		EmptyDataResponse(w)
+		apierror.SendError(w, http.StatusInternalServerError, "Error getting account")
 		return
 	}
 
