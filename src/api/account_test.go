@@ -204,8 +204,6 @@ func TestGetAccountByUsername(t *testing.T) {
 }
 
 func TestCreateAccount(t *testing.T) {
-	t.Parallel()
-
 	baseReq, err := http.NewRequest("POST", "/accounts", nil)
 	if err != nil {
 		t.Fatalf("Failed to create request: %v", err)
@@ -287,6 +285,57 @@ func TestCreateAccount(t *testing.T) {
 
 			w := httptest.NewRecorder()
 			handler.CreateAccount(w, req)
+
+			if w.Code != testcase.expectedStatus {
+				t.Errorf("Expected status %d, got %d", testcase.expectedStatus, w.Code)
+			}
+		})
+	}
+}
+
+func TestUpdateAccount(t *testing.T) {
+	baseReq, err := http.NewRequest("PUT", "/accounts/", nil)
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+	baseCtx := context.WithValue(baseReq.Context(), middleware.FirebaseTokenKey, firebaseToken)
+
+	testCases := []struct {
+		name           string
+		id             string
+		input          AccountAttributes
+		expectedStatus int
+	}{
+		{
+			name: "Update account",
+			id:   "123abc",
+			input: AccountAttributes{
+				Bio:          "Hello, I'm John Doe",
+				ContactEmail: "john@example.com",
+				Location:     "New York",
+			},
+			expectedStatus: http.StatusOK,
+		},
+	}
+
+	for _, testCase := range testCases {
+		testcase := testCase
+		t.Run(testcase.name, func(t *testing.T) {
+			t.Parallel()
+
+			req := baseReq.Clone(baseCtx)
+			routeCtx := chi.NewRouteContext()
+			routeCtx.URLParams.Add("id", testcase.id)
+			req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+
+			body, err := json.Marshal(testcase.input)
+			if err != nil {
+				t.Fatalf("Failed to marshal input: %v", err)
+			}
+			req.Body = io.NopCloser(bytes.NewBuffer(body))
+
+			w := httptest.NewRecorder()
+			handler.UpdateAccount(w, req)
 
 			if w.Code != testcase.expectedStatus {
 				t.Errorf("Expected status %d, got %d", testcase.expectedStatus, w.Code)
