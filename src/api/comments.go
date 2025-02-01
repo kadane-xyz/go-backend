@@ -174,7 +174,7 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 		UserID: userId,
 	})
 	if err != nil {
-		http.Error(w, "Solution not found", http.StatusNotFound)
+		apierror.SendError(w, http.StatusNotFound, "Solution not found")
 		return
 	}
 
@@ -185,11 +185,7 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 			UserID: userId,
 		})
 		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				http.Error(w, "Parent comment not found", http.StatusNotFound)
-			} else {
-				http.Error(w, "Error checking parent comment: "+err.Error(), http.StatusInternalServerError)
-			}
+			apierror.SendError(w, http.StatusNotFound, "Parent comment not found")
 			return
 		}
 	}
