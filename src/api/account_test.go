@@ -2,23 +2,13 @@ package api
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
-	"io"
 	"net/http"
-	"net/http/httptest"
 	"testing"
-
-	"github.com/go-chi/chi/v5"
-	"kadane.xyz/go-backend/v2/src/middleware"
 )
 
 func TestGetAccount(t *testing.T) {
-	baseReq, err := http.NewRequest("GET", "/accounts/", nil)
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
-	baseCtx := context.WithValue(baseReq.Context(), middleware.FirebaseTokenKey, firebaseToken)
+	baseReq := newTestRequest(t, "GET", "/accounts/", nil)
 
 	testCases := []struct {
 		name           string
@@ -49,103 +39,56 @@ func TestGetAccount(t *testing.T) {
 		t.Run(testcase.name, func(t *testing.T) {
 			t.Parallel()
 
-			req := baseReq.Clone(baseCtx)
+			req := baseReq.Clone(baseReq.Context())
+			req = applyRouteParams(req, map[string]string{"id": testcase.urlParamId})
+			req = applyQueryParams(req, testCase.queryParams)
 
-			routeCtx := chi.NewRouteContext()
-			routeCtx.URLParams.Add("id", testcase.urlParamId)
-			req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
-
-			if testCase.queryParams != nil {
-				q := req.URL.Query()
-				for key, value := range testCase.queryParams {
-					q.Add(key, value)
-				}
-				req.URL.RawQuery = q.Encode()
-			}
-
-			w := httptest.NewRecorder()
-			handler.GetAccount(w, req)
-
-			if w.Code != testcase.expectedStatus {
-				var errMsg string
-				if w.Body.Len() > 0 {
-					var response struct {
-						Error struct {
-							StatusCode int    `json:"statusCode"`
-							Message    string `json:"message"`
-						} `json:"error"`
-					}
-					if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
-						errMsg = w.Body.String() // Fallback to raw body if JSON parsing fails
-					} else {
-						errMsg = response.Error.Message
-					}
-				} else {
-					errMsg = "no response body"
-				}
-				t.Errorf("Expected status %d, got %d, message: %s", testcase.expectedStatus, w.Code, errMsg)
-			}
+			executeTestRequest(t, req, testcase.expectedStatus, handler.GetAccount)
 		})
 	}
 }
 
 func TestGetAccounts(t *testing.T) {
-	baseReq, err := http.NewRequest("GET", "/accounts", nil)
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
-	baseCtx := context.WithValue(baseReq.Context(), middleware.FirebaseTokenKey, firebaseToken)
+	baseReq := newTestRequest(t, "GET", "/accounts", nil)
 
 	testCases := []struct {
 		name           string
-		params         map[string]string
+		queryParams    map[string]string
 		expectedStatus int
 	}{
 		{
 			name:           "Get accounts by username",
-			params:         map[string]string{"usernames": "[\"johndoe\", \"janedoe\"]"},
+			queryParams:    map[string]string{"usernames": "[\"johndoe\", \"janedoe\"]"},
 			expectedStatus: http.StatusOK,
 		},
 		{
 			name:           "Get accounts by locations",
-			params:         map[string]string{"locations": "[\"New York\", \"London\"]"},
+			queryParams:    map[string]string{"locations": "[\"New York\", \"London\"]"},
 			expectedStatus: http.StatusOK,
 		},
 		{
 			name:           "Get accounts sort by",
-			params:         map[string]string{"sortBy": "createdAt"},
+			queryParams:    map[string]string{"sortBy": "createdAt"},
 			expectedStatus: http.StatusOK,
 		},
 		{
 			name:           "Get accounts order by",
-			params:         map[string]string{"orderBy": "desc"},
+			queryParams:    map[string]string{"orderBy": "desc"},
 			expectedStatus: http.StatusOK,
 		},
 		{
-			name: "Get accounts by username and locations",
-			params: map[string]string{
-				"usernames": "[\"johndoe\", \"janedoe\"]",
-				"locations": "[\"New York\", \"London\"]",
-			},
+			name:           "Get accounts by username and locations",
+			queryParams:    map[string]string{"usernames": "[\"johndoe\", \"janedoe\"]", "locations": "[\"New York\", \"London\"]"},
 			expectedStatus: http.StatusOK,
 		},
 		{
-			name: "Get accounts by username locations sort and order",
-			params: map[string]string{
-				"usernames": "[\"johndoe\", \"janedoe\"]",
-				"locations": "[\"New York\", \"London\"]",
-				"sortBy":    "createdAt",
-				"orderBy":   "desc",
-			},
+			name:           "Get accounts by username locations sort and order",
+			queryParams:    map[string]string{"usernames": "[\"johndoe\", \"janedoe\"]", "locations": "[\"New York\", \"London\"]", "sortBy": "createdAt", "orderBy": "desc"},
 			expectedStatus: http.StatusOK,
 		},
 		{
-			name: "Get accounts by username sort and order",
-			params: map[string]string{
-				"usernames": "[\"johndoe\", \"janedoe\"]",
-				"sortBy":    "level",
-				"orderBy":   "asc",
-			},
+			name:           "Get accounts by username sort and order",
+			queryParams:    map[string]string{"usernames": "[\"johndoe\", \"janedoe\"]", "sortBy": "level", "orderBy": "asc"},
 			expectedStatus: http.StatusOK,
 		},
 	}
@@ -155,46 +98,16 @@ func TestGetAccounts(t *testing.T) {
 		t.Run(testcase.name, func(t *testing.T) {
 			t.Parallel()
 
-			req := baseReq.Clone(baseCtx)
-			routeCtx := chi.NewRouteContext()
-			for key, value := range testcase.params {
-				routeCtx.URLParams.Add(key, value)
-			}
-			req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+			req := baseReq.Clone(baseReq.Context())
+			req = applyQueryParams(req, testCase.queryParams)
 
-			w := httptest.NewRecorder()
-
-			handler.GetAccounts(w, req)
-
-			if w.Code != testcase.expectedStatus {
-				var errMsg string
-				if w.Body.Len() > 0 {
-					var response struct {
-						Error struct {
-							StatusCode int    `json:"statusCode"`
-							Message    string `json:"message"`
-						} `json:"error"`
-					}
-					if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
-						errMsg = w.Body.String() // Fallback to raw body if JSON parsing fails
-					} else {
-						errMsg = response.Error.Message
-					}
-				} else {
-					errMsg = "no response body"
-				}
-				t.Errorf("Expected status %d, got %d, message: %s", testcase.expectedStatus, w.Code, errMsg)
-			}
+			executeTestRequest(t, req, testcase.expectedStatus, handler.GetAccounts)
 		})
 	}
 }
 
 func TestGetAccountByUsername(t *testing.T) {
-	baseReq, err := http.NewRequest("GET", "/accounts/username/", nil)
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
-	baseCtx := context.WithValue(baseReq.Context(), middleware.FirebaseTokenKey, firebaseToken)
+	baseReq := newTestRequest(t, "GET", "/accounts/username/", nil)
 
 	testCases := []struct {
 		name             string
@@ -225,53 +138,16 @@ func TestGetAccountByUsername(t *testing.T) {
 		t.Run(testcase.name, func(t *testing.T) {
 			t.Parallel()
 
-			req := baseReq.Clone(baseCtx)
+			req := baseReq.Clone(baseReq.Context())
+			req = applyRouteParams(req, map[string]string{"username": testcase.urlParamUsername})
+			req = applyQueryParams(req, testCase.queryParams)
 
-			routeCtx := chi.NewRouteContext()
-			routeCtx.URLParams.Add("username", testcase.urlParamUsername)
-			req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
-
-			if testCase.queryParams != nil {
-				q := req.URL.Query()
-				for key, value := range testCase.queryParams {
-					q.Add(key, value)
-				}
-				req.URL.RawQuery = q.Encode()
-			}
-
-			w := httptest.NewRecorder()
-			handler.GetAccountByUsername(w, req)
-
-			if w.Code != testcase.expectedStatus {
-				var errMsg string
-				if w.Body.Len() > 0 {
-					var response struct {
-						Error struct {
-							StatusCode int    `json:"statusCode"`
-							Message    string `json:"message"`
-						} `json:"error"`
-					}
-					if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
-						errMsg = w.Body.String() // Fallback to raw body if JSON parsing fails
-					} else {
-						errMsg = response.Error.Message
-					}
-				} else {
-					errMsg = "no response body"
-				}
-				t.Errorf("Expected status %d, got %d, message: %s", testcase.expectedStatus, w.Code, errMsg)
-			}
+			executeTestRequest(t, req, testcase.expectedStatus, handler.GetAccountByUsername)
 		})
 	}
 }
 
 func TestCreateAccount(t *testing.T) {
-	baseReq, err := http.NewRequest("POST", "/accounts", nil)
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
-	baseCtx := context.WithValue(baseReq.Context(), middleware.FirebaseTokenKey, firebaseToken)
-
 	testCases := []struct {
 		name           string
 		input          CreateAccountRequest
@@ -329,55 +205,21 @@ func TestCreateAccount(t *testing.T) {
 		t.Run(testcase.name, func(t *testing.T) {
 			t.Parallel()
 
-			req, err := http.NewRequest("POST", "/accounts", nil)
-			if err != nil {
-				t.Fatalf("Failed to create request: %v", err)
-			}
-			req = req.WithContext(baseCtx)
-			req.Header.Set("Content-Type", "application/json")
-
 			body, err := json.Marshal(testcase.input)
 			if err != nil {
 				t.Fatalf("Failed to marshal input: %v", err)
 			}
-			req.Body = io.NopCloser(bytes.NewBuffer(body))
 
-			routeCtx := chi.NewRouteContext()
-			req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+			req := newTestRequest(t, "POST", "/accounts", bytes.NewBuffer(body))
+			req.Header.Set("Content-Type", "application/json")
+			req = applyRouteParams(req, nil)
 
-			w := httptest.NewRecorder()
-			handler.CreateAccount(w, req)
-
-			if w.Code != testcase.expectedStatus {
-				var errMsg string
-				if w.Body.Len() > 0 {
-					var response struct {
-						Error struct {
-							StatusCode int    `json:"statusCode"`
-							Message    string `json:"message"`
-						} `json:"error"`
-					}
-					if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
-						errMsg = w.Body.String() // Fallback to raw body if JSON parsing fails
-					} else {
-						errMsg = response.Error.Message
-					}
-				} else {
-					errMsg = "no response body"
-				}
-				t.Errorf("Expected status %d, got %d, message: %s", testcase.expectedStatus, w.Code, errMsg)
-			}
+			executeTestRequest(t, req, testcase.expectedStatus, handler.CreateAccount)
 		})
 	}
 }
 
 func TestUpdateAccount(t *testing.T) {
-	baseReq, err := http.NewRequest("PUT", "/accounts/", nil)
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
-	baseCtx := context.WithValue(baseReq.Context(), middleware.FirebaseTokenKey, firebaseToken)
-
 	testCases := []struct {
 		name           string
 		urlParamId     string
@@ -402,50 +244,20 @@ func TestUpdateAccount(t *testing.T) {
 		t.Run(testcase.name, func(t *testing.T) {
 			t.Parallel()
 
-			req := baseReq.Clone(baseCtx)
-			routeCtx := chi.NewRouteContext()
-			routeCtx.URLParams.Add("id", testcase.urlParamId)
-			req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
-
 			body, err := json.Marshal(testcase.input)
 			if err != nil {
 				t.Fatalf("Failed to marshal input: %v", err)
 			}
-			req.Body = io.NopCloser(bytes.NewBuffer(body))
 
-			w := httptest.NewRecorder()
-			handler.UpdateAccount(w, req)
+			req := newTestRequest(t, "PUT", "/accounts", bytes.NewBuffer(body))
+			req = applyRouteParams(req, map[string]string{"id": testcase.urlParamId})
 
-			if w.Code != testcase.expectedStatus {
-				var errMsg string
-				if w.Body.Len() > 0 {
-					var response struct {
-						Error struct {
-							StatusCode int    `json:"statusCode"`
-							Message    string `json:"message"`
-						} `json:"error"`
-					}
-					if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
-						errMsg = w.Body.String() // Fallback to raw body if JSON parsing fails
-					} else {
-						errMsg = response.Error.Message
-					}
-				} else {
-					errMsg = "no response body"
-				}
-				t.Errorf("Expected status %d, got %d, message: %s", testcase.expectedStatus, w.Code, errMsg)
-			}
+			executeTestRequest(t, req, testcase.expectedStatus, handler.UpdateAccount)
 		})
 	}
 }
 
 func TestDeleteAccount(t *testing.T) {
-	baseReq, err := http.NewRequest("DELETE", "/accounts/", nil)
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
-	baseCtx := context.WithValue(baseReq.Context(), middleware.FirebaseTokenKey, firebaseToken)
-
 	testCases := []struct {
 		name           string
 		urlParamId     string
@@ -468,33 +280,10 @@ func TestDeleteAccount(t *testing.T) {
 		t.Run(testcase.name, func(t *testing.T) {
 			t.Parallel()
 
-			req := baseReq.Clone(baseCtx)
-			routeCtx := chi.NewRouteContext()
-			routeCtx.URLParams.Add("id", testcase.urlParamId)
-			req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+			req := newTestRequest(t, "DELETE", "/accounts", nil)
+			req = applyRouteParams(req, map[string]string{"id": testcase.urlParamId})
 
-			w := httptest.NewRecorder()
-			handler.DeleteAccount(w, req)
-
-			if w.Code != testcase.expectedStatus {
-				var errMsg string
-				if w.Body.Len() > 0 {
-					var response struct {
-						Error struct {
-							StatusCode int    `json:"statusCode"`
-							Message    string `json:"message"`
-						} `json:"error"`
-					}
-					if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
-						errMsg = w.Body.String() // Fallback to raw body if JSON parsing fails
-					} else {
-						errMsg = response.Error.Message
-					}
-				} else {
-					errMsg = "no response body"
-				}
-				t.Errorf("Expected status %d, got %d, message: %s", testcase.expectedStatus, w.Code, errMsg)
-			}
+			executeTestRequest(t, req, testcase.expectedStatus, handler.DeleteAccount)
 		})
 	}
 }
