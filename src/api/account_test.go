@@ -343,3 +343,48 @@ func TestUpdateAccount(t *testing.T) {
 		})
 	}
 }
+
+func TestDeleteAccount(t *testing.T) {
+	baseReq, err := http.NewRequest("DELETE", "/accounts/", nil)
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+	baseCtx := context.WithValue(baseReq.Context(), middleware.FirebaseTokenKey, firebaseToken)
+
+	testCases := []struct {
+		name           string
+		id             string
+		expectedStatus int
+	}{
+		{
+			name:           "Delete account",
+			id:             "123abc",
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "Delete account missing id",
+			id:             "",
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:           "Delete account not found",
+			id:             "notfound",
+			expectedStatus: http.StatusInternalServerError,
+		},
+	}
+
+	for _, testCase := range testCases {
+		testcase := testCase
+		t.Run(testcase.name, func(t *testing.T) {
+			t.Parallel()
+
+			req := baseReq.Clone(baseCtx)
+			routeCtx := chi.NewRouteContext()
+			routeCtx.URLParams.Add("id", testcase.id)
+			req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+
+			w := httptest.NewRecorder()
+			handler.DeleteAccount(w, req)
+		})
+	}
+}
