@@ -265,7 +265,7 @@ func TestDeleteAccount(t *testing.T) {
 	}{
 		{
 			name:           "Delete account",
-			urlParamId:     "123abc",
+			urlParamId:     "789ghi",
 			expectedStatus: http.StatusNoContent,
 		},
 		{
