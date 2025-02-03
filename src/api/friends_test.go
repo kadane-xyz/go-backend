@@ -233,7 +233,7 @@ func TestGetFriendsUsername(t *testing.T) {
 	}{
 		{
 			name:             "Get friends username",
-			usernameUrlParam: "bobjohnson",
+			usernameUrlParam: "janesmith",
 			expectedStatus:   http.StatusOK,
 		},
 		{
