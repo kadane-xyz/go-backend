@@ -17,6 +17,12 @@ type ContextKey string
 
 const FirebaseTokenKey ContextKey = "firebaseToken"
 
+type FirebaseTokenInfo struct {
+	UserID string
+	Email  string
+	Name   string
+}
+
 // BlockConnectMethod blocks any request using the CONNECT method
 func BlockConnectMethod(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -32,12 +38,6 @@ func BlockConnectMethod(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
-}
-
-type FirebaseTokenInfo struct {
-	UserID string
-	Email  string
-	Name   string
 }
 
 func getStringClaim(claims map[string]interface{}, key string) string {
@@ -115,12 +115,12 @@ func (h *Handler) DebugAuth() func(http.Handler) http.Handler {
 				return
 			}
 
-			token := "debug"
+			token := "123abc"
 
 			claims := FirebaseTokenInfo{
 				UserID: token,
-				Email:  "debug@debug.com",
-				Name:   "Debug User",
+				Email:  "john@example.com",
+				Name:   "John Doe",
 			}
 
 			// Pass the claims to the next handler via the context
