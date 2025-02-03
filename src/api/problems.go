@@ -136,13 +136,13 @@ func (h *Handler) GetProblems(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(problems) == 0 {
-		apierror.SendError(w, http.StatusBadRequest, "No problems found")
+		apierror.SendError(w, http.StatusNotFound, "No problems found")
 		return
 	}
 
 	totalCount := int64(problems[0].TotalCount)
 	if totalCount == 0 {
-		apierror.SendError(w, http.StatusBadRequest, "No problems found")
+		apierror.SendError(w, http.StatusNotFound, "No problems found")
 		return
 	}
 
@@ -302,7 +302,7 @@ func (h *Handler) CreateProblem(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-// GET: /problems/:id
+// GET: /problems/{problemId}
 func (h *Handler) GetProblem(w http.ResponseWriter, r *http.Request) {
 	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
 	if userId == "" {
@@ -310,7 +310,7 @@ func (h *Handler) GetProblem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id := chi.URLParam(r, "id")
+	id := chi.URLParam(r, "problemId")
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
 		apierror.SendError(w, http.StatusBadRequest, "Invalid problem ID")
