@@ -2,68 +2,178 @@ package api
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"testing"
-
-	"github.com/go-chi/chi/v5"
-	"kadane.xyz/go-backend/v2/src/middleware"
-	"kadane.xyz/go-backend/v2/src/sql/sql"
 )
 
-func TestGetProblems(t *testing.T) {
-	req, err := http.NewRequest("GET", "/problems", nil)
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
+func TestGetProblem(t *testing.T) {
+	baseReq := newTestRequest(t, "GET", "/problems/{problemId}", nil)
+
+	testCases := []struct {
+		name              string
+		problemIdUrlParam string
+		expectedStatus    int
+	}{
+		{
+			name:              "Get problem",
+			problemIdUrlParam: "1",
+			expectedStatus:    http.StatusOK,
+		},
 	}
 
-	newctx := context.WithValue(req.Context(), middleware.FirebaseTokenKey, firebaseToken)
-	req = req.WithContext(newctx)
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
 
-	w := httptest.NewRecorder()
-	handler.GetProblems(w, req)
+			req := baseReq.Clone(baseReq.Context())
+			req = applyRouteParams(req, map[string]string{"problemId": testCase.problemIdUrlParam})
 
-	if w.Code != http.StatusOK {
-		t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
+			executeTestRequest(t, req, testCase.expectedStatus, handler.GetProblem)
+		})
+	}
+}
+
+func TestGetProblems(t *testing.T) {
+	baseReq := newTestRequest(t, "GET", "/problems", nil)
+
+	testCases := []struct {
+		name           string
+		queryParams    map[string]string
+		expectedStatus int
+	}{
+		{
+			name: "Get problems",
+			queryParams: map[string]string{
+				"titleSearch": "",
+				"difficulty":  "",
+				"sort":        "",
+				"order":       "",
+				"page":        "",
+				"perPage":     "",
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name: "Get problems with title search",
+			queryParams: map[string]string{
+				"titleSearch": "Two Sum",
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name: "Get problems with difficulty search",
+			queryParams: map[string]string{
+				"difficulty": "medium",
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name: "Get problems with sort",
+			queryParams: map[string]string{
+				"sort": "alpha",
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name: "Get problems with sort",
+			queryParams: map[string]string{
+				"sort": "index",
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name: "Get problems with sort and order",
+			queryParams: map[string]string{
+				"sort":  "index",
+				"order": "desc",
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name: "Get problems with sort, order and pagination",
+			queryParams: map[string]string{
+				"sort":    "index",
+				"order":   "desc",
+				"page":    "1",
+				"perPage": "10",
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name: "Get problems with sort, order and pagination",
+			queryParams: map[string]string{
+				"sort":    "index",
+				"order":   "desc",
+				"page":    "2",
+				"perPage": "5",
+			},
+			expectedStatus: http.StatusNotFound,
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			req := baseReq.Clone(baseReq.Context())
+			req = applyQueryParams(req, testCase.queryParams)
+
+			executeTestRequest(t, req, testCase.expectedStatus, handler.GetProblems)
+		})
 	}
 }
 
 func TestCreateProblem(t *testing.T) {
-	problem := Problem{
-		Title:        "Test Problem",
-		Description:  "This is a test problem",
-		FunctionName: "testFunction",
-		Tags:         []string{"test", "problem"},
-		Difficulty:   sql.ProblemDifficultyEasy,
-		Code:         map[string]string{"go": "func testFunction() { return 42 }"},
-		Hints:        []ProblemRequestHint{{Description: "This is a hint", Answer: "42"}},
-		Points:       100,
-		Solution:     "func testFunction() { return 42 }",
-		TestCases:    []TestCase{{Description: "Test case 1", Input: []TestCaseInput{{Value: "1", Type: "int"}, {Value: "2", Type: "int"}, {Value: "3", Type: "int"}}, Output: "6", Visibility: sql.VisibilityPublic}},
+	testCases := []struct {
+		name           string
+		body           ProblemRequest
+		expectedStatus int
+	}{
+		{
+			name: "Create problem",
+			body: ProblemRequest{
+				Title:        "Test Problem",
+				Description:  "This is a test problem",
+				FunctionName: "testFunction",
+				Tags:         []string{"test", "problem"},
+				Difficulty:   "easy",
+				Code: map[string]string{
+					"go":         "package main\n\nfunc TestProblem()",
+					"python":     "def test_problem():\n    pass",
+					"javascript": "function testProblem() {\n    // test code\n}",
+					"java":       "public class TestProblem {\n    public static void main(String[] args) {\n        // test code\n    }\n}",
+					"cpp":        "int testProblem() {\n    // test code\n}",
+					"typescript": "function testProblem() {\n    // test code\n}",
+				},
+				Hints: []ProblemRequestHint{
+					{
+						Description: "This is a test hint",
+						Answer:      "This is a test answer",
+					},
+				},
+				Solution: "This is a test solution",
+			},
+			expectedStatus: http.StatusCreated,
+		},
 	}
 
-	jsonBody, err := json.Marshal(problem)
-	if err != nil {
-		t.Fatalf("Failed to marshal problem: %v", err)
-	}
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
 
-	req, err := http.NewRequest("POST", "/problems", bytes.NewBuffer(jsonBody))
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
+			body, err := json.Marshal(testCase.body)
+			if err != nil {
+				t.Fatalf("Failed to marshal body: %v", err)
+			}
 
-	routeCtx := chi.NewRouteContext()
-	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+			req := newTestRequest(t, "POST", "/problems", bytes.NewBuffer(body))
+			req.Header.Set("Content-Type", "application/json")
 
-	newctx := context.WithValue(req.Context(), middleware.FirebaseTokenKey, firebaseToken)
-	req = req.WithContext(newctx)
-
-	w := httptest.NewRecorder()
-	handler.CreateProblem(w, req)
-
-	if w.Code != http.StatusCreated {
-		t.Errorf("Expected status %d, got %d", http.StatusCreated, w.Code)
+			executeTestRequest(t, req, testCase.expectedStatus, handler.CreateProblem)
+		})
 	}
 }
