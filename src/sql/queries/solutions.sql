@@ -125,6 +125,9 @@ ORDER BY
     s.id DESC
 LIMIT @per_page OFFSET @page;
 
+-- name: GetSolutionById :one
+SELECT 1 FROM solution WHERE id = @id;
+
 -- name: GetSolutionsWithCommentsCount :many
 SELECT s.*, COALESCE(comment_counts.comments_count, 0) AS comments_count
 FROM solution s

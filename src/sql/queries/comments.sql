@@ -25,6 +25,9 @@ LEFT JOIN (
 ) uv ON c.id = uv.comment_id
 WHERE c.id = @id;
 
+-- name: GetCommentById :one
+SELECT 1 FROM comment WHERE id = @id;
+
 -- name: GetComments :many
 SELECT 
     c.*,
@@ -102,7 +105,7 @@ WHERE user_id = $1 AND comment_id = $2;
 
 -- name: CreateComment :one
 INSERT INTO comment (user_id, body, solution_id, parent_id)
-VALUES ($1, $2, $3, $4)
+VALUES (@user_id::text, @body::text, @solution_id::bigint, sqlc.narg('parent_id')) 
 RETURNING *;
 
 -- PUT --
