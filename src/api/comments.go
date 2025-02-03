@@ -2,13 +2,11 @@ package api
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx"
 	"github.com/jackc/pgx/v5/pgtype"
 	"kadane.xyz/go-backend/v2/src/apierror"
 	"kadane.xyz/go-backend/v2/src/middleware"
@@ -29,6 +27,10 @@ type CommentCreateRequest struct {
 	SolutionId int64  `json:"solutionId"`
 	Body       string `json:"body"`
 	ParentId   *int64 `json:"parentId,omitempty"`
+}
+
+type CommentUpdateRequest struct {
+	Body string `json:"body"`
 }
 
 type CommentResponse struct {
@@ -277,32 +279,32 @@ func (h *Handler) UpdateComment(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
 	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
 	if userId == "" {
-		http.Error(w, "Missing user id", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "Missing user id")
 		return
 	}
 
 	commentId := chi.URLParam(r, "commentId")
 	if commentId == "" {
-		http.Error(w, "Missing commentId", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "Missing commentId")
 		return
 	}
 
 	id, err := strconv.ParseInt(commentId, 10, 64)
 	if err != nil {
-		http.Error(w, "commentId must be an integer", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "Invalid commentId format")
 		return
 	}
 
-	var comment Comment
+	var comment CommentUpdateRequest
 	err = json.NewDecoder(r.Body).Decode(&comment)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "Invalid comment data format")
 		return
 	}
 
 	// Validate input
 	if comment.Body == "" {
-		http.Error(w, "Body is required", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "Body is required")
 		return
 	}
 
@@ -312,11 +314,7 @@ func (h *Handler) UpdateComment(w http.ResponseWriter, r *http.Request) {
 		UserID: userId, // Check if the user is the owner of the comment
 	})
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			http.Error(w, "Comment not found", http.StatusNotFound)
-		} else {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
+		apierror.SendError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -329,19 +327,19 @@ func (h *Handler) DeleteComment(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
 	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
 	if userId == "" {
-		http.Error(w, "Missing user id", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "Missing user id")
 		return
 	}
 
 	commentId := chi.URLParam(r, "commentId")
 	if commentId == "" {
-		http.Error(w, "Missing commentId", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "Missing commentId")
 		return
 	}
 
 	id, err := strconv.ParseInt(commentId, 10, 64)
 	if err != nil {
-		http.Error(w, "commentId must be an integer", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "Invalid commentId format")
 		return
 	}
 
@@ -350,11 +348,7 @@ func (h *Handler) DeleteComment(w http.ResponseWriter, r *http.Request) {
 		UserID: userId, // Check if the user is the owner of the comment
 	})
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			http.Error(w, "Comment not found", http.StatusNotFound)
-		} else {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
+		apierror.SendError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -367,129 +361,50 @@ func (h *Handler) VoteComment(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
 	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
 	if userId == "" {
-		http.Error(w, "Missing user id", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "Missing user id")
 		return
 	}
 
 	// Extract commentId from URL parameters
 	commentId := chi.URLParam(r, "commentId")
 	if commentId == "" {
-		http.Error(w, "commentId is required", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "Missing commentId")
 		return
 	}
 
 	id, err := strconv.ParseInt(commentId, 10, 64)
 	if err != nil {
-		http.Error(w, "commentId must be an integer", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "Invalid commentId format")
 		return
 	}
 
 	// Decode the request body into VoteRequest struct
 	var req VoteRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "error decoding request body", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "Error decoding request body")
 		return
 	}
 
 	if req.Vote == "" {
-		http.Error(w, "vote is required", http.StatusBadRequest)
-		return
-	}
-
-	// Validate the vote value
-	validVotes := map[string]bool{"up": true, "down": true, "none": true}
-	if !validVotes[req.Vote] {
-		http.Error(w, "invalid vote type", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "Vote is required")
 		return
 	}
 
 	// Check if the comment exists
-	_, err = h.PostgresQueries.GetComment(r.Context(), sql.GetCommentParams{
-		ID:     id,
-		UserID: userId,
-	})
+	_, err = h.PostgresQueries.GetCommentById(r.Context(), id)
 	if err != nil {
-		http.Error(w, "comment not found", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "Comment not found")
 		return
 	}
 
-	// Prepare parameters to get the existing vote
-	commentArgs := sql.GetCommentVoteParams{
-		UserID: pgtype.Text{
-			String: userId,
-			Valid:  true,
-		},
-		CommentID: pgtype.Int8{
-			Int64: id,
-			Valid: true,
-		},
-	}
-
-	// Get the existing vote
-	existingVote, err := h.PostgresQueries.GetCommentVote(r.Context(), commentArgs)
+	err = h.PostgresQueries.VoteComment(r.Context(), sql.VoteCommentParams{
+		UserID:    userId,
+		CommentID: id,
+		Vote:      sql.VoteType(req.Vote),
+	})
 	if err != nil {
-		// No existing vote
-		if req.Vote == "none" {
-			// Nothing to delete; return OK
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-		// Insert the new vote
-		insertArgs := sql.InsertCommentVoteParams{
-			UserID: pgtype.Text{
-				String: userId,
-				Valid:  true,
-			},
-			CommentID: pgtype.Int8{
-				Int64: id,
-				Valid: true,
-			},
-			Vote: sql.VoteType(req.Vote),
-		}
-		if err := h.PostgresQueries.InsertCommentVote(r.Context(), insertArgs); err != nil {
-			http.Error(w, "error inserting vote", http.StatusInternalServerError)
-			return
-		}
-	} else {
-		// Existing vote found
-		if req.Vote == "none" {
-			// Delete the existing vote
-			deleteArgs := sql.DeleteCommentVoteParams{
-				UserID: pgtype.Text{
-					String: userId,
-					Valid:  true,
-				},
-				CommentID: pgtype.Int8{
-					Int64: id,
-					Valid: true,
-				},
-			}
-			if err := h.PostgresQueries.DeleteCommentVote(r.Context(), deleteArgs); err != nil {
-				http.Error(w, "error deleting vote", http.StatusInternalServerError)
-				return
-			}
-		} else if existingVote != sql.VoteType(req.Vote) {
-			// Update the vote if it's different
-			updateArgs := sql.UpdateCommentVoteParams{
-				UserID: pgtype.Text{
-					String: userId,
-					Valid:  true,
-				},
-				CommentID: pgtype.Int8{
-					Int64: id,
-					Valid: true,
-				},
-				Vote: sql.VoteType(req.Vote),
-			}
-			if err := h.PostgresQueries.UpdateCommentVote(r.Context(), updateArgs); err != nil {
-				http.Error(w, "error updating vote", http.StatusInternalServerError)
-				return
-			}
-		} else {
-			// Vote is the same; no action needed
-			w.WriteHeader(http.StatusOK)
-			return
-		}
+		apierror.SendError(w, http.StatusBadRequest, "Error voting on comment")
+		return
 	}
 
 	// Send the updated comment as the response

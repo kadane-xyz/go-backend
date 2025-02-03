@@ -20,66 +20,47 @@ CREATE TABLE comment_user_vote (
     UNIQUE (user_id, comment_id)
 );
 
--- Update the votes count for the comment when a vote is inserted, updated, or deleted
-CREATE OR REPLACE FUNCTION update_comment_votes() RETURNS TRIGGER AS $$
+-- Function to recalculate a comment's vote total based on the current votes.
+CREATE OR REPLACE FUNCTION recalc_comment_votes(p_comment_id BIGINT)
+RETURNS VOID AS $$
 BEGIN
-    -- Handle Insert case
-    IF TG_OP = 'INSERT' THEN
-        IF NEW.vote = 'up' THEN
-            UPDATE comment SET votes = votes + 1 WHERE id = NEW.comment_id;
-        ELSIF NEW.vote = 'down' THEN
-            UPDATE comment SET votes = votes - 1 WHERE id = NEW.comment_id;
-        END IF;
-
-    -- Handle Update case (if the vote is changing)
-    ELSIF TG_OP = 'UPDATE' THEN
-        -- If the old vote was 'up' and the new vote is 'down'
-        IF OLD.vote = 'up' AND NEW.vote = 'down' THEN
-            UPDATE comment SET votes = votes - 2 WHERE id = NEW.comment_id;
-        -- If the old vote was 'down' and the new vote is 'up'
-        ELSIF OLD.vote = 'down' AND NEW.vote = 'up' THEN
-            UPDATE comment SET votes = votes + 2 WHERE id = NEW.comment_id;
-        -- If the old vote was 'up' and the new vote is 'none' (removing the upvote)
-        ELSIF OLD.vote = 'up' AND NEW.vote = 'none' THEN
-            UPDATE comment SET votes = votes - 1 WHERE id = NEW.comment_id;
-        -- If the old vote was 'down' and the new vote is 'none' (removing the downvote)
-        ELSIF OLD.vote = 'down' AND NEW.vote = 'none' THEN
-            UPDATE comment SET votes = votes + 1 WHERE id = NEW.comment_id;
-        -- If the old vote was 'none' and the new vote is 'up'
-        ELSIF OLD.vote = 'none' AND NEW.vote = 'up' THEN
-            UPDATE comment SET votes = votes + 1 WHERE id = NEW.comment_id;
-        -- If the old vote was 'none' and the new vote is 'down'
-        ELSIF OLD.vote = 'none' AND NEW.vote = 'down' THEN
-            UPDATE comment SET votes = votes - 1 WHERE id = NEW.comment_id;
-        END IF;
-
-    -- Handle Delete case (removing the vote)
-    ELSIF TG_OP = 'DELETE' THEN
-        IF OLD.vote = 'up' THEN
-            UPDATE comment SET votes = votes - 1 WHERE id = OLD.comment_id;
-        ELSIF OLD.vote = 'down' THEN
-            UPDATE comment SET votes = votes + 1 WHERE id = OLD.comment_id;
-        END IF;
-    END IF;
-
-    RETURN NEW;
+    UPDATE comment
+    SET votes = (
+        SELECT COALESCE(SUM(
+            CASE vote
+                WHEN 'up' THEN 1
+                WHEN 'down' THEN -1
+                ELSE 0
+            END
+        ), 0)
+        FROM comment_user_vote
+        WHERE comment_id = p_comment_id
+    )
+    WHERE id = p_comment_id;
 END;
 $$ LANGUAGE plpgsql;
 
--- Trigger for INSERT
-CREATE TRIGGER update_comment_vote_insert
-AFTER INSERT ON comment_user_vote
-FOR EACH ROW
-EXECUTE FUNCTION update_comment_votes();
+-- Function that encapsulates vote logic:
+-- If p_vote is 'none', any existing vote is removed.
+-- Otherwise, an upsert is performed to insert or update the vote.
+-- Finally, the comment's vote total is recalculated.
+CREATE OR REPLACE FUNCTION set_comment_vote(
+    p_user_id TEXT,
+    p_comment_id BIGINT,
+    p_vote vote_type
+) RETURNS VOID AS $$
+BEGIN
+    IF p_vote = 'none' THEN
+        DELETE FROM comment_user_vote
+        WHERE user_id = p_user_id
+          AND comment_id = p_comment_id;
+    ELSE
+        INSERT INTO comment_user_vote (user_id, comment_id, vote)
+        VALUES (p_user_id, p_comment_id, p_vote)
+        ON CONFLICT (user_id, comment_id)
+        DO UPDATE SET vote = EXCLUDED.vote;
+    END IF;
 
--- Trigger for UPDATE
-CREATE TRIGGER update_comment_vote_update
-AFTER UPDATE ON comment_user_vote
-FOR EACH ROW
-EXECUTE FUNCTION update_comment_votes();
-
--- Trigger for DELETE
-CREATE TRIGGER update_comment_vote_delete
-AFTER DELETE ON comment_user_vote
-FOR EACH ROW
-EXECUTE FUNCTION update_comment_votes();
+    PERFORM recalc_comment_votes(p_comment_id);
+END;
+$$ LANGUAGE plpgsql;

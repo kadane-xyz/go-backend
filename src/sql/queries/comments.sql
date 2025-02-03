@@ -124,14 +124,5 @@ DELETE FROM comment WHERE id = $1 AND user_id = $2;
 
 -- PATCH
 
--- name: InsertCommentVote :exec
-INSERT INTO comment_user_vote (user_id, comment_id, vote)
-VALUES ($1, $2, $3);
-
--- name: DeleteCommentVote :exec
-DELETE FROM comment_user_vote WHERE user_id = $1 AND comment_id = $2;
-
--- name: UpdateCommentVote :exec
-UPDATE comment_user_vote 
-SET vote = $3
-WHERE user_id = $1 AND comment_id = $2;
+-- name: VoteComment :exec
+SELECT set_comment_vote(@user_id::text, @comment_id::bigint, @vote::vote_type);
