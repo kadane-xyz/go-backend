@@ -25,6 +25,12 @@ type Comment struct {
 	Children   []*Comment `json:"children,omitempty"` // For nested child comments
 }
 
+type CommentCreateRequest struct {
+	SolutionId int64  `json:"solutionId"`
+	Body       string `json:"body"`
+	ParentId   *int64 `json:"parentId,omitempty"`
+}
+
 type CommentResponse struct {
 	Data CommentsData `json:"data"`
 }
@@ -155,7 +161,7 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var comment Comment
+	var comment CommentCreateRequest
 	err := json.NewDecoder(r.Body).Decode(&comment)
 	if err != nil {
 		apierror.SendError(w, http.StatusBadRequest, "Invalid comment data format")
@@ -169,43 +175,37 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if solution exists
-	_, err = h.PostgresQueries.GetSolution(r.Context(), sql.GetSolutionParams{
-		ID:     comment.SolutionId,
-		UserID: userId,
-	})
+	_, err = h.PostgresQueries.GetSolutionById(r.Context(), comment.SolutionId)
 	if err != nil {
 		apierror.SendError(w, http.StatusNotFound, "Solution not found")
 		return
 	}
 
 	// Check if parent comment exists if ParentId is provided
-	if comment.ParentId != 0 {
-		_, err := h.PostgresQueries.GetComment(r.Context(), sql.GetCommentParams{
-			ID:     comment.ParentId,
-			UserID: userId,
-		})
+	if comment.ParentId != nil {
+		_, err := h.PostgresQueries.GetCommentById(r.Context(), *comment.ParentId)
 		if err != nil {
-			apierror.SendError(w, http.StatusNotFound, "Parent comment not found")
+			apierror.SendError(w, http.StatusNotFound, err.Error())
 			return
 		}
 	}
 
-	var parentID pgtype.Int8
-	if comment.ParentId != 0 {
-		parentID = pgtype.Int8{Int64: comment.ParentId, Valid: true}
+	var parentId pgtype.Int8
+	if comment.ParentId != nil {
+		parentId = pgtype.Int8{Int64: *comment.ParentId, Valid: true}
 	} else {
-		parentID = pgtype.Int8{Valid: false}
+		parentId = pgtype.Int8{Valid: false}
 	}
 
 	// create comment
 	_, err = h.PostgresQueries.CreateComment(r.Context(), sql.CreateCommentParams{
 		SolutionID: comment.SolutionId,
-		ParentID:   parentID,
+		ParentID:   parentId,
 		UserID:     userId,
 		Body:       comment.Body,
 	})
 	if err != nil {
-		apierror.SendError(w, http.StatusInternalServerError, "Error creating comment in database")
+		apierror.SendError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
