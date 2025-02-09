@@ -396,10 +396,6 @@ func (h *Handler) DeleteSolution(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-type VoteRequest struct {
-	Vote sql.VoteType `json:"vote"`
-}
-
 // PATCH: /{solutionId}/vote
 func (h *Handler) VoteSolution(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
