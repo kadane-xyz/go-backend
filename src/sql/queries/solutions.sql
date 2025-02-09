@@ -180,14 +180,5 @@ DELETE FROM solution WHERE id = $1 AND user_id = $2;
 
 -- PATCH --
 
--- name: InsertSolutionVote :exec
-INSERT INTO solution_user_vote (user_id, solution_id, vote)
-VALUES ($1, $2, $3);
-
--- name: DeleteSolutionVote :exec
-DELETE FROM solution_user_vote WHERE user_id = $1 AND solution_id = $2;
-
--- name: UpdateSolutionVote :exec
-UPDATE solution_user_vote
-SET vote = $3
-WHERE user_id = $1 AND solution_id = $2;
+-- name: VoteSolution :exec
+SELECT set_solution_vote(@user_id::text, @solution_id::bigint, @vote::vote_type);
