@@ -4,6 +4,7 @@ package api
 import (
 	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 
 	"kadane.xyz/go-backend/v2/src/db"
@@ -27,9 +28,20 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		panic(err)
 	}
-	os.Chdir(wd + "/src/sql")     // Change to the sql directory
-	exec.Command("./init-sql.sh") // Run the init-db.sh script
-	os.Chdir(wd)                  // Reset the working directory
+
+	sqlDir := filepath.Join(wd, "..", "sql")
+	if err := os.Chdir(sqlDir); err != nil {
+		panic(err)
+	}
+
+	cmd := exec.Command("sh", "./init-sql.sh")
+	if err := cmd.Run(); err != nil {
+		panic(err)
+	}
+
+	if err := os.Chdir(wd); err != nil {
+		panic(err)
+	}
 
 	if err := db.SetupTestContainer(); err != nil {
 		// If setup fails, exit immediately.
