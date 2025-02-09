@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -253,8 +254,18 @@ func (h *Handler) CreateRun(w http.ResponseWriter, r *http.Request) {
 			ExpectedOutput: runRequest.TestCases[i].Output, // solution code output
 		})
 
+		// check stdout before using status and remove spaces from array elements
+		if strings.Contains(solutionResp.Stdout, "[") {
+			solutionResp.Stdout = strings.ReplaceAll(solutionResp.Stdout, " ", "")
+		}
+
+		// remove newlines from stdout
+		if strings.Contains(solutionResp.Stdout, "\n") {
+			solutionResp.Stdout = strings.ReplaceAll(solutionResp.Stdout, "\n", "")
+		}
+
 		// First check if both executions were successful
-		if solutionResp.Status.Description != "Accepted" {
+		if solutionResp.Status.Description != "Accepted" || solutionResp.Stdout != runRequest.TestCases[i].Output {
 			// store user code test case results
 			testCases[i].Status = sql.SubmissionStatus("Wrong Answer")
 
