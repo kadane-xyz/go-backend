@@ -19,7 +19,7 @@ type TestGetSolutionsQueryParams struct {
 }
 
 func TestGetSolution(t *testing.T) {
-	baseReq := newTestRequest(t, "GET", "/solutions/1", nil)
+	baseReq := newTestRequest(t, http.MethodGet, "/solutions/1", nil)
 
 	testCases := []struct {
 		name               string
@@ -34,12 +34,11 @@ func TestGetSolution(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testcase := testCase
-		t.Run(testcase.name, func(t *testing.T) {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
 			req := baseReq.Clone(baseReq.Context())
-			req = applyRouteParams(req, map[string]string{"solutionId": testcase.solutionIdUrlParam})
+			req = applyRouteParams(req, map[string]string{"solutionId": testCase.solutionIdUrlParam})
 
 			executeTestRequest(t, req, testCase.expectedStatus, handler.GetSolution)
 		})
@@ -47,7 +46,7 @@ func TestGetSolution(t *testing.T) {
 }
 
 func TestGetSolutions(t *testing.T) {
-	baseReq := newTestRequest(t, "GET", "/solutions", nil)
+	baseReq := newTestRequest(t, http.MethodGet, "/solutions", nil)
 	testCases := []struct {
 		name           string
 		queryParams    TestGetSolutionsQueryParams
@@ -69,8 +68,7 @@ func TestGetSolutions(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testcase := testCase
-		t.Run(testcase.name, func(t *testing.T) {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
 			req := baseReq.Clone(baseReq.Context())
@@ -109,8 +107,7 @@ func TestCreateSolution(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testcase := testCase
-		t.Run(testcase.name, func(t *testing.T) {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
 			body, err := json.Marshal(testCase.input)
@@ -118,7 +115,7 @@ func TestCreateSolution(t *testing.T) {
 				t.Fatalf("Failed to marshal input: %v", err)
 			}
 
-			req := newTestRequest(t, "POST", "/solutions", bytes.NewReader(body))
+			req := newTestRequest(t, http.MethodPost, "/solutions", bytes.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
 			req = applyRouteParams(req, nil)
 
@@ -147,8 +144,7 @@ func TestUpdateSolution(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testcase := testCase
-		t.Run(testcase.name, func(t *testing.T) {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
 			body, err := json.Marshal(testCase.input)
@@ -156,7 +152,7 @@ func TestUpdateSolution(t *testing.T) {
 				t.Fatalf("Failed to marshal input: %v", err)
 			}
 
-			req := newTestRequest(t, "PUT", "/solutions/1", bytes.NewReader(body))
+			req := newTestRequest(t, http.MethodPut, "/solutions/1", bytes.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
 			req = applyRouteParams(req, map[string]string{"solutionId": testCase.solutionIdUrlParam})
 
@@ -179,11 +175,10 @@ func TestDeleteSolution(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testcase := testCase
-		t.Run(testcase.name, func(t *testing.T) {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			req := newTestRequest(t, "DELETE", "/solutions/2", nil)
+			req := newTestRequest(t, http.MethodDelete, "/solutions/2", nil)
 			req = applyRouteParams(req, map[string]string{"solutionId": testCase.solutionIdUrlParam})
 
 			executeTestRequest(t, req, testCase.expectedStatus, handler.DeleteSolution)
@@ -219,8 +214,7 @@ func TestVoteSolution(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testcase := testCase
-		t.Run(testcase.name, func(t *testing.T) {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
 			body, err := json.Marshal(testCase.input)
@@ -228,7 +222,7 @@ func TestVoteSolution(t *testing.T) {
 				t.Fatalf("Failed to marshal input: %v", err)
 			}
 
-			req := newTestRequest(t, "PATCH", "/solutions/4/vote", bytes.NewReader(body))
+			req := newTestRequest(t, http.MethodPatch, "/solutions/4/vote", bytes.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
 			req = applyRouteParams(req, map[string]string{"solutionId": testCase.solutionIdUrlParam})
 

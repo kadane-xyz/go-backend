@@ -19,12 +19,11 @@ func TestGetStarredProblems(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testcase := testCase
-		t.Run(testcase.name, func(t *testing.T) {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
 			req := baseReq.Clone(baseReq.Context())
-			executeTestRequest(t, req, testcase.expectedStatus, handler.GetStarredProblems)
+			executeTestRequest(t, req, testCase.expectedStatus, handler.GetStarredProblems)
 		})
 	}
 }
@@ -40,12 +39,11 @@ func TestGetStarredSolutions(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testcase := testCase
-		t.Run(testcase.name, func(t *testing.T) {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
 			req := baseReq.Clone(baseReq.Context())
-			executeTestRequest(t, req, testcase.expectedStatus, handler.GetStarredSolutions)
+			executeTestRequest(t, req, testCase.expectedStatus, handler.GetStarredSolutions)
 		})
 	}
 }
@@ -61,12 +59,11 @@ func TestGetStarredSubmissions(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testcase := testCase
-		t.Run(testcase.name, func(t *testing.T) {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
 			req := baseReq.Clone(baseReq.Context())
-			executeTestRequest(t, req, testcase.expectedStatus, handler.GetStarredSubmissions)
+			executeTestRequest(t, req, testCase.expectedStatus, handler.GetStarredSubmissions)
 		})
 	}
 }
@@ -82,19 +79,18 @@ func TestPutStarProblem(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testcase := testCase
-		t.Run(testcase.name, func(t *testing.T) {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			body, err := json.Marshal(testcase.problemId)
+			body, err := json.Marshal(testCase.problemId)
 			if err != nil {
 				t.Fatalf("Failed to marshal problem request: %v", err)
 			}
 
 			req := newTestRequest(t, http.MethodPut, "/starred/problems", bytes.NewBuffer(body))
-			req = applyRouteParams(req, map[string]string{"problemId": strconv.Itoa(int(testcase.problemId.ProblemID))})
+			req = applyRouteParams(req, map[string]string{"problemId": strconv.Itoa(int(testCase.problemId.ProblemID))})
 
-			executeTestRequest(t, req, testcase.expectedStatus, handler.PutStarProblem)
+			executeTestRequest(t, req, testCase.expectedStatus, handler.PutStarProblem)
 		})
 	}
 }
@@ -110,19 +106,18 @@ func TestPutStarSolution(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testcase := testCase
-		t.Run(testcase.name, func(t *testing.T) {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			body, err := json.Marshal(testcase.solutionId)
+			body, err := json.Marshal(testCase.solutionId)
 			if err != nil {
 				t.Fatalf("Failed to marshal solution request: %v", err)
 			}
 
 			req := newTestRequest(t, http.MethodPut, "/starred/solutions", bytes.NewBuffer(body))
-			req = applyRouteParams(req, map[string]string{"solutionId": strconv.Itoa(int(testcase.solutionId.SolutionID))})
+			req = applyRouteParams(req, map[string]string{"solutionId": strconv.Itoa(int(testCase.solutionId.SolutionID))})
 
-			executeTestRequest(t, req, testcase.expectedStatus, handler.PutStarSolution)
+			executeTestRequest(t, req, testCase.expectedStatus, handler.PutStarSolution)
 		})
 	}
 }

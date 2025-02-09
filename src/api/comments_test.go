@@ -11,7 +11,7 @@ import (
 )
 
 func TestGetComment(t *testing.T) {
-	baseReq := newTestRequest(t, "GET", "/comments/", nil)
+	baseReq := newTestRequest(t, http.MethodGet, "/comments/", nil)
 
 	testCases := []struct {
 		name              string
@@ -36,19 +36,18 @@ func TestGetComment(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testcase := testCase
-		t.Run(testcase.name, func(t *testing.T) {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
 			req := baseReq.Clone(baseReq.Context())
-			req = applyRouteParams(req, map[string]string{"commentId": testcase.commentIdUrlParam})
-			executeTestRequest(t, req, testcase.expectedStatus, handler.GetComment)
+			req = applyRouteParams(req, map[string]string{"commentId": testCase.commentIdUrlParam})
+			executeTestRequest(t, req, testCase.expectedStatus, handler.GetComment)
 		})
 	}
 }
 
 func TestGetComments(t *testing.T) {
-	baseReq := newTestRequest(t, "GET", "/comments", nil)
+	baseReq := newTestRequest(t, http.MethodGet, "/comments", nil)
 
 	testCases := []struct {
 		name           string
@@ -88,21 +87,20 @@ func TestGetComments(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testcase := testCase
-		t.Run(testcase.name, func(t *testing.T) {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
 			req := baseReq.Clone(baseReq.Context())
-			req = applyQueryParams(req, testcase.queryParams)
+			req = applyQueryParams(req, testCase.queryParams)
 			req = applyRouteParams(req, nil)
 
-			executeTestRequest(t, req, testcase.expectedStatus, handler.GetComments)
+			executeTestRequest(t, req, testCase.expectedStatus, handler.GetComments)
 		})
 	}
 }
 
 func TestCreateComment(t *testing.T) {
-	baseReq := newTestRequest(t, "POST", "/comments", nil)
+	baseReq := newTestRequest(t, http.MethodPost, "/comments", nil)
 
 	parentId := int64(7)
 
@@ -147,9 +145,8 @@ func TestCreateComment(t *testing.T) {
 
 	// run in order
 	for _, testCase := range testCases {
-		testcase := testCase
-		t.Run(testcase.name, func(t *testing.T) {
-			body, err := json.Marshal(testcase.input)
+		t.Run(testCase.name, func(t *testing.T) {
+			body, err := json.Marshal(testCase.input)
 			if err != nil {
 				t.Fatalf("Failed to marshal input: %v", err)
 			}
@@ -158,7 +155,7 @@ func TestCreateComment(t *testing.T) {
 			req.Body = io.NopCloser(bytes.NewReader(body))
 			req = applyRouteParams(req, nil)
 
-			executeTestRequest(t, req, testcase.expectedStatus, handler.CreateComment)
+			executeTestRequest(t, req, testCase.expectedStatus, handler.CreateComment)
 		})
 	}
 }
@@ -198,17 +195,16 @@ func TestUpdateComment(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testcase := testCase
-		t.Run(testcase.name, func(t *testing.T) {
-			body, err := json.Marshal(testcase.input)
+		t.Run(testCase.name, func(t *testing.T) {
+			body, err := json.Marshal(testCase.input)
 			if err != nil {
 				t.Fatalf("Failed to marshal input: %v", err)
 			}
 
-			req := newTestRequest(t, "PUT", "/comments/", bytes.NewReader(body))
-			req = applyRouteParams(req, map[string]string{"commentId": testcase.commentIdUrlParam})
+			req := newTestRequest(t, http.MethodPut, "/comments/", bytes.NewReader(body))
+			req = applyRouteParams(req, map[string]string{"commentId": testCase.commentIdUrlParam})
 
-			executeTestRequest(t, req, testcase.expectedStatus, handler.UpdateComment)
+			executeTestRequest(t, req, testCase.expectedStatus, handler.UpdateComment)
 		})
 	}
 }
@@ -233,12 +229,11 @@ func TestDeleteComment(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testcase := testCase
-		t.Run(testcase.name, func(t *testing.T) {
-			req := newTestRequest(t, "DELETE", "/comments/", nil)
-			req = applyRouteParams(req, map[string]string{"commentId": testcase.commentIdUrlParam})
+		t.Run(testCase.name, func(t *testing.T) {
+			req := newTestRequest(t, http.MethodDelete, "/comments/", nil)
+			req = applyRouteParams(req, map[string]string{"commentId": testCase.commentIdUrlParam})
 
-			executeTestRequest(t, req, testcase.expectedStatus, handler.DeleteComment)
+			executeTestRequest(t, req, testCase.expectedStatus, handler.DeleteComment)
 		})
 	}
 
@@ -279,18 +274,17 @@ func TestVoteComment(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testcase := testCase
-		t.Run(testcase.name, func(t *testing.T) {
-			body, err := json.Marshal(testcase.voteRequest)
+		t.Run(testCase.name, func(t *testing.T) {
+			body, err := json.Marshal(testCase.voteRequest)
 			if err != nil {
 				t.Fatalf("Failed to marshal input: %v", err)
 			}
 
-			req := newTestRequest(t, "PATCH", "/comments/"+testcase.commentIdUrlParam+"/vote", bytes.NewReader(body))
+			req := newTestRequest(t, http.MethodPatch, "/comments/"+testCase.commentIdUrlParam+"/vote", bytes.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
-			req = applyRouteParams(req, map[string]string{"commentId": testcase.commentIdUrlParam})
+			req = applyRouteParams(req, map[string]string{"commentId": testCase.commentIdUrlParam})
 
-			executeTestRequest(t, req, testcase.expectedStatus, handler.VoteComment)
+			executeTestRequest(t, req, testCase.expectedStatus, handler.VoteComment)
 		})
 	}
 }
