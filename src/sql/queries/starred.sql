@@ -1,23 +1,55 @@
 -- name: GetStarredProblemByProblemID :one
-SELECT COUNT(*) > 0 FROM starred_problem WHERE user_id = $1 AND problem_id = $2;
+SELECT COUNT(*) > 0 
+FROM starred_problem 
+WHERE starred_problem.user_id = $1 
+  AND problem_id = $2;
 
 -- name: GetStarredProblems :many
-SELECT * FROM starred_problem WHERE user_id = $1;
+SELECT 
+    p.*,
+    EXISTS (
+        SELECT 1 
+        FROM starred_problem sp
+        WHERE sp.user_id = $1 
+          AND sp.problem_id = p.id
+    ) AS starred
+FROM problem p;
 
 -- name: GetStarredSolutionByProblemID :one
 SELECT COUNT(*) > 0 FROM starred_solution WHERE user_id = $1 AND solution_id = $2;
 
 -- name: GetStarredSolutionBySolutionID :one
-SELECT COUNT(*) > 0 FROM starred_solution WHERE user_id = $1 AND solution_id = $2;
+SELECT COUNT(*) > 0 
+FROM starred_solution 
+WHERE starred_solution.user_id = $1 
+  AND solution_id = $2;
 
 -- name: GetStarredSolutions :many
-SELECT * FROM starred_solution WHERE user_id = $1;
+SELECT 
+    s.*,
+    EXISTS (
+        SELECT 1
+        FROM starred_solution ss
+        WHERE ss.user_id = $1 
+          AND ss.solution_id = s.id
+    ) AS starred,
+    (SELECT username FROM account WHERE id = $1) AS username
+FROM solution s;
 
 -- name: GetStarredSubmissions :many
-SELECT * FROM starred_submission WHERE user_id = $1;
-
--- name: GetStarredSubmissionsBySubmissionID :many
-SELECT * FROM starred_submission WHERE user_id = $1 AND submission_id = $2;
+SELECT 
+    s.*,
+    EXISTS (
+        SELECT 1
+        FROM starred_submission ss
+        WHERE ss.user_id = $1 
+          AND ss.submission_id = s.id
+    ) AS starred,
+    (SELECT account.id FROM account WHERE account.id = s.account_id) AS account_id,
+    (SELECT submitted_code FROM submission WHERE id = s.id) AS submitted_code,
+    (SELECT submitted_stdin FROM submission WHERE id = s.id) AS submitted_stdin,
+    (SELECT created_at FROM submission WHERE id = s.id) AS created_at
+FROM submission s;
 
 -- name: GetStarredProblemsByProblemID :many
 SELECT * FROM starred_problem WHERE user_id = $1 AND problem_id = $2;
@@ -28,20 +60,63 @@ SELECT * FROM starred_solution WHERE user_id = $1 AND solution_id = $2;
 -- name: GetStarredSubmissionBySubmissionID :one
 SELECT COUNT(*) > 0 FROM starred_submission WHERE user_id = $1 AND submission_id = $2;
 
--- name: PostStarredProblem :exec
-INSERT INTO starred_problem (user_id, problem_id) VALUES ($1, $2);
+-- name: PutStarredProblem :one
+WITH deleted(starred) AS (
+    DELETE FROM starred_problem AS sp
+    WHERE sp.user_id = $1 AND sp.problem_id = $2
+    RETURNING false AS starred
+),
+inserted(starred) AS (
+    INSERT INTO starred_problem (user_id, problem_id)
+    SELECT v.user_id, v.problem_id
+    FROM (VALUES ($1, $2)) AS v(user_id, problem_id)
+    WHERE NOT EXISTS (SELECT 1 FROM deleted)
+    RETURNING true AS starred
+)
+SELECT starred
+FROM deleted
+UNION ALL
+SELECT starred
+FROM inserted
+LIMIT 1;
 
--- name: PostStarredSolution :exec
-INSERT INTO starred_solution (user_id, solution_id) VALUES ($1, $2);
+-- name: PutStarredSubmission :one
+WITH deleted(starred) AS (
+    DELETE FROM starred_submission AS ss
+    WHERE ss.user_id = $1 AND ss.submission_id = $2
+    RETURNING false AS starred
+),
+inserted(starred) AS (
+    INSERT INTO starred_submission (user_id, submission_id)
+    SELECT v.user_id, v.submission_id
+    FROM (VALUES ($1, $2)) AS v(user_id, submission_id)
+    WHERE NOT EXISTS (SELECT 1 FROM deleted)
+    RETURNING true AS starred
+)
+SELECT starred
+FROM deleted
+UNION ALL
+SELECT starred
+FROM inserted
+LIMIT 1;
 
--- name: PostStarredSubmission :exec
-INSERT INTO starred_submission (user_id, submission_id) VALUES ($1, $2);
-
--- name: DeleteStarredProblem :exec
-DELETE FROM starred_problem WHERE user_id = $1 AND problem_id = $2;
-
--- name: DeleteStarredSolution :exec
-DELETE FROM starred_solution WHERE user_id = $1 AND solution_id = $2;
-
--- name: DeleteStarredSubmission :exec
-DELETE FROM starred_submission WHERE user_id = $1 AND submission_id = $2;
+-- name: PutStarredSolution :one
+WITH deleted(starred) AS (
+    DELETE FROM starred_solution AS ss
+    WHERE ss.user_id = $1 
+      AND ss.solution_id = $2
+    RETURNING false AS starred
+),
+inserted(starred) AS (
+    INSERT INTO starred_solution (user_id, solution_id)
+    SELECT v.user_id, v.solution_id
+    FROM (VALUES ($1, $2)) AS v(user_id, solution_id)
+    WHERE NOT EXISTS (SELECT 1 FROM deleted)
+    RETURNING true AS starred
+)
+SELECT starred
+FROM deleted
+UNION ALL
+SELECT starred
+FROM inserted
+LIMIT 1;
