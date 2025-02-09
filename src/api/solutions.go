@@ -24,6 +24,13 @@ type Solutions struct {
 	ProblemId int64    `json:"problemId"`
 }
 
+type CreateSolutionRequest struct {
+	ProblemId int64    `json:"problemId"`
+	Title     string   `json:"title"`
+	Tags      []string `json:"tags"`
+	Body      string   `json:"body"`
+}
+
 type SolutionResponse struct {
 	Data SolutionsData `json:"data"`
 }
@@ -133,24 +140,15 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	totalCount, err := h.PostgresQueries.GetSolutionsCount(r.Context(), sql.GetSolutionsCountParams{
-		ProblemID: pgtype.Int8{Int64: id, Valid: true},
-		Title:     titleSearch,
-		Tags:      tagsArray,
-	})
-	if err != nil {
-		apierror.SendError(w, http.StatusInternalServerError, "error getting total count")
+	totalCount := int64(solutions[0].TotalCount)
+	if totalCount == 0 {
+		apierror.SendError(w, http.StatusNotFound, "No solutions found")
 		return
 	}
 
 	// Prepare response
 	var solutionsData []SolutionsData
 	for _, solution := range solutions {
-		if err != nil {
-			apierror.SendError(w, http.StatusInternalServerError, "error getting level")
-			return
-		}
-
 		// If tags is nil, set it to an empty array
 		if solution.Tags == nil {
 			solution.Tags = []string{}
@@ -207,7 +205,7 @@ func (h *Handler) CreateSolution(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var solution Solutions
+	var solution CreateSolutionRequest
 	err := json.NewDecoder(r.Body).Decode(&solution)
 	if err != nil {
 		apierror.SendError(w, http.StatusBadRequest, "Invalid solution data format")
@@ -393,7 +391,7 @@ func (h *Handler) DeleteSolution(w http.ResponseWriter, r *http.Request) {
 }
 
 type VoteRequest struct {
-	Vote string `json:"vote"`
+	Vote sql.VoteType `json:"vote"`
 }
 
 // PATCH: /{solutionId}/vote
