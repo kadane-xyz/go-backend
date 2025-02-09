@@ -31,6 +31,12 @@ type CreateSolutionRequest struct {
 	Body      string   `json:"body"`
 }
 
+type UpdateSolutionRequest struct {
+	Title string   `json:"title"`
+	Body  string   `json:"body"`
+	Tags  []string `json:"tags"`
+}
+
 type SolutionResponse struct {
 	Data SolutionsData `json:"data"`
 }
@@ -321,7 +327,7 @@ func (h *Handler) UpdateSolution(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var solutionRequest sql.UpdateSolutionParams
+	var solutionRequest UpdateSolutionRequest
 	if err := json.NewDecoder(r.Body).Decode(&solutionRequest); err != nil {
 		http.Error(w, "error decoding request body", http.StatusBadRequest)
 		return
@@ -399,97 +405,50 @@ func (h *Handler) VoteSolution(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
 	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
 	if userId == "" {
-		http.Error(w, "Missing user id", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for solution retrieval")
 		return
 	}
 
 	// Extract solutionId from URL parameters
 	solutionId := chi.URLParam(r, "solutionId")
 	if solutionId == "" {
-		http.Error(w, "solutionId is required", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "Missing solutionId for solution retrieval")
 		return
 	}
 
 	id, err := strconv.ParseInt(solutionId, 10, 64)
 	if err != nil {
-		http.Error(w, "solutionId must be an integer", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "Invalid solutionId format for solution retrieval")
 		return
 	}
 
 	// Decode the request body into VoteRequest struct
 	var req VoteRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "error decoding request body", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "Error decoding request body")
 		return
 	}
 
 	if req.Vote == "" {
-		http.Error(w, "vote is required", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "Vote is required")
 		return
 	}
 
 	// Check if the solution exists
-	_, err = h.PostgresQueries.GetSolution(r.Context(), sql.GetSolutionParams{
-		ID:     id,
-		UserID: userId,
-	})
+	_, err = h.PostgresQueries.GetSolutionById(r.Context(), id)
 	if err != nil {
-		http.Error(w, "solution not found", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "Solution not found")
 		return
 	}
 
-	// Prepare parameters to get the existing vote
-	solutionArgs := sql.GetSolutionVoteParams{
-		SolutionID: id,
+	err = h.PostgresQueries.VoteSolution(r.Context(), sql.VoteSolutionParams{
 		UserID:     userId,
-	}
-
-	// Get the existing vote
-	existingVote, err := h.PostgresQueries.GetSolutionVote(r.Context(), solutionArgs)
+		SolutionID: id,
+		Vote:       req.Vote,
+	})
 	if err != nil {
-		// If there's no existing vote and the requested vote is 'none', nothing to do
-		if req.Vote == "none" {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-		// Insert the new vote
-		insertArgs := sql.InsertSolutionVoteParams{
-			UserID:     userId,
-			SolutionID: id,
-			Vote:       sql.VoteType(req.Vote),
-		}
-		if err := h.PostgresQueries.InsertSolutionVote(r.Context(), insertArgs); err != nil {
-			http.Error(w, "error inserting vote", http.StatusInternalServerError)
-			return
-		}
-	} else {
-		// Handle vote update or deletion
-		if req.Vote == "none" {
-			// Delete the existing vote
-			deleteArgs := sql.DeleteSolutionVoteParams{
-				UserID:     userId,
-				SolutionID: id,
-			}
-			if err := h.PostgresQueries.DeleteSolutionVote(r.Context(), deleteArgs); err != nil {
-				http.Error(w, "error deleting vote", http.StatusInternalServerError)
-				return
-			}
-		} else if existingVote != sql.VoteType(req.Vote) {
-			// Update the vote if it's different
-			updateArgs := sql.UpdateSolutionVoteParams{
-				UserID:     userId,
-				SolutionID: id,
-				Vote:       sql.VoteType(req.Vote),
-			}
-			if err := h.PostgresQueries.UpdateSolutionVote(r.Context(), updateArgs); err != nil {
-				http.Error(w, "error updating vote", http.StatusInternalServerError)
-				return
-			}
-		} else {
-			// Vote is the same; no action needed
-			w.WriteHeader(http.StatusOK)
-			return
-		}
+		apierror.SendError(w, http.StatusInternalServerError, "Error voting on solution")
+		return
 	}
 
 	// Send the updated solution as the response

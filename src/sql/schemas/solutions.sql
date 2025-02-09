@@ -18,67 +18,47 @@ CREATE TABLE solution_user_vote (
     UNIQUE (user_id, solution_id)
 );
 
--- Update the votes count for the solution when a vote is inserted, updated, or deleted
-CREATE OR REPLACE FUNCTION update_solution_votes() RETURNS TRIGGER AS $$
+-- Function to recalculate a solution's vote total based on the current votes.
+CREATE OR REPLACE FUNCTION recalc_solution_votes(p_solution_id BIGINT)
+RETURNS VOID AS $$
 BEGIN
-    -- Handle Insert case
-    IF TG_OP = 'INSERT' THEN
-        IF NEW.vote = 'up' THEN
-            UPDATE solution SET votes = votes + 1 WHERE id = NEW.solution_id;
-        ELSIF NEW.vote = 'down' THEN
-            UPDATE solution SET votes = votes - 1 WHERE id = NEW.solution_id;
-        END IF;
-    
-    -- Handle Update case (if the vote is changing)
-    ELSIF TG_OP = 'UPDATE' THEN
-        -- If the old vote was 'up' and the new vote is 'down'
-        IF OLD.vote = 'up' AND NEW.vote = 'down' THEN
-            UPDATE solution SET votes = votes - 2 WHERE id = NEW.solution_id;
-        -- If the old vote was 'down' and the new vote is 'up'
-        ELSIF OLD.vote = 'down' AND NEW.vote = 'up' THEN
-            UPDATE solution SET votes = votes + 2 WHERE id = NEW.solution_id;
-        -- If the old vote was 'up' and the new vote is 'none' (removing the upvote)
-        ELSIF OLD.vote = 'up' AND NEW.vote = 'none' THEN
-            UPDATE solution SET votes = votes - 1 WHERE id = NEW.solution_id;
-        -- If the old vote was 'down' and the new vote is 'none' (removing the downvote)
-        ELSIF OLD.vote = 'down' AND NEW.vote = 'none' THEN
-            UPDATE solution SET votes = votes + 1 WHERE id = NEW.solution_id;
-        -- If the old vote was 'none' and the new vote is 'up'
-        ELSIF OLD.vote = 'none' AND NEW.vote = 'up' THEN
-            UPDATE solution SET votes = votes + 1 WHERE id = NEW.solution_id;
-        -- If the old vote was 'none' and the new vote is 'down'
-        ELSIF OLD.vote = 'none' AND NEW.vote = 'down' THEN
-            UPDATE solution SET votes = votes - 1 WHERE id = NEW.solution_id;
-        END IF;
-
-    -- Handle Delete case (removing the vote)
-    ELSIF TG_OP = 'DELETE' THEN
-        IF OLD.vote = 'up' THEN
-            UPDATE solution SET votes = votes - 1 WHERE id = OLD.solution_id;
-        ELSIF OLD.vote = 'down' THEN
-            UPDATE solution SET votes = votes + 1 WHERE id = OLD.solution_id;
-        END IF;
-    END IF;
-
-    RETURN NEW;
+    UPDATE solution
+    SET votes = (
+        SELECT COALESCE(SUM(
+            CASE vote
+                WHEN 'up' THEN 1
+                WHEN 'down' THEN -1
+                ELSE 0
+            END
+        ), 0)
+        FROM solution_user_vote
+        WHERE solution_id = p_solution_id
+    )
+    WHERE id = p_solution_id;
 END;
 $$ LANGUAGE plpgsql;
 
--- Trigger for INSERT
-CREATE TRIGGER update_solution_vote_insert
-AFTER INSERT ON solution_user_vote
-FOR EACH ROW
-EXECUTE FUNCTION update_solution_votes();
+-- Function that encapsulates vote logic:
+-- If p_vote is 'none', any existing vote is removed.
+-- Otherwise, an upsert is performed to insert or update the vote.
+-- Finally, the comment's vote total is recalculated.
+CREATE OR REPLACE FUNCTION set_solution_vote(
+    p_user_id TEXT,
+    p_solution_id BIGINT,
+    p_vote vote_type
+) RETURNS VOID AS $$
+BEGIN
+    IF p_vote = 'none' THEN
+        DELETE FROM solution_user_vote
+        WHERE user_id = p_user_id
+          AND solution_id = p_solution_id;
+    ELSE
+        INSERT INTO solution_user_vote (user_id, solution_id, vote)
+        VALUES (p_user_id, p_solution_id, p_vote)
+        ON CONFLICT (user_id, solution_id)
+        DO UPDATE SET vote = EXCLUDED.vote;
+    END IF;
 
--- Trigger for UPDATE
-CREATE TRIGGER update_solution_vote_update
-AFTER UPDATE ON solution_user_vote
-FOR EACH ROW
-EXECUTE FUNCTION update_solution_votes();
-
--- Trigger for DELETE
-CREATE TRIGGER update_solution_vote_delete
-AFTER DELETE ON solution_user_vote
-FOR EACH ROW
-EXECUTE FUNCTION update_solution_votes();
-
+    PERFORM recalc_solution_votes(p_solution_id);
+END;
+$$ LANGUAGE plpgsql;
