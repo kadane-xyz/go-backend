@@ -12,6 +12,10 @@ sql_files=(
     "starred.sql"
 )
 
+if [ -f "init.sql" ]; then
+    rm init.sql
+fi
+
 # Loop through the files and execute them in order
 for sql_file in "${sql_files[@]}"; do
     echo "Executing $sql_file..."
