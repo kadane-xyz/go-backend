@@ -46,3 +46,7 @@ const (
 	FriendshipStatusRequestSent     FriendshipStatus = "requestSent"
 	FriendshipStatusRequestReceived FriendshipStatus = "requestReceived"
 )
+
+type VoteRequest struct {
+	Vote sql.VoteType `json:"vote"`
+}
