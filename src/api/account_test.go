@@ -8,7 +8,7 @@ import (
 )
 
 func TestGetAccount(t *testing.T) {
-	baseReq := newTestRequest(t, "GET", "/accounts/", nil)
+	baseReq := newTestRequest(t, http.MethodGet, "/accounts/", nil)
 
 	testCases := []struct {
 		name           string
@@ -35,21 +35,20 @@ func TestGetAccount(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testcase := testCase
-		t.Run(testcase.name, func(t *testing.T) {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
 			req := baseReq.Clone(baseReq.Context())
-			req = applyRouteParams(req, map[string]string{"id": testcase.urlParamId})
+			req = applyRouteParams(req, map[string]string{"id": testCase.urlParamId})
 			req = applyQueryParams(req, testCase.queryParams)
 
-			executeTestRequest(t, req, testcase.expectedStatus, handler.GetAccount)
+			executeTestRequest(t, req, testCase.expectedStatus, handler.GetAccount)
 		})
 	}
 }
 
 func TestGetAccounts(t *testing.T) {
-	baseReq := newTestRequest(t, "GET", "/accounts", nil)
+	baseReq := newTestRequest(t, http.MethodGet, "/accounts", nil)
 
 	testCases := []struct {
 		name           string
@@ -94,20 +93,19 @@ func TestGetAccounts(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testcase := testCase
-		t.Run(testcase.name, func(t *testing.T) {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
 			req := baseReq.Clone(baseReq.Context())
 			req = applyQueryParams(req, testCase.queryParams)
 
-			executeTestRequest(t, req, testcase.expectedStatus, handler.GetAccounts)
+			executeTestRequest(t, req, testCase.expectedStatus, handler.GetAccounts)
 		})
 	}
 }
 
 func TestGetAccountByUsername(t *testing.T) {
-	baseReq := newTestRequest(t, "GET", "/accounts/username/", nil)
+	baseReq := newTestRequest(t, http.MethodGet, "/accounts/username/", nil)
 
 	testCases := []struct {
 		name             string
@@ -134,15 +132,14 @@ func TestGetAccountByUsername(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testcase := testCase
-		t.Run(testcase.name, func(t *testing.T) {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
 			req := baseReq.Clone(baseReq.Context())
-			req = applyRouteParams(req, map[string]string{"username": testcase.urlParamUsername})
+			req = applyRouteParams(req, map[string]string{"username": testCase.urlParamUsername})
 			req = applyQueryParams(req, testCase.queryParams)
 
-			executeTestRequest(t, req, testcase.expectedStatus, handler.GetAccountByUsername)
+			executeTestRequest(t, req, testCase.expectedStatus, handler.GetAccountByUsername)
 		})
 	}
 }
@@ -201,20 +198,19 @@ func TestCreateAccount(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testcase := testCase
-		t.Run(testcase.name, func(t *testing.T) {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			body, err := json.Marshal(testcase.input)
+			body, err := json.Marshal(testCase.input)
 			if err != nil {
 				t.Fatalf("Failed to marshal input: %v", err)
 			}
 
-			req := newTestRequest(t, "POST", "/accounts", bytes.NewBuffer(body))
+			req := newTestRequest(t, http.MethodPost, "/accounts", bytes.NewBuffer(body))
 			req.Header.Set("Content-Type", "application/json")
 			req = applyRouteParams(req, nil)
 
-			executeTestRequest(t, req, testcase.expectedStatus, handler.CreateAccount)
+			executeTestRequest(t, req, testCase.expectedStatus, handler.CreateAccount)
 		})
 	}
 }
@@ -240,19 +236,18 @@ func TestUpdateAccount(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testcase := testCase
-		t.Run(testcase.name, func(t *testing.T) {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			body, err := json.Marshal(testcase.input)
+			body, err := json.Marshal(testCase.input)
 			if err != nil {
 				t.Fatalf("Failed to marshal input: %v", err)
 			}
 
-			req := newTestRequest(t, "PUT", "/accounts", bytes.NewBuffer(body))
-			req = applyRouteParams(req, map[string]string{"id": testcase.urlParamId})
+			req := newTestRequest(t, http.MethodPut, "/accounts", bytes.NewBuffer(body))
+			req = applyRouteParams(req, map[string]string{"id": testCase.urlParamId})
 
-			executeTestRequest(t, req, testcase.expectedStatus, handler.UpdateAccount)
+			executeTestRequest(t, req, testCase.expectedStatus, handler.UpdateAccount)
 		})
 	}
 }
@@ -276,14 +271,13 @@ func TestDeleteAccount(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testcase := testCase
-		t.Run(testcase.name, func(t *testing.T) {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			req := newTestRequest(t, "DELETE", "/accounts", nil)
-			req = applyRouteParams(req, map[string]string{"id": testcase.urlParamId})
+			req := newTestRequest(t, http.MethodDelete, "/accounts", nil)
+			req = applyRouteParams(req, map[string]string{"id": testCase.urlParamId})
 
-			executeTestRequest(t, req, testcase.expectedStatus, handler.DeleteAccount)
+			executeTestRequest(t, req, testCase.expectedStatus, handler.DeleteAccount)
 		})
 	}
 }

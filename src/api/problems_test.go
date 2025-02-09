@@ -8,7 +8,7 @@ import (
 )
 
 func TestGetProblem(t *testing.T) {
-	baseReq := newTestRequest(t, "GET", "/problems/{problemId}", nil)
+	baseReq := newTestRequest(t, http.MethodGet, "/problems/{problemId}", nil)
 
 	testCases := []struct {
 		name              string
@@ -23,7 +23,6 @@ func TestGetProblem(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -36,7 +35,7 @@ func TestGetProblem(t *testing.T) {
 }
 
 func TestGetProblems(t *testing.T) {
-	baseReq := newTestRequest(t, "GET", "/problems", nil)
+	baseReq := newTestRequest(t, http.MethodGet, "/problems", nil)
 
 	testCases := []struct {
 		name           string
@@ -114,7 +113,6 @@ func TestGetProblems(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -161,7 +159,6 @@ func TestCreateProblem(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -170,7 +167,7 @@ func TestCreateProblem(t *testing.T) {
 				t.Fatalf("Failed to marshal body: %v", err)
 			}
 
-			req := newTestRequest(t, "POST", "/problems", bytes.NewBuffer(body))
+			req := newTestRequest(t, http.MethodPost, "/problems", bytes.NewBuffer(body))
 			req.Header.Set("Content-Type", "application/json")
 
 			executeTestRequest(t, req, testCase.expectedStatus, handler.CreateProblem)
