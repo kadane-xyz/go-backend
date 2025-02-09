@@ -81,7 +81,20 @@ WHERE problem_id = $1
   AND (array_length(@tags::text[], 1) IS NULL OR tags && @tags);
 
 -- name: GetSolutionsPaginated :many
-SELECT 
+WITH filtered_solutions AS (
+    SELECT s.id
+    FROM solution s
+    LEFT JOIN comment c ON s.id = c.solution_id
+    LEFT JOIN solution_user_vote suv ON s.id = suv.solution_id
+    LEFT JOIN starred_solution sp ON s.id = sp.solution_id
+    WHERE
+        (@title = '' OR s.title ILIKE '%' || @title || '%')
+        AND (@tags::text[] IS NULL OR s.tags && @tags::text[])
+        AND (@user_id IS NULL OR s.user_id = @user_id)
+        AND (@problem_id IS NULL OR s.problem_id = @problem_id)
+    GROUP BY s.id, sp.solution_id
+)
+SELECT
     s.*,
     a.username as user_username,
     a.avatar_url as user_avatar_url,
@@ -89,7 +102,8 @@ SELECT
     COALESCE(c.comment_count, 0) AS comments_count,
     COALESCE(v.vote_count, 0) AS votes_count,
     COALESCE(uv.vote, 'none') as user_vote,
-    CASE WHEN EXISTS (SELECT 1 FROM starred_solution WHERE solution_id = s.id AND starred_solution.user_id = @user_id) THEN true ELSE false END AS starred
+    CASE WHEN EXISTS (SELECT 1 FROM starred_solution WHERE solution_id = s.id AND starred_solution.user_id = @user_id) THEN true ELSE false END AS starred,
+    (SELECT COUNT(*) FROM filtered_solutions) AS total_count
 FROM solution s
 LEFT JOIN (
     SELECT id, username, avatar_url, level
