@@ -72,6 +72,7 @@ func (h *Handler) GetFriends(w http.ResponseWriter, r *http.Request) {
 		Data: friendsResponseData,
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(friendsResponse)
 }
 
@@ -307,6 +308,8 @@ func (h *Handler) DeleteFriend(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error deleting friend/friend request", http.StatusInternalServerError)
 		return
 	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // GET: /friends/username/{username}
