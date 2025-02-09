@@ -1113,39 +1113,23 @@ paths:
           $ref: '#/components/responses/InternalServerError'
   /starred/problems:
     get:
-      operationId: getStarredProblems
       tags:
         - Starred
       summary: Get starred problems
+      description: >
+        Returns a list of all problems with each problem including a computed 
+        boolean property "starred". This field is set to true if the user has starred 
+        the problem, false otherwise.
+      operationId: getStarredProblems
       responses:
         '200':
-          description: Successfully retrieved starred problems
+          description: A list of problems with starred flag.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        id:
-                          type: integer
-                        title:
-                          type: string
-                        description:
-                          type: string
-                        tags:
-                          type: array
-                          items:
-                            type: string
-                        difficulty:
-                          type: string
-                        points:
-                          type: integer
-                        starred:
-                          type: boolean
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProblemWithStarred'
         '400':
           $ref: '#/components/responses/BadRequest'
         '500':
@@ -1191,47 +1175,23 @@ paths:
 
   /starred/solutions:
     get:
-      operationId: getStarredSolutions
       tags:
         - Starred
       summary: Get starred solutions
+      description: >
+        Returns a list of solutions with each solution including a computed boolean 
+        property "starred". This field is set to true if the solution is starred by 
+        the user, false otherwise.
+      operationId: getStarredSolutions
       responses:
         '200':
-          description: Successfully retrieved starred solutions
+          description: A list of solutions with starred flag.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        id:
-                          type: integer
-                          format: int64
-                        username:
-                          type: string
-                        title:
-                          type: string
-                        date:
-                          type: string
-                          format: date-time
-                        tags:
-                          type: array
-                          items:
-                            type: string
-                        body:
-                          type: string
-                        votes:
-                          type: integer
-                          format: int32
-                        problemId:
-                          type: integer
-                          format: int64
-                        starred:
-                          type: boolean
+                type: array
+                items:
+                  $ref: '#/components/schemas/SolutionWithStarred'
         '400':
           $ref: '#/components/responses/BadRequest'
         '500':
@@ -1875,7 +1835,6 @@ components:
           type: string
         compileOutput:
           type: string
-          format: base64
         message:
           type: string
         status:
@@ -1896,6 +1855,39 @@ components:
         createdAt:
           type: string
           format: date-time
+    ProblemWithStarred:
+      allOf:
+        - $ref: '#/components/schemas/Problem'
+        - type: object
+          properties:
+            starred:
+              type: boolean
+
+    Solution:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        title:
+          type: string
+          example: "Sample Solution"
+        body:
+          type: string
+          example: "Solution description here."
+      required:
+        - id
+        - title
+        - body
+    SolutionWithStarred:
+      allOf:
+        - $ref: '#/components/schemas/Solution'
+        - type: object
+          properties:
+            starred:
+              type: boolean
+              example: true
+
   responses:
     BadRequest:
       description: Bad request
