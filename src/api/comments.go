@@ -187,7 +187,7 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 	if comment.ParentId != nil {
 		_, err := h.PostgresQueries.GetCommentById(r.Context(), *comment.ParentId)
 		if err != nil {
-			apierror.SendError(w, http.StatusNotFound, err.Error())
+			apierror.SendError(w, http.StatusNotFound, "Parent comment not found")
 			return
 		}
 	}
@@ -207,7 +207,7 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 		Body:       comment.Body,
 	})
 	if err != nil {
-		apierror.SendError(w, http.StatusInternalServerError, err.Error())
+		apierror.SendError(w, http.StatusInternalServerError, "Failed to create comment")
 		return
 	}
 
@@ -265,7 +265,7 @@ func (h *Handler) GetComment(w http.ResponseWriter, r *http.Request) {
 
 	responseJSON, err := json.Marshal(response)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		apierror.SendError(w, http.StatusInternalServerError, "Failed to marshal comment response")
 		return
 	}
 
@@ -314,7 +314,7 @@ func (h *Handler) UpdateComment(w http.ResponseWriter, r *http.Request) {
 		UserID: userId, // Check if the user is the owner of the comment
 	})
 	if err != nil {
-		apierror.SendError(w, http.StatusInternalServerError, err.Error())
+		apierror.SendError(w, http.StatusInternalServerError, "Failed to update comment")
 		return
 	}
 
@@ -348,7 +348,7 @@ func (h *Handler) DeleteComment(w http.ResponseWriter, r *http.Request) {
 		UserID: userId, // Check if the user is the owner of the comment
 	})
 	if err != nil {
-		apierror.SendError(w, http.StatusInternalServerError, err.Error())
+		apierror.SendError(w, http.StatusInternalServerError, "Failed to delete comment")
 		return
 	}
 
