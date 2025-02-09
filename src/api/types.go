@@ -43,6 +43,6 @@ const (
 	FriendshipStatusNone            FriendshipStatus = "none"
 	FriendshipStatusFriend          FriendshipStatus = "friend"
 	FriendshipStatusBlocked         FriendshipStatus = "blocked"
-	FriendshipStatusRequestSent     FriendshipStatus = "request_sent"
-	FriendshipStatusRequestReceived FriendshipStatus = "request_received"
+	FriendshipStatusRequestSent     FriendshipStatus = "requestSent"
+	FriendshipStatusRequestReceived FriendshipStatus = "requestReceived"
 )
