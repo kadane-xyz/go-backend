@@ -4,6 +4,8 @@ package db
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"time"
 
@@ -27,6 +29,25 @@ var teardownFunc func()
 // It returns an error if the setup fails.
 func SetupTestContainer() error {
 	ctx := context.Background()
+
+	wd, err := os.Getwd() // Get the working directory
+	if err != nil {
+		panic(err)
+	}
+
+	sqlDir := filepath.Join("../", "sql")
+	if err := os.Chdir(sqlDir); err != nil {
+		panic(err)
+	}
+
+	cmd := exec.Command("sh", "./init-sql.sh")
+	if err := cmd.Run(); err != nil {
+		panic(err)
+	}
+
+	if err := os.Chdir(wd); err != nil {
+		panic(err)
+	}
 
 	// Start the container.
 	pgContainer, err := postgres.Run(ctx,

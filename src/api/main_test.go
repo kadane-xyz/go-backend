@@ -3,8 +3,6 @@ package api
 
 import (
 	"os"
-	"os/exec"
-	"path/filepath"
 	"testing"
 
 	"kadane.xyz/go-backend/v2/src/db"
@@ -24,24 +22,6 @@ var handler Handler
 // It sets up the container, runs all tests, and tears down afterward.
 func TestMain(m *testing.M) {
 	// Create init.sql file
-	wd, err := os.Getwd() // Get the working directory
-	if err != nil {
-		panic(err)
-	}
-
-	sqlDir := filepath.Join(wd, "..", "sql")
-	if err := os.Chdir(sqlDir); err != nil {
-		panic(err)
-	}
-
-	cmd := exec.Command("sh", "./init-sql.sh")
-	if err := cmd.Run(); err != nil {
-		panic(err)
-	}
-
-	if err := os.Chdir(wd); err != nil {
-		panic(err)
-	}
 
 	if err := db.SetupTestContainer(); err != nil {
 		// If setup fails, exit immediately.
