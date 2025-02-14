@@ -118,7 +118,7 @@ func RegisterApiRoutes(h *Handler, r chi.Router) {
 			})
 		})
 		r.Route("/admin", func(r chi.Router) {
-			r.Post("/", h.ValidateAdmin)
+			r.Get("/validate", h.GetAdminValidation)
 		})
 	})
 	//generate a route to catch anything not defined and error/block spam
