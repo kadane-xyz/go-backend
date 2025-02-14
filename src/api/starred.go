@@ -9,7 +9,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"kadane.xyz/go-backend/v2/src/apierror"
 	"kadane.xyz/go-backend/v2/src/judge0"
-	"kadane.xyz/go-backend/v2/src/middleware"
 	"kadane.xyz/go-backend/v2/src/sql/sql"
 )
 
@@ -99,9 +98,8 @@ type StarredSubmissionsResponse struct {
 
 // GET: /starred/problems
 func (h *Handler) GetStarredProblems(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
-	if userId == "" {
-		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for solutions retrieval")
+	userId, err := GetClientUserID(w, r)
+	if err != nil {
 		return
 	}
 
@@ -139,9 +137,8 @@ func (h *Handler) GetStarredProblems(w http.ResponseWriter, r *http.Request) {
 
 // GET: /starred/solutions
 func (h *Handler) GetStarredSolutions(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
-	if userId == "" {
-		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for solutions retrieval")
+	userId, err := GetClientUserID(w, r)
+	if err != nil {
 		return
 	}
 
@@ -181,9 +178,8 @@ func (h *Handler) GetStarredSolutions(w http.ResponseWriter, r *http.Request) {
 
 // GET: /starred/submissions
 func (h *Handler) GetStarredSubmissions(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
-	if userId == "" {
-		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for submissions retrieval")
+	userId, err := GetClientUserID(w, r)
+	if err != nil {
 		return
 	}
 
@@ -231,14 +227,13 @@ func (h *Handler) GetStarredSubmissions(w http.ResponseWriter, r *http.Request) 
 
 // PUT: /starred/problems
 func (h *Handler) PutStarProblem(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
-	if userId == "" {
-		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for problem starring")
+	userId, err := GetClientUserID(w, r)
+	if err != nil {
 		return
 	}
 
 	var problemRequest StarProblemRequest
-	err := json.NewDecoder(r.Body).Decode(&problemRequest)
+	err = json.NewDecoder(r.Body).Decode(&problemRequest)
 	if err != nil {
 		apierror.SendError(w, http.StatusBadRequest, "Invalid request body")
 		return
@@ -269,14 +264,13 @@ func (h *Handler) PutStarProblem(w http.ResponseWriter, r *http.Request) {
 
 // PUT: /starred/solutions
 func (h *Handler) PutStarSolution(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
-	if userId == "" {
-		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for problem starring")
+	userId, err := GetClientUserID(w, r)
+	if err != nil {
 		return
 	}
 
 	var solutionRequest StarSolutionRequest
-	err := json.NewDecoder(r.Body).Decode(&solutionRequest)
+	err = json.NewDecoder(r.Body).Decode(&solutionRequest)
 	if err != nil {
 		apierror.SendError(w, http.StatusBadRequest, "Invalid request body")
 		return
@@ -306,14 +300,13 @@ func (h *Handler) PutStarSolution(w http.ResponseWriter, r *http.Request) {
 
 // PUT: /starred/submissions
 func (h *Handler) PutStarSubmission(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
-	if userId == "" {
-		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for submission starring")
+	userId, err := GetClientUserID(w, r)
+	if err != nil {
 		return
 	}
 
 	var submissionRequest StarSubmissionRequest
-	err := json.NewDecoder(r.Body).Decode(&submissionRequest)
+	err = json.NewDecoder(r.Body).Decode(&submissionRequest)
 	if err != nil {
 		apierror.SendError(w, http.StatusBadRequest, "Invalid request body")
 		return

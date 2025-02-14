@@ -58,9 +58,8 @@ type CommentsResponse struct {
 // GET: /comments
 func (h *Handler) GetComments(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
-	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
-	if userId == "" {
-		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for comment retrieval")
+	userId, err := GetClientUserID(w, r)
+	if err != nil {
 		return
 	}
 
@@ -157,14 +156,13 @@ func (h *Handler) GetComments(w http.ResponseWriter, r *http.Request) {
 // POST: /comments
 func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
-	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
-	if userId == "" {
-		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for comment creation")
+	userId, err := GetClientUserID(w, r)
+	if err != nil {
 		return
 	}
 
 	var comment CommentCreateRequest
-	err := json.NewDecoder(r.Body).Decode(&comment)
+	err = json.NewDecoder(r.Body).Decode(&comment)
 	if err != nil {
 		apierror.SendError(w, http.StatusBadRequest, "Invalid comment data format")
 		return
@@ -218,9 +216,8 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 // GET: /comments/{commentId}
 func (h *Handler) GetComment(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
-	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
-	if userId == "" {
-		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for comment retrieval")
+	userId, err := GetClientUserID(w, r)
+	if err != nil {
 		return
 	}
 
@@ -277,9 +274,8 @@ func (h *Handler) GetComment(w http.ResponseWriter, r *http.Request) {
 // PUT: /comments/{commentId}
 func (h *Handler) UpdateComment(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
-	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
-	if userId == "" {
-		apierror.SendError(w, http.StatusBadRequest, "Missing user id")
+	userId, err := GetClientUserID(w, r)
+	if err != nil {
 		return
 	}
 

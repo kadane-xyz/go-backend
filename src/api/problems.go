@@ -10,7 +10,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"kadane.xyz/go-backend/v2/src/apierror"
-	"kadane.xyz/go-backend/v2/src/middleware"
 	"kadane.xyz/go-backend/v2/src/sql/sql"
 )
 
@@ -304,9 +303,8 @@ func (h *Handler) CreateProblem(w http.ResponseWriter, r *http.Request) {
 
 // GET: /problems/{problemId}
 func (h *Handler) GetProblem(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
-	if userId == "" {
-		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for problem starring")
+	userId, err := GetClientUserID(w, r)
+	if err != nil {
 		return
 	}
 

@@ -9,7 +9,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"kadane.xyz/go-backend/v2/src/apierror"
-	"kadane.xyz/go-backend/v2/src/middleware"
 	"kadane.xyz/go-backend/v2/src/sql/sql"
 )
 
@@ -63,9 +62,8 @@ type SolutionsResponse struct {
 
 // GET: /solutions
 func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
-	if userId == "" {
-		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for solutions retrieval")
+	userId, err := GetClientUserID(w, r)
+	if err != nil {
 		return
 	}
 
@@ -205,14 +203,13 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 
 // POST: /
 func (h *Handler) CreateSolution(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
-	if userId == "" {
-		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for solution creation")
+	userId, err := GetClientUserID(w, r)
+	if err != nil {
 		return
 	}
 
 	var solution CreateSolutionRequest
-	err := json.NewDecoder(r.Body).Decode(&solution)
+	err = json.NewDecoder(r.Body).Decode(&solution)
 	if err != nil {
 		apierror.SendError(w, http.StatusBadRequest, "Invalid solution data format")
 		return
@@ -246,9 +243,8 @@ func (h *Handler) CreateSolution(w http.ResponseWriter, r *http.Request) {
 
 // GET: /{solutionId}
 func (h *Handler) GetSolution(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
-	if userId == "" {
-		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for solution retrieval")
+	userId, err := GetClientUserID(w, r)
+	if err != nil {
 		return
 	}
 
@@ -307,9 +303,8 @@ func (h *Handler) GetSolution(w http.ResponseWriter, r *http.Request) {
 // PUT: /{solutionId}
 func (h *Handler) UpdateSolution(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
-	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
-	if userId == "" {
-		http.Error(w, "Missing user id", http.StatusBadRequest)
+	userId, err := GetClientUserID(w, r)
+	if err != nil {
 		return
 	}
 
@@ -317,24 +312,24 @@ func (h *Handler) UpdateSolution(w http.ResponseWriter, r *http.Request) {
 	solutionId := chi.URLParam(r, "solutionId")
 	// If problemId is empty, set idPg as NULL
 	if solutionId == "" {
-		http.Error(w, "solutionId is required", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "solutionId is required")
 		return
 	}
 
 	id, err := strconv.ParseInt(solutionId, 10, 64)
 	if err != nil {
-		http.Error(w, "solutionId must be an integer", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "solutionId must be an integer")
 		return
 	}
 
 	var solutionRequest UpdateSolutionRequest
 	if err := json.NewDecoder(r.Body).Decode(&solutionRequest); err != nil {
-		http.Error(w, "error decoding request body", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "error decoding request body")
 		return
 	}
 
 	if solutionRequest.Title == "" && solutionRequest.Body == "" && len(solutionRequest.Tags) > 0 {
-		http.Error(w, "at least one field must be provided", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "at least one field must be provided")
 		return
 	}
 
@@ -349,7 +344,7 @@ func (h *Handler) UpdateSolution(w http.ResponseWriter, r *http.Request) {
 	// Get solutions from db by idPg
 	_, err = h.PostgresQueries.UpdateSolution(r.Context(), solutionArgs)
 	if err != nil {
-		http.Error(w, "error getting solutions", http.StatusInternalServerError)
+		apierror.SendError(w, http.StatusInternalServerError, "error getting solutions")
 		return
 	}
 
@@ -361,9 +356,8 @@ func (h *Handler) UpdateSolution(w http.ResponseWriter, r *http.Request) {
 // DELETE: /{solutionId}
 func (h *Handler) DeleteSolution(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
-	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
-	if userId == "" {
-		http.Error(w, "Missing user id", http.StatusBadRequest)
+	userId, err := GetClientUserID(w, r)
+	if err != nil {
 		return
 	}
 
@@ -371,13 +365,13 @@ func (h *Handler) DeleteSolution(w http.ResponseWriter, r *http.Request) {
 	solutionId := chi.URLParam(r, "solutionId")
 	// If problemId is empty, set idPg as NULL
 	if solutionId == "" {
-		http.Error(w, "solutionId is required", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "solutionId is required")
 		return
 	}
 
 	id, err := strconv.ParseInt(solutionId, 10, 64)
 	if err != nil {
-		http.Error(w, "solutionId must be an integer", http.StatusBadRequest)
+		apierror.SendError(w, http.StatusBadRequest, "solutionId must be an integer")
 		return
 	}
 
@@ -387,7 +381,7 @@ func (h *Handler) DeleteSolution(w http.ResponseWriter, r *http.Request) {
 		UserID: pgtype.Text{String: userId, Valid: true},
 	})
 	if err != nil {
-		http.Error(w, "error getting solutions", http.StatusInternalServerError)
+		apierror.SendError(w, http.StatusInternalServerError, "error getting solutions")
 		return
 	}
 
@@ -399,9 +393,8 @@ func (h *Handler) DeleteSolution(w http.ResponseWriter, r *http.Request) {
 // PATCH: /{solutionId}/vote
 func (h *Handler) VoteSolution(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
-	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
-	if userId == "" {
-		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for solution retrieval")
+	userId, err := GetClientUserID(w, r)
+	if err != nil {
 		return
 	}
 

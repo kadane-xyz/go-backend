@@ -12,7 +12,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"kadane.xyz/go-backend/v2/src/apierror"
 	"kadane.xyz/go-backend/v2/src/judge0"
-	"kadane.xyz/go-backend/v2/src/middleware"
 	"kadane.xyz/go-backend/v2/src/sql/sql"
 )
 
@@ -125,14 +124,13 @@ func SummarizeSubmissionResponses(userId string, problemId int32, sourceCode str
 // POST: /runs
 func (h *Handler) CreateRun(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
-	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
-	if userId == "" {
-		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for run")
+	userId, err := GetClientUserID(w, r)
+	if err != nil {
 		return
 	}
 
 	var runRequest RunRequest
-	err := json.NewDecoder(r.Body).Decode(&runRequest)
+	err = json.NewDecoder(r.Body).Decode(&runRequest)
 	if err != nil {
 		apierror.SendError(w, http.StatusBadRequest, "Invalid run data format")
 		return
