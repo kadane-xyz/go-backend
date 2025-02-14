@@ -9,7 +9,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"kadane.xyz/go-backend/v2/src/apierror"
-	"kadane.xyz/go-backend/v2/src/middleware"
 	"kadane.xyz/go-backend/v2/src/sql/sql"
 )
 
@@ -321,9 +320,8 @@ func (h *Handler) UpdateComment(w http.ResponseWriter, r *http.Request) {
 // DELETE: /comments/{commentId}
 func (h *Handler) DeleteComment(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
-	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
-	if userId == "" {
-		apierror.SendError(w, http.StatusBadRequest, "Missing user id")
+	userId, err := GetClientUserID(w, r)
+	if err != nil {
 		return
 	}
 
@@ -355,9 +353,8 @@ func (h *Handler) DeleteComment(w http.ResponseWriter, r *http.Request) {
 // PATCH: /{commentId}/vote
 func (h *Handler) VoteComment(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
-	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
-	if userId == "" {
-		apierror.SendError(w, http.StatusBadRequest, "Missing user id")
+	userId, err := GetClientUserID(w, r)
+	if err != nil {
 		return
 	}
 

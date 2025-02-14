@@ -147,8 +147,18 @@ type CreateAccountRequest struct {
 
 // POST: /accounts
 func (h *Handler) CreateAccount(w http.ResponseWriter, r *http.Request) {
+	admin, err := GetClientAdmin(w, r)
+	if err != nil {
+		return
+	}
+
+	if !admin {
+		apierror.SendError(w, http.StatusForbidden, "You are not authorized to create accounts")
+		return
+	}
+
 	var createAccountRequest CreateAccountRequest
-	err := json.NewDecoder(r.Body).Decode(&createAccountRequest)
+	err = json.NewDecoder(r.Body).Decode(&createAccountRequest)
 	if err != nil {
 		apierror.SendError(w, http.StatusBadRequest, "Invalid JSON format in request body")
 		return
