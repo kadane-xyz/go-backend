@@ -99,7 +99,7 @@ type StarredSubmissionsResponse struct {
 
 // GET: /starred/problems
 func (h *Handler) GetStarredProblems(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
 	if userId == "" {
 		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for solutions retrieval")
 		return
@@ -139,7 +139,7 @@ func (h *Handler) GetStarredProblems(w http.ResponseWriter, r *http.Request) {
 
 // GET: /starred/solutions
 func (h *Handler) GetStarredSolutions(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
 	if userId == "" {
 		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for solutions retrieval")
 		return
@@ -181,7 +181,7 @@ func (h *Handler) GetStarredSolutions(w http.ResponseWriter, r *http.Request) {
 
 // GET: /starred/submissions
 func (h *Handler) GetStarredSubmissions(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
 	if userId == "" {
 		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for submissions retrieval")
 		return
@@ -231,7 +231,7 @@ func (h *Handler) GetStarredSubmissions(w http.ResponseWriter, r *http.Request) 
 
 // PUT: /starred/problems
 func (h *Handler) PutStarProblem(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
 	if userId == "" {
 		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for problem starring")
 		return
@@ -269,7 +269,7 @@ func (h *Handler) PutStarProblem(w http.ResponseWriter, r *http.Request) {
 
 // PUT: /starred/solutions
 func (h *Handler) PutStarSolution(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
 	if userId == "" {
 		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for problem starring")
 		return
@@ -306,7 +306,7 @@ func (h *Handler) PutStarSolution(w http.ResponseWriter, r *http.Request) {
 
 // PUT: /starred/submissions
 func (h *Handler) PutStarSubmission(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
 	if userId == "" {
 		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for submission starring")
 		return

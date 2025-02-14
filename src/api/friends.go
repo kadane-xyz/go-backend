@@ -44,7 +44,7 @@ type FriendRequestsResponse struct {
 // GET: /friends
 // GetFriends gets all friends
 func (h *Handler) GetFriends(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
 	if userId == "" {
 		http.Error(w, "Missing user id", http.StatusBadRequest)
 		return
@@ -79,7 +79,7 @@ func (h *Handler) GetFriends(w http.ResponseWriter, r *http.Request) {
 // POST: /friends
 // CreateFriendRequest creates a friend request
 func (h *Handler) CreateFriendRequest(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
 	if userId == "" {
 		http.Error(w, "Missing user id", http.StatusBadRequest)
 		return
@@ -142,7 +142,7 @@ func (h *Handler) CreateFriendRequest(w http.ResponseWriter, r *http.Request) {
 // GET: /friends/requests/sent
 // GetFriendRequestsSent gets all friend requests sent
 func (h *Handler) GetFriendRequestsSent(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
 	if userId == "" {
 		http.Error(w, "Missing user id", http.StatusBadRequest)
 		return
@@ -176,7 +176,7 @@ func (h *Handler) GetFriendRequestsSent(w http.ResponseWriter, r *http.Request) 
 // GET: /friends/requests/received
 // GetFriendRequestsReceived gets all friend requests received
 func (h *Handler) GetFriendRequestsReceived(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
 	if userId == "" {
 		http.Error(w, "Missing user id", http.StatusBadRequest)
 		return
@@ -210,7 +210,7 @@ func (h *Handler) GetFriendRequestsReceived(w http.ResponseWriter, r *http.Reque
 // POST: /friends/requests/accept
 // AcceptFriendRequest accepts a friend request
 func (h *Handler) AcceptFriendRequest(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
 	if userId == "" {
 		http.Error(w, "Missing user id", http.StatusBadRequest)
 		return
@@ -236,7 +236,7 @@ func (h *Handler) AcceptFriendRequest(w http.ResponseWriter, r *http.Request) {
 // POST: /friends/requests/block
 // BlockFriendRequest blocks a friend request
 func (h *Handler) BlockFriendRequest(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
 	if userId == "" {
 		http.Error(w, "Missing user id", http.StatusBadRequest)
 		return
@@ -262,7 +262,7 @@ func (h *Handler) BlockFriendRequest(w http.ResponseWriter, r *http.Request) {
 // POST: /friends/requests/unblock
 // UnblockFriendRequest unblocks a friend request
 func (h *Handler) UnblockFriendRequest(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
 	if userId == "" {
 		http.Error(w, "Missing user id", http.StatusBadRequest)
 		return
@@ -288,7 +288,7 @@ func (h *Handler) UnblockFriendRequest(w http.ResponseWriter, r *http.Request) {
 // DELETE: /friends or /friends/requests/deny
 // DeleteFriend deletes a friend request or a friend
 func (h *Handler) DeleteFriend(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
 	if userId == "" {
 		http.Error(w, "Missing user id", http.StatusBadRequest)
 		return
@@ -358,7 +358,7 @@ func (h *Handler) GetFriendsUsername(w http.ResponseWriter, r *http.Request) {
 // DELETE: /friends/requests
 // DeleteFriendRequest deletes a friend request
 func (h *Handler) DeleteFriendRequest(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
 	if userId == "" {
 		http.Error(w, "Missing user id", http.StatusBadRequest)
 		return

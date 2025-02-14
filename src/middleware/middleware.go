@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -11,16 +12,19 @@ import (
 	"github.com/go-chi/cors"
 	"github.com/go-chi/httprate"
 	"kadane.xyz/go-backend/v2/src/apierror"
+	"kadane.xyz/go-backend/v2/src/sql/sql"
 )
 
 type ContextKey string
 
-const FirebaseTokenKey ContextKey = "firebaseToken"
+const ClientTokenKey ContextKey = "clientToken"
 
-type FirebaseTokenInfo struct {
+type ClientContext struct {
 	UserID string
 	Email  string
 	Name   string
+	Type   sql.AccountType
+	Admin  bool
 }
 
 // BlockConnectMethod blocks any request using the CONNECT method
@@ -93,14 +97,58 @@ func (h *Handler) FirebaseAuth() func(http.Handler) http.Handler {
 				apierror.SendError(w, http.StatusUnauthorized, "Invalid Firebase ID token")
 				return
 			}
-			claims := FirebaseTokenInfo{
+			claims := ClientContext{
 				UserID: token.UID,
 				Email:  getStringClaim(token.Claims, "email"),
 				Name:   getStringClaim(token.Claims, "name"),
 			}
 
 			// Pass the claims to the next handler via the context
-			ctx := context.WithValue(r.Context(), FirebaseTokenKey, claims)
+			ctx := context.WithValue(r.Context(), ClientTokenKey, claims)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+func (h *Handler) UserAuth() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			claims := r.Context().Value(ClientTokenKey).(ClientContext)
+			accountType, err := h.PostgresQueries.GetAccountType(r.Context(), claims.UserID)
+			if err != nil {
+				apierror.SendError(w, http.StatusForbidden, "Forbidden")
+				return
+			}
+
+			claims.Type = accountType.AccountType // Set the account type
+
+			ctx := context.WithValue(r.Context(), ClientTokenKey, claims)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+func (h *Handler) AdminAuth() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if !strings.HasPrefix(r.URL.Path, "/admin") {
+				next.ServeHTTP(w, r)
+				return
+			}
+			claims := r.Context().Value(ClientTokenKey).(ClientContext)
+			adminCheck, err := h.PostgresQueries.ValidateAdmin(r.Context(), claims.UserID)
+			if err != nil {
+				apierror.SendError(w, http.StatusForbidden, "Forbidden")
+				return
+			}
+			if !adminCheck.Bool {
+				apierror.SendError(w, http.StatusForbidden, "Forbidden")
+				return
+			}
+
+			claims.Admin = true // Set the admin flag
+
+			ctx := context.WithValue(r.Context(), ClientTokenKey, claims)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -117,14 +165,15 @@ func (h *Handler) DebugAuth() func(http.Handler) http.Handler {
 
 			token := "123abc"
 
-			claims := FirebaseTokenInfo{
+			claims := ClientContext{
 				UserID: token,
 				Email:  "john@example.com",
 				Name:   "John Doe",
+				Admin:  true, //default to true for debug
 			}
 
 			// Pass the claims to the next handler via the context
-			ctx := context.WithValue(r.Context(), FirebaseTokenKey, claims)
+			ctx := context.WithValue(r.Context(), ClientTokenKey, claims)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -166,6 +215,8 @@ func Middleware(m *Handler, r chi.Router) {
 	} else {
 		r.Use(m.FirebaseAuth()) // Firebase Auth middleware
 	}
+	r.Use(m.AdminAuth()) // Admin Auth middleware
+	r.Use(m.UserAuth())  // User Auth middleware
 
 	log.Println("Middleware initialized")
 }

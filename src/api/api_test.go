@@ -19,7 +19,7 @@ func newTestRequest(t *testing.T, method, url string, body io.Reader) *http.Requ
 	if err != nil {
 		t.Fatalf("Failed to create request: %v", err)
 	}
-	return req.WithContext(context.WithValue(req.Context(), middleware.FirebaseTokenKey, firebaseToken))
+	return req.WithContext(context.WithValue(req.Context(), middleware.ClientTokenKey, clientToken))
 }
 
 // applyRouteParams adds url parameters using chi's RouteContext.

@@ -304,7 +304,7 @@ func (h *Handler) CreateProblem(w http.ResponseWriter, r *http.Request) {
 
 // GET: /problems/{problemId}
 func (h *Handler) GetProblem(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
 	if userId == "" {
 		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for problem starring")
 		return

@@ -92,8 +92,10 @@ func (s *Server) Run() error {
 
 	//middleware handler
 	middlewareHandler := &middleware.Handler{
-		Config:      s.config,
-		FirebaseApp: s.firebaseApp,
+		Config:          s.config,
+		FirebaseApp:     s.firebaseApp,
+		PostgresClient:  s.postgresClient,
+		PostgresQueries: s.PostgresQueries,
 	}
 
 	//api handler

@@ -63,7 +63,7 @@ type SolutionsResponse struct {
 
 // GET: /solutions
 func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
 	if userId == "" {
 		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for solutions retrieval")
 		return
@@ -205,7 +205,7 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 
 // POST: /
 func (h *Handler) CreateSolution(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
 	if userId == "" {
 		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for solution creation")
 		return
@@ -246,7 +246,7 @@ func (h *Handler) CreateSolution(w http.ResponseWriter, r *http.Request) {
 
 // GET: /{solutionId}
 func (h *Handler) GetSolution(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
 	if userId == "" {
 		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for solution retrieval")
 		return
@@ -307,7 +307,7 @@ func (h *Handler) GetSolution(w http.ResponseWriter, r *http.Request) {
 // PUT: /{solutionId}
 func (h *Handler) UpdateSolution(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
 	if userId == "" {
 		http.Error(w, "Missing user id", http.StatusBadRequest)
 		return
@@ -361,7 +361,7 @@ func (h *Handler) UpdateSolution(w http.ResponseWriter, r *http.Request) {
 // DELETE: /{solutionId}
 func (h *Handler) DeleteSolution(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
 	if userId == "" {
 		http.Error(w, "Missing user id", http.StatusBadRequest)
 		return
@@ -399,7 +399,7 @@ func (h *Handler) DeleteSolution(w http.ResponseWriter, r *http.Request) {
 // PATCH: /{solutionId}/vote
 func (h *Handler) VoteSolution(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
 	if userId == "" {
 		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for solution retrieval")
 		return

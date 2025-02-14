@@ -53,7 +53,7 @@ type SubmissionsResponse struct {
 // POST: /submissions
 func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
 	if userId == "" {
 		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for comment creation")
 		return
@@ -285,7 +285,7 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 // GET: /submissions/:submissionId
 func (h *Handler) GetSubmission(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
 	if userId == "" {
 		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for comment creation")
 		return
@@ -339,7 +339,7 @@ func (h *Handler) GetSubmission(w http.ResponseWriter, r *http.Request) {
 // GET: /submissions/username/:username
 func (h *Handler) GetSubmissionsByUsername(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
 	if userId == "" {
 		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for comment creation")
 		return

@@ -10,10 +10,12 @@ import (
 	"kadane.xyz/go-backend/v2/src/sql/sql"
 )
 
-var firebaseToken middleware.FirebaseTokenInfo = middleware.FirebaseTokenInfo{
+var clientToken middleware.ClientContext = middleware.ClientContext{
 	UserID: "123abc",
 	Email:  "john@example.com",
 	Name:   "John Doe",
+	Type:   sql.AccountTypePro, // Set the account type to pro
+	Admin:  true,               // Set the admin flag
 }
 
 var handler Handler

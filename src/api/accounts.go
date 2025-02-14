@@ -236,7 +236,7 @@ func (h *Handler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 // Uploads an avatar image to S3 bucket and stores the URL in the accounts table
 func (h *Handler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
 	if userId == "" {
 		apierror.SendError(w, http.StatusBadRequest, "Missing user id")
 		return
@@ -587,7 +587,7 @@ func (h *Handler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 
 // GET: /accounts/username
 func (h *Handler) GetAccountByUsername(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	userID := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
 	if userID == "" {
 		apierror.SendError(w, http.StatusBadRequest, "Missing user ID")
 		return

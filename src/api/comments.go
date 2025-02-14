@@ -58,7 +58,7 @@ type CommentsResponse struct {
 // GET: /comments
 func (h *Handler) GetComments(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
 	if userId == "" {
 		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for comment retrieval")
 		return
@@ -157,7 +157,7 @@ func (h *Handler) GetComments(w http.ResponseWriter, r *http.Request) {
 // POST: /comments
 func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
 	if userId == "" {
 		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for comment creation")
 		return
@@ -218,7 +218,7 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 // GET: /comments/{commentId}
 func (h *Handler) GetComment(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
 	if userId == "" {
 		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for comment retrieval")
 		return
@@ -277,7 +277,7 @@ func (h *Handler) GetComment(w http.ResponseWriter, r *http.Request) {
 // PUT: /comments/{commentId}
 func (h *Handler) UpdateComment(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
 	if userId == "" {
 		apierror.SendError(w, http.StatusBadRequest, "Missing user id")
 		return
@@ -325,7 +325,7 @@ func (h *Handler) UpdateComment(w http.ResponseWriter, r *http.Request) {
 // DELETE: /comments/{commentId}
 func (h *Handler) DeleteComment(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
 	if userId == "" {
 		apierror.SendError(w, http.StatusBadRequest, "Missing user id")
 		return
@@ -359,7 +359,7 @@ func (h *Handler) DeleteComment(w http.ResponseWriter, r *http.Request) {
 // PATCH: /{commentId}/vote
 func (h *Handler) VoteComment(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
+	userId := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
 	if userId == "" {
 		apierror.SendError(w, http.StatusBadRequest, "Missing user id")
 		return
