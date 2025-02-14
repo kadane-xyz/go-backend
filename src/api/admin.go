@@ -7,7 +7,7 @@ import (
 	"kadane.xyz/go-backend/v2/src/apierror"
 )
 
-type ValidateAdminResponse struct {
+type AdminValidationResponse struct {
 	Data bool `json:"data"`
 }
 
@@ -23,7 +23,7 @@ func (h *Handler) GetAdminValidation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := ValidateAdminResponse{
+	response := AdminValidationResponse{
 		Data: admin,
 	}
 
