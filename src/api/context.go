@@ -12,8 +12,8 @@ import (
 func GetClientUserID(w http.ResponseWriter, r *http.Request) (string, error) {
 	value := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
 	if value == "" {
-		apierror.SendError(w, http.StatusBadRequest, "Missing user ID context")
-		return "", errors.New("missing user ID context")
+		apierror.SendError(w, http.StatusBadRequest, "Missing client user ID context")
+		return "", errors.New("missing client user ID context")
 	}
 	return value, nil
 }
@@ -21,8 +21,8 @@ func GetClientUserID(w http.ResponseWriter, r *http.Request) (string, error) {
 func GetClientPlan(w http.ResponseWriter, r *http.Request) (sql.AccountPlan, error) {
 	value := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).Plan
 	if value == "" {
-		apierror.SendError(w, http.StatusBadRequest, "Missing account type context")
-		return "", errors.New("missing account type context")
+		apierror.SendError(w, http.StatusBadRequest, "Missing client plan context")
+		return "", errors.New("missing client plan context")
 	}
 	return value, nil
 }
@@ -30,8 +30,8 @@ func GetClientPlan(w http.ResponseWriter, r *http.Request) (sql.AccountPlan, err
 func GetClientAdmin(w http.ResponseWriter, r *http.Request) (bool, error) {
 	value := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).Admin
 	if !value {
-		apierror.SendError(w, http.StatusBadRequest, "Missing admin context")
-		return false, errors.New("missing admin context")
+		apierror.SendError(w, http.StatusBadRequest, "Missing client admin context")
+		return false, errors.New("missing client admin context")
 	}
 	return value, nil
 }
@@ -39,8 +39,8 @@ func GetClientAdmin(w http.ResponseWriter, r *http.Request) (bool, error) {
 func GetClientEmail(w http.ResponseWriter, r *http.Request) (string, error) {
 	value := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).Email
 	if value == "" {
-		apierror.SendError(w, http.StatusBadRequest, "Missing email context")
-		return "", errors.New("missing email context")
+		apierror.SendError(w, http.StatusBadRequest, "Missing client email context")
+		return "", errors.New("missing client email context")
 	}
 	return value, nil
 }
@@ -48,8 +48,8 @@ func GetClientEmail(w http.ResponseWriter, r *http.Request) (string, error) {
 func GetClientName(w http.ResponseWriter, r *http.Request) (string, error) {
 	value := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).Name
 	if value == "" {
-		apierror.SendError(w, http.StatusBadRequest, "Missing name context")
-		return "", errors.New("missing name context")
+		apierror.SendError(w, http.StatusBadRequest, "Missing client name context")
+		return "", errors.New("missing client name context")
 	}
 	return value, nil
 }
@@ -57,8 +57,8 @@ func GetClientName(w http.ResponseWriter, r *http.Request) (string, error) {
 func GetClientFullContext(w http.ResponseWriter, r *http.Request) (middleware.ClientContext, error) {
 	value := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext)
 	if value == (middleware.ClientContext{}) {
-		apierror.SendError(w, http.StatusBadRequest, "Missing full context")
-		return middleware.ClientContext{}, errors.New("missing full context")
+		apierror.SendError(w, http.StatusBadRequest, "Missing full client context")
+		return middleware.ClientContext{}, errors.New("missing full client context")
 	}
 	return value, nil
 }
