@@ -50,6 +50,9 @@ func RegisterApiRoutes(h *Handler, r chi.Router) {
 			r.Route("/username/{username}", func(r chi.Router) {
 				r.Get("/", h.GetAccountByUsername)
 			})
+			r.Route("/validate", func(r chi.Router) {
+				r.Get("/", h.GetAccountValidation)
+			})
 		})
 		r.Route("/friends", func(r chi.Router) {
 			r.Get("/", h.GetFriends)

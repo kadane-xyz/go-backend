@@ -81,6 +81,14 @@ type AvatarResponse struct {
 	Data string `json:"data"`
 }
 
+type AccountValidation struct {
+	Type sql.AccountType `json:"type"`
+}
+
+type AccountValidationResponse struct {
+	Data AccountValidation `json:"data"`
+}
+
 // GET: /accounts
 func (h *Handler) GetAccounts(w http.ResponseWriter, r *http.Request) {
 	usernames := r.URL.Query().Get("usernames")
@@ -632,6 +640,24 @@ func (h *Handler) GetAccountByUsername(w http.ResponseWriter, r *http.Request) {
 		FriendStatus: FriendshipStatus(account.FriendStatus),
 		Attributes:   account.Attributes,
 	}}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+}
+
+// GET: /accounts/validate
+func (h *Handler) GetAccountValidation(w http.ResponseWriter, r *http.Request) {
+	accountType, err := GetClientType(w, r)
+	if err != nil {
+		return
+	}
+
+	response := AccountValidationResponse{
+		Data: AccountValidation{
+			Type: accountType,
+		},
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
