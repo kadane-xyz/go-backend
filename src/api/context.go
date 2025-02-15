@@ -18,8 +18,8 @@ func GetClientUserID(w http.ResponseWriter, r *http.Request) (string, error) {
 	return value, nil
 }
 
-func GetClientType(w http.ResponseWriter, r *http.Request) (sql.AccountType, error) {
-	value := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).Type
+func GetClientPlan(w http.ResponseWriter, r *http.Request) (sql.AccountPlan, error) {
+	value := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).Plan
 	if value == "" {
 		apierror.SendError(w, http.StatusBadRequest, "Missing account type context")
 		return "", errors.New("missing account type context")

@@ -21,7 +21,7 @@ type ClientContext struct {
 	UserID string
 	Email  string
 	Name   string
-	Type   sql.AccountType
+	Plan   sql.AccountPlan
 	Admin  bool
 }
 

@@ -66,6 +66,8 @@ type Account struct {
 	Level        int32            `json:"level"`
 	CreatedAt    time.Time        `json:"createdAt"`
 	FriendStatus FriendshipStatus `json:"friendStatus,omitempty"`
+	Plan         sql.AccountPlan  `json:"plan"`
+	IsAdmin      bool             `json:"isAdmin"`
 	Attributes   interface{}      `json:"attributes"`
 }
 
@@ -82,7 +84,7 @@ type AvatarResponse struct {
 }
 
 type AccountValidation struct {
-	Type sql.AccountType `json:"type"`
+	Plan sql.AccountPlan `json:"plan"`
 }
 
 type AccountValidationResponse struct {
@@ -140,6 +142,8 @@ func (h *Handler) GetAccounts(w http.ResponseWriter, r *http.Request) {
 			CreatedAt:  account.CreatedAt.Time,
 			AvatarUrl:  account.AvatarUrl.String,
 			Level:      account.Level.Int32,
+			Plan:       account.Plan.AccountPlan,
+			IsAdmin:    account.Admin.Bool,
 			Attributes: account.Attributes,
 		})
 	}
@@ -240,6 +244,8 @@ func (h *Handler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:  account.CreatedAt.Time,
 		AvatarUrl:  account.AvatarUrl.String,
 		Level:      account.Level.Int32,
+		Plan:       account.Plan.AccountPlan,
+		IsAdmin:    account.Admin.Bool,
 		Attributes: account.Attributes,
 	}}
 
@@ -377,6 +383,8 @@ func (h *Handler) GetAccount(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:  account.CreatedAt.Time,
 		AvatarUrl:  account.AvatarUrl.String,
 		Level:      account.Level.Int32,
+		Plan:       account.Plan.AccountPlan,
+		IsAdmin:    account.Admin.Bool,
 		Attributes: account.Attributes,
 	}}
 
@@ -462,6 +470,8 @@ func (h *Handler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:  account.CreatedAt.Time,
 		AvatarUrl:  account.AvatarUrl.String,
 		Level:      account.Level.Int32,
+		Plan:       account.Plan.AccountPlan,
+		IsAdmin:    account.Admin.Bool,
 		Attributes: account.Attributes,
 	}}
 
@@ -637,6 +647,8 @@ func (h *Handler) GetAccountByUsername(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:    account.CreatedAt.Time,
 		AvatarUrl:    account.AvatarUrl.String,
 		Level:        account.Level.Int32,
+		Plan:         account.Plan.AccountPlan,
+		IsAdmin:      account.Admin.Bool,
 		FriendStatus: FriendshipStatus(account.FriendStatus),
 		Attributes:   account.Attributes,
 	}}
@@ -648,14 +660,14 @@ func (h *Handler) GetAccountByUsername(w http.ResponseWriter, r *http.Request) {
 
 // GET: /accounts/validate
 func (h *Handler) GetAccountValidation(w http.ResponseWriter, r *http.Request) {
-	accountType, err := GetClientType(w, r)
+	accountPlan, err := GetClientPlan(w, r)
 	if err != nil {
 		return
 	}
 
 	response := AccountValidationResponse{
 		Data: AccountValidation{
-			Type: accountType,
+			Plan: accountPlan,
 		},
 	}
 

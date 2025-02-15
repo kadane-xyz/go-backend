@@ -14,7 +14,7 @@ var clientToken middleware.ClientContext = middleware.ClientContext{
 	UserID: "123abc",
 	Email:  "john@example.com",
 	Name:   "John Doe",
-	Type:   sql.AccountTypePro, // Set the account type to pro
+	Plan:   sql.AccountPlanPro, // Set the account type to pro
 	Admin:  true,               // Set the admin flag
 }
 

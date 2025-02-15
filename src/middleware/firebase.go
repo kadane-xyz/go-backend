@@ -82,7 +82,7 @@ func (h *Handler) FirebaseDebugAuth() func(http.Handler) http.Handler {
 				UserID: token,
 				Email:  "john@example.com",
 				Name:   "John Doe",
-				Type:   sql.AccountTypePro, //default to pro for debug
+				Plan:   sql.AccountPlanPro, //default to pro for debug
 				Admin:  true,               //default to true for debug
 			}
 
