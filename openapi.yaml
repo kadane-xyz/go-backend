@@ -219,7 +219,34 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '500':
           $ref: '#/components/responses/InternalServerError'
-
+  /accounts/validate:
+    get:
+      tags:
+        - Accounts
+      summary: Validate an account and return the plan
+      description: Validate an account and return the plan.
+      operationId: validateAccount
+      responses:
+        '200':
+          description: Account plan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountValidationResponse'
+  /admin/validate:
+    get:
+      tags:
+        - Admin
+      summary: Validate client admin status
+      description: Validate client admin status.
+      operationId: validateAdmin
+      responses:
+        '200':
+          description: Admin status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminValidationResponse'
   /comments:
     get:
       operationId: getComments
@@ -1362,6 +1389,11 @@ components:
             friendStatus:
               type: string
               enum: [none, friend, blocked, request_sent, request_received]
+            plan:
+              type: string
+              enum: [free, plus, pro]
+            isAdmin:
+              type: boolean
             attributes:
               $ref: '#/components/schemas/AccountAttributes'
           required:
@@ -1452,6 +1484,19 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Account'
+    AccountValidation:
+      description: Account validation
+      type: object
+      properties:
+        plan:
+          type: string
+          enum: [free, plus, pro]
+    AccountValidationResponse:
+      description: Account validation response
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/AccountValidation'
     CreateAccountRequest:
       description: Create Account Request
       type: object
@@ -1474,6 +1519,19 @@ components:
         id: "12345"
         username: "john_doe"
         email: "john@example.com"
+    # Admin
+    AdminValidation:
+      description: Admin validation
+      type: object
+      properties:
+        isAdmin:
+          type: boolean
+    AdminValidationResponse:
+      description: Admin validation response
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/AdminValidation'
     # Comments
     Comment:
       description: Comment

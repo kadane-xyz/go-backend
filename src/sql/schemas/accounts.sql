@@ -1,9 +1,13 @@
+CREATE TYPE account_plan AS ENUM ('free', 'plus', 'pro');
+
 CREATE TABLE account (
     id TEXT NOT NULL UNIQUE PRIMARY KEY,
     username TEXT NOT NULL UNIQUE,
     email TEXT NOT NULL UNIQUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     avatar_url TEXT,
+    admin BOOLEAN DEFAULT FALSE,
+    plan account_plan DEFAULT 'free',
     level INTEGER DEFAULT 1
 );
 

@@ -7,7 +7,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"kadane.xyz/go-backend/v2/src/apierror"
-	"kadane.xyz/go-backend/v2/src/middleware"
 	"kadane.xyz/go-backend/v2/src/sql/sql"
 )
 
@@ -44,9 +43,8 @@ type FriendRequestsResponse struct {
 // GET: /friends
 // GetFriends gets all friends
 func (h *Handler) GetFriends(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
-	if userId == "" {
-		http.Error(w, "Missing user id", http.StatusBadRequest)
+	userId, err := GetClientUserID(w, r)
+	if err != nil {
 		return
 	}
 
@@ -79,14 +77,13 @@ func (h *Handler) GetFriends(w http.ResponseWriter, r *http.Request) {
 // POST: /friends
 // CreateFriendRequest creates a friend request
 func (h *Handler) CreateFriendRequest(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
-	if userId == "" {
-		http.Error(w, "Missing user id", http.StatusBadRequest)
+	userId, err := GetClientUserID(w, r)
+	if err != nil {
 		return
 	}
 
 	var friendRequest FriendRequestRequest
-	err := json.NewDecoder(r.Body).Decode(&friendRequest)
+	err = json.NewDecoder(r.Body).Decode(&friendRequest)
 	if err != nil {
 		apierror.SendError(w, http.StatusBadRequest, "Invalid request body")
 		return
@@ -142,9 +139,8 @@ func (h *Handler) CreateFriendRequest(w http.ResponseWriter, r *http.Request) {
 // GET: /friends/requests/sent
 // GetFriendRequestsSent gets all friend requests sent
 func (h *Handler) GetFriendRequestsSent(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
-	if userId == "" {
-		http.Error(w, "Missing user id", http.StatusBadRequest)
+	userId, err := GetClientUserID(w, r)
+	if err != nil {
 		return
 	}
 
@@ -176,9 +172,8 @@ func (h *Handler) GetFriendRequestsSent(w http.ResponseWriter, r *http.Request) 
 // GET: /friends/requests/received
 // GetFriendRequestsReceived gets all friend requests received
 func (h *Handler) GetFriendRequestsReceived(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
-	if userId == "" {
-		http.Error(w, "Missing user id", http.StatusBadRequest)
+	userId, err := GetClientUserID(w, r)
+	if err != nil {
 		return
 	}
 
@@ -210,14 +205,13 @@ func (h *Handler) GetFriendRequestsReceived(w http.ResponseWriter, r *http.Reque
 // POST: /friends/requests/accept
 // AcceptFriendRequest accepts a friend request
 func (h *Handler) AcceptFriendRequest(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
-	if userId == "" {
-		http.Error(w, "Missing user id", http.StatusBadRequest)
+	userId, err := GetClientUserID(w, r)
+	if err != nil {
 		return
 	}
 
 	var friendRequest FriendRequest
-	err := json.NewDecoder(r.Body).Decode(&friendRequest)
+	err = json.NewDecoder(r.Body).Decode(&friendRequest)
 	if err != nil {
 		apierror.SendError(w, http.StatusBadRequest, "Invalid request body")
 		return
@@ -236,14 +230,13 @@ func (h *Handler) AcceptFriendRequest(w http.ResponseWriter, r *http.Request) {
 // POST: /friends/requests/block
 // BlockFriendRequest blocks a friend request
 func (h *Handler) BlockFriendRequest(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
-	if userId == "" {
-		http.Error(w, "Missing user id", http.StatusBadRequest)
+	userId, err := GetClientUserID(w, r)
+	if err != nil {
 		return
 	}
 
 	var friendRequest FriendRequest
-	err := json.NewDecoder(r.Body).Decode(&friendRequest)
+	err = json.NewDecoder(r.Body).Decode(&friendRequest)
 	if err != nil {
 		apierror.SendError(w, http.StatusBadRequest, "Invalid request body")
 		return
@@ -262,14 +255,13 @@ func (h *Handler) BlockFriendRequest(w http.ResponseWriter, r *http.Request) {
 // POST: /friends/requests/unblock
 // UnblockFriendRequest unblocks a friend request
 func (h *Handler) UnblockFriendRequest(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
-	if userId == "" {
-		http.Error(w, "Missing user id", http.StatusBadRequest)
+	userId, err := GetClientUserID(w, r)
+	if err != nil {
 		return
 	}
 
 	var friendRequest FriendRequest
-	err := json.NewDecoder(r.Body).Decode(&friendRequest)
+	err = json.NewDecoder(r.Body).Decode(&friendRequest)
 	if err != nil {
 		apierror.SendError(w, http.StatusBadRequest, "Invalid request body")
 		return
@@ -288,9 +280,8 @@ func (h *Handler) UnblockFriendRequest(w http.ResponseWriter, r *http.Request) {
 // DELETE: /friends or /friends/requests/deny
 // DeleteFriend deletes a friend request or a friend
 func (h *Handler) DeleteFriend(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
-	if userId == "" {
-		http.Error(w, "Missing user id", http.StatusBadRequest)
+	userId, err := GetClientUserID(w, r)
+	if err != nil {
 		return
 	}
 
@@ -300,7 +291,7 @@ func (h *Handler) DeleteFriend(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.PostgresQueries.DeleteFriendship(r.Context(), sql.DeleteFriendshipParams{
+	err = h.PostgresQueries.DeleteFriendship(r.Context(), sql.DeleteFriendshipParams{
 		UserID:     userId,
 		FriendName: username,
 	})
@@ -358,9 +349,8 @@ func (h *Handler) GetFriendsUsername(w http.ResponseWriter, r *http.Request) {
 // DELETE: /friends/requests
 // DeleteFriendRequest deletes a friend request
 func (h *Handler) DeleteFriendRequest(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
-	if userId == "" {
-		http.Error(w, "Missing user id", http.StatusBadRequest)
+	userId, err := GetClientUserID(w, r)
+	if err != nil {
 		return
 	}
 
@@ -370,7 +360,7 @@ func (h *Handler) DeleteFriendRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.PostgresQueries.DeleteFriendship(r.Context(), sql.DeleteFriendshipParams{
+	err = h.PostgresQueries.DeleteFriendship(r.Context(), sql.DeleteFriendshipParams{
 		UserID:     userId,
 		FriendName: username,
 	})

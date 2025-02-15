@@ -50,6 +50,9 @@ func RegisterApiRoutes(h *Handler, r chi.Router) {
 			r.Route("/username/{username}", func(r chi.Router) {
 				r.Get("/", h.GetAccountByUsername)
 			})
+			r.Route("/validate", func(r chi.Router) {
+				r.Get("/", h.GetAccountValidation)
+			})
 		})
 		r.Route("/friends", func(r chi.Router) {
 			r.Get("/", h.GetFriends)
@@ -116,6 +119,9 @@ func RegisterApiRoutes(h *Handler, r chi.Router) {
 				r.Get("/", h.GetStarredSubmissions)
 				r.Put("/", h.PutStarSubmission)
 			})
+		})
+		r.Route("/admin", func(r chi.Router) {
+			r.Get("/validate", h.GetAdminValidation)
 		})
 	})
 	//generate a route to catch anything not defined and error/block spam

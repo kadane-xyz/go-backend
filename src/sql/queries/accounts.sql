@@ -167,6 +167,9 @@ SELECT
     WHERE a.username = @username::text
     GROUP BY a.id, aa.id, f.status, f.user_id_1, f.user_id_2;
 
+-- name: GetAccountPlan :one
+SELECT plan FROM account WHERE id = $1;
+
 -- POST --
 
 -- name: CreateAccount :exec

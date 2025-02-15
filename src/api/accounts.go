@@ -17,7 +17,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"kadane.xyz/go-backend/v2/src/apierror"
-	"kadane.xyz/go-backend/v2/src/middleware"
 	"kadane.xyz/go-backend/v2/src/sql/sql"
 )
 
@@ -67,6 +66,8 @@ type Account struct {
 	Level        int32            `json:"level"`
 	CreatedAt    time.Time        `json:"createdAt"`
 	FriendStatus FriendshipStatus `json:"friendStatus,omitempty"`
+	Plan         sql.AccountPlan  `json:"plan"`
+	IsAdmin      bool             `json:"isAdmin"`
 	Attributes   interface{}      `json:"attributes"`
 }
 
@@ -80,6 +81,14 @@ type AccountsResponse struct {
 
 type AvatarResponse struct {
 	Data string `json:"data"`
+}
+
+type AccountValidation struct {
+	Plan sql.AccountPlan `json:"plan"`
+}
+
+type AccountValidationResponse struct {
+	Data AccountValidation `json:"data"`
 }
 
 // GET: /accounts
@@ -133,6 +142,8 @@ func (h *Handler) GetAccounts(w http.ResponseWriter, r *http.Request) {
 			CreatedAt:  account.CreatedAt.Time,
 			AvatarUrl:  account.AvatarUrl.String,
 			Level:      account.Level.Int32,
+			Plan:       account.Plan.AccountPlan,
+			IsAdmin:    account.Admin.Bool,
 			Attributes: account.Attributes,
 		})
 	}
@@ -148,8 +159,18 @@ type CreateAccountRequest struct {
 
 // POST: /accounts
 func (h *Handler) CreateAccount(w http.ResponseWriter, r *http.Request) {
+	admin, err := GetClientAdmin(w, r)
+	if err != nil {
+		return
+	}
+
+	if !admin {
+		apierror.SendError(w, http.StatusForbidden, "You are not authorized to create accounts")
+		return
+	}
+
 	var createAccountRequest CreateAccountRequest
-	err := json.NewDecoder(r.Body).Decode(&createAccountRequest)
+	err = json.NewDecoder(r.Body).Decode(&createAccountRequest)
 	if err != nil {
 		apierror.SendError(w, http.StatusBadRequest, "Invalid JSON format in request body")
 		return
@@ -223,6 +244,8 @@ func (h *Handler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:  account.CreatedAt.Time,
 		AvatarUrl:  account.AvatarUrl.String,
 		Level:      account.Level.Int32,
+		Plan:       account.Plan.AccountPlan,
+		IsAdmin:    account.Admin.Bool,
 		Attributes: account.Attributes,
 	}}
 
@@ -236,9 +259,8 @@ func (h *Handler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 // Uploads an avatar image to S3 bucket and stores the URL in the accounts table
 func (h *Handler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
-	if userId == "" {
-		apierror.SendError(w, http.StatusBadRequest, "Missing user id")
+	userId, err := GetClientUserID(w, r)
+	if err != nil {
 		return
 	}
 
@@ -361,6 +383,8 @@ func (h *Handler) GetAccount(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:  account.CreatedAt.Time,
 		AvatarUrl:  account.AvatarUrl.String,
 		Level:      account.Level.Int32,
+		Plan:       account.Plan.AccountPlan,
+		IsAdmin:    account.Admin.Bool,
 		Attributes: account.Attributes,
 	}}
 
@@ -446,6 +470,8 @@ func (h *Handler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:  account.CreatedAt.Time,
 		AvatarUrl:  account.AvatarUrl.String,
 		Level:      account.Level.Int32,
+		Plan:       account.Plan.AccountPlan,
+		IsAdmin:    account.Admin.Bool,
 		Attributes: account.Attributes,
 	}}
 
@@ -587,9 +613,8 @@ func (h *Handler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 
 // GET: /accounts/username
 func (h *Handler) GetAccountByUsername(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
-	if userID == "" {
-		apierror.SendError(w, http.StatusBadRequest, "Missing user ID")
+	userID, err := GetClientUserID(w, r)
+	if err != nil {
 		return
 	}
 
@@ -622,9 +647,29 @@ func (h *Handler) GetAccountByUsername(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:    account.CreatedAt.Time,
 		AvatarUrl:    account.AvatarUrl.String,
 		Level:        account.Level.Int32,
+		Plan:         account.Plan.AccountPlan,
+		IsAdmin:      account.Admin.Bool,
 		FriendStatus: FriendshipStatus(account.FriendStatus),
 		Attributes:   account.Attributes,
 	}}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+}
+
+// GET: /accounts/validate
+func (h *Handler) GetAccountValidation(w http.ResponseWriter, r *http.Request) {
+	accountPlan, err := GetClientPlan(w, r)
+	if err != nil {
+		return
+	}
+
+	response := AccountValidationResponse{
+		Data: AccountValidation{
+			Plan: accountPlan,
+		},
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

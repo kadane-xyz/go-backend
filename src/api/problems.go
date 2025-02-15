@@ -10,7 +10,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"kadane.xyz/go-backend/v2/src/apierror"
-	"kadane.xyz/go-backend/v2/src/middleware"
 	"kadane.xyz/go-backend/v2/src/sql/sql"
 )
 
@@ -197,8 +196,18 @@ func (h *Handler) GetProblems(w http.ResponseWriter, r *http.Request) {
 
 // POST: /problems
 func (h *Handler) CreateProblem(w http.ResponseWriter, r *http.Request) {
+	admin, err := GetClientAdmin(w, r)
+	if err != nil {
+		return
+	}
+
+	if !admin {
+		apierror.SendError(w, http.StatusForbidden, "You are not authorized to create problems")
+		return
+	}
+
 	var request ProblemRequest
-	err := json.NewDecoder(r.Body).Decode(&request)
+	err = json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
 		apierror.SendError(w, http.StatusBadRequest, "Invalid request body")
 		return
@@ -304,9 +313,8 @@ func (h *Handler) CreateProblem(w http.ResponseWriter, r *http.Request) {
 
 // GET: /problems/{problemId}
 func (h *Handler) GetProblem(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value(middleware.FirebaseTokenKey).(middleware.FirebaseTokenInfo).UserID
-	if userId == "" {
-		apierror.SendError(w, http.StatusBadRequest, "Missing user ID for problem starring")
+	userId, err := GetClientUserID(w, r)
+	if err != nil {
 		return
 	}
 
