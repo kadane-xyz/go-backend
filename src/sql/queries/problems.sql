@@ -83,7 +83,8 @@ SELECT
     COUNT(s.id) FILTER (WHERE s.status = 'Accepted') as total_correct
 FROM problem p
 LEFT JOIN submission s ON p.id = s.problem_id
-WHERE p.id = @problem_id;
+WHERE p.id = @problem_id
+GROUP BY p.id;
 
 -- name: GetProblems :many
 WITH problem_data AS (
