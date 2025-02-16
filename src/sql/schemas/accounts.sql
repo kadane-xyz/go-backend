@@ -6,9 +6,9 @@ CREATE TABLE account (
     email TEXT NOT NULL UNIQUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     avatar_url TEXT,
-    admin BOOLEAN DEFAULT FALSE,
-    plan account_plan DEFAULT 'free',
-    level INTEGER DEFAULT 1
+    admin BOOLEAN DEFAULT FALSE NOT NULL,
+    plan account_plan DEFAULT 'free' NOT NULL,
+    level INTEGER DEFAULT 1 NOT NULL
 );
 
 CREATE TABLE account_attribute (
