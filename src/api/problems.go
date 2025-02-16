@@ -160,7 +160,7 @@ func (h *Handler) GetProblems(w http.ResponseWriter, r *http.Request) {
 	responseData := []Problem{}
 
 	for _, problem := range problems {
-		codeMap := InterfaceToMap(problem.CodeJson)
+		codeMap := InterfaceToMap(problem.Code)
 		responseData = append(responseData, Problem{
 			ID:            int(problem.ID),
 			Title:         problem.Title,
@@ -168,10 +168,10 @@ func (h *Handler) GetProblems(w http.ResponseWriter, r *http.Request) {
 			Tags:          problem.Tags,
 			Difficulty:    problem.Difficulty,
 			Code:          codeMap,
-			Hints:         problem.HintsJson,
+			Hints:         problem.Hints,
 			Points:        problem.Points,
-			Solution:      problem.SolutionsJson,
-			TestCases:     problem.TestCasesJson,
+			Solution:      problem.Solutions,
+			TestCases:     problem.TestCases,
 			Starred:       problem.Starred,
 			Solved:        problem.Solved,
 			TotalAttempts: problem.TotalAttempts,
@@ -322,8 +322,8 @@ func (h *Handler) GetProblem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	problem, err := h.PostgresQueries.GetProblem(context.Background(), sql.GetProblemParams{
-		ID:     int32(idInt),
-		UserID: userId,
+		ProblemID: int32(idInt),
+		UserID:    userId,
 	})
 	if err != nil {
 		apierror.SendError(w, http.StatusInternalServerError, "Failed to get problem")
@@ -331,20 +331,22 @@ func (h *Handler) GetProblem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// test cases should not contain visibility on response
-	codeMap := InterfaceToMap(problem.CodeJson)
-
+	codeMap := InterfaceToMap(problem.Code)
 	response := ProblemResponse{
 		Data: Problem{
-			ID:          int(problem.ID),
-			Title:       problem.Title,
-			Description: problem.Description.String,
-			Tags:        problem.Tags,
-			Difficulty:  problem.Difficulty,
-			Code:        codeMap,
-			Hints:       problem.HintsJson,
-			Points:      problem.Points,
-			TestCases:   problem.TestCasesJson,
-			Starred:     problem.Starred,
+			ID:            int(problem.ID),
+			Title:         problem.Title,
+			Description:   problem.Description.String,
+			Tags:          problem.Tags,
+			Difficulty:    problem.Difficulty,
+			Code:          codeMap,
+			Hints:         problem.Hints,
+			Points:        problem.Points,
+			TestCases:     problem.TestCases,
+			Starred:       problem.Starred,
+			Solved:        problem.Solved,
+			TotalAttempts: problem.TotalAttempts,
+			TotalCorrect:  problem.TotalCorrect,
 		},
 	}
 

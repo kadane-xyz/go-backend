@@ -22,7 +22,7 @@ SELECT
         )
         FROM problem_code pc 
         WHERE pc.problem_id = p.id
-    ) AS code_json,
+    ) AS code,
     
     (
         SELECT COALESCE(
@@ -36,7 +36,7 @@ SELECT
         )
         FROM problem_hint ph 
         WHERE ph.problem_id = p.id
-    ) AS hints_json,
+    ) AS hints,
     
     (
         SELECT COALESCE(
@@ -67,7 +67,7 @@ SELECT
         )
         FROM problem_test_case pt 
         WHERE pt.problem_id = p.id AND pt.visibility = 'public'
-    ) AS test_cases_json,
+    ) AS test_cases,
     
     (
         SELECT COALESCE(
@@ -76,11 +76,14 @@ SELECT
         )
         FROM problem_solution ps 
         WHERE ps.problem_id = p.id
-    ) AS solutions_json,
+    ) AS solutions,
     CASE WHEN EXISTS (SELECT 1 FROM starred_problem sp WHERE sp.problem_id = p.id AND sp.user_id = @user_id) THEN true ELSE false END AS starred,
-    CASE WHEN EXISTS (SELECT 1 FROM submission s WHERE s.problem_id = p.id AND s.status = 'Accepted' AND s.account_id = @user_id) THEN true ELSE false END AS solved
+    CASE WHEN EXISTS (SELECT 1 FROM submission s WHERE s.problem_id = p.id AND s.status = 'Accepted' AND s.account_id = @user_id) THEN true ELSE false END AS solved,
+    COUNT(s.id) as total_attempts,
+    COUNT(s.id) FILTER (WHERE s.status = 'Accepted') as total_correct
 FROM problem p
-WHERE p.id = @id;
+LEFT JOIN submission s ON p.id = s.problem_id
+WHERE p.id = @problem_id;
 
 -- name: GetProblems :many
 WITH problem_data AS (
@@ -186,7 +189,7 @@ SELECT
         )
         FROM problem_code pc 
         WHERE pc.problem_id = p.id
-    ) AS code_json,
+    ) AS code,
     
     (
         SELECT COALESCE(
@@ -200,7 +203,7 @@ SELECT
         )
         FROM problem_hint ph 
         WHERE ph.problem_id = p.id
-    ) AS hints_json,
+    ) AS hints,
 
     (
         SELECT COALESCE(
@@ -231,7 +234,7 @@ SELECT
         )
         FROM problem_test_case pt 
         WHERE pt.problem_id = p.id AND pt.visibility = 'public'
-    ) AS test_cases_json, 
+    ) AS test_cases, 
     
     (
         SELECT COALESCE(
@@ -240,7 +243,7 @@ SELECT
         )
         FROM problem_solution ps 
         WHERE ps.problem_id = p.id
-    ) AS solutions_json,
+    ) AS solutions,
     COUNT(s.id) as total_attempts,
     COUNT(s.id) FILTER (WHERE s.status = 'Accepted') as total_correct,
     CASE

@@ -156,8 +156,8 @@ func (h *Handler) CreateRun(w http.ResponseWriter, r *http.Request) {
 	solutionRuns := []judge0.Submission{}
 
 	problem, err := h.PostgresQueries.GetProblem(r.Context(), sql.GetProblemParams{
-		ID:     problemId,
-		UserID: userId,
+		ProblemID: problemId,
+		UserID:    userId,
 	})
 	if err != nil {
 		apierror.SendError(w, http.StatusInternalServerError, "Failed to get problem")
@@ -218,7 +218,7 @@ func (h *Handler) CreateRun(w http.ResponseWriter, r *http.Request) {
 				Description: problem.Description.String,
 				Tags:        problem.Tags,
 				Difficulty:  problem.Difficulty,
-				Hints:       problem.HintsJson,
+				Hints:       problem.Hints,
 				Points:      problem.Points,
 				Solved:      problem.Solved,
 			},

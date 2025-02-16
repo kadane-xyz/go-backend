@@ -83,8 +83,8 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 	}
 
 	problem, err := h.PostgresQueries.GetProblem(r.Context(), sql.GetProblemParams{
-		ID:     problemId,
-		UserID: userId,
+		ProblemID: int32(problemId),
+		UserID:    userId,
 	})
 	if err != nil {
 		apierror.SendError(w, http.StatusInternalServerError, "Failed to get problem")
@@ -155,7 +155,7 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 				Description: problem.Description.String,
 				Tags:        problem.Tags,
 				Difficulty:  problem.Difficulty,
-				Hints:       problem.HintsJson,
+				Hints:       problem.Hints,
 				Points:      problem.Points,
 				Solved:      problem.Solved,
 			},
