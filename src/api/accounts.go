@@ -141,9 +141,9 @@ func (h *Handler) GetAccounts(w http.ResponseWriter, r *http.Request) {
 			Email:      account.Email,
 			CreatedAt:  account.CreatedAt.Time,
 			AvatarUrl:  account.AvatarUrl.String,
-			Level:      account.Level.Int32,
-			Plan:       account.Plan.AccountPlan,
-			IsAdmin:    account.Admin.Bool,
+			Level:      account.Level,
+			Plan:       account.Plan,
+			IsAdmin:    account.Admin,
 			Attributes: account.Attributes,
 		})
 	}
@@ -239,9 +239,9 @@ func (h *Handler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 		Email:      account.Email,
 		CreatedAt:  account.CreatedAt.Time,
 		AvatarUrl:  account.AvatarUrl.String,
-		Level:      account.Level.Int32,
-		Plan:       account.Plan.AccountPlan,
-		IsAdmin:    account.Admin.Bool,
+		Level:      account.Level,
+		Plan:       account.Plan,
+		IsAdmin:    account.Admin,
 		Attributes: account.Attributes,
 	}}
 
@@ -378,9 +378,9 @@ func (h *Handler) GetAccount(w http.ResponseWriter, r *http.Request) {
 		Email:      account.Email,
 		CreatedAt:  account.CreatedAt.Time,
 		AvatarUrl:  account.AvatarUrl.String,
-		Level:      account.Level.Int32,
-		Plan:       account.Plan.AccountPlan,
-		IsAdmin:    account.Admin.Bool,
+		Level:      account.Level,
+		Plan:       account.Plan,
+		IsAdmin:    account.Admin,
 		Attributes: account.Attributes,
 	}}
 
@@ -465,9 +465,9 @@ func (h *Handler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 		Email:      account.Email,
 		CreatedAt:  account.CreatedAt.Time,
 		AvatarUrl:  account.AvatarUrl.String,
-		Level:      account.Level.Int32,
-		Plan:       account.Plan.AccountPlan,
-		IsAdmin:    account.Admin.Bool,
+		Level:      account.Level,
+		Plan:       account.Plan,
+		IsAdmin:    account.Admin,
 		Attributes: account.Attributes,
 	}}
 
@@ -642,9 +642,9 @@ func (h *Handler) GetAccountByUsername(w http.ResponseWriter, r *http.Request) {
 		Email:        account.Email,
 		CreatedAt:    account.CreatedAt.Time,
 		AvatarUrl:    account.AvatarUrl.String,
-		Level:        account.Level.Int32,
-		Plan:         account.Plan.AccountPlan,
-		IsAdmin:      account.Admin.Bool,
+		Level:        account.Level,
+		Plan:         account.Plan,
+		IsAdmin:      account.Admin,
 		FriendStatus: FriendshipStatus(account.FriendStatus),
 		Attributes:   account.Attributes,
 	}}

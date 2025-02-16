@@ -17,7 +17,7 @@ func (h *Handler) UserAuth() func(http.Handler) http.Handler {
 				return
 			}
 
-			claims.Plan = accountPlan.AccountPlan // Set the account type
+			claims.Plan = accountPlan // Set the account type
 
 			ctx := context.WithValue(r.Context(), ClientTokenKey, claims)
 			next.ServeHTTP(w, r.WithContext(ctx))

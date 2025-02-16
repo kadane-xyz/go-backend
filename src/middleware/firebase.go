@@ -83,7 +83,6 @@ func (h *Handler) FirebaseDebugAuth() func(http.Handler) http.Handler {
 				Email:  "john@example.com",
 				Name:   "John Doe",
 				Plan:   sql.AccountPlanPro, //default to pro for debug
-				Admin:  true,               //default to true for debug
 			}
 
 			// Pass the claims to the next handler via the context
