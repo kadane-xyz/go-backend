@@ -348,10 +348,13 @@ func (h *Handler) GetSubmissionsByUsername(w http.ResponseWriter, r *http.Reques
 	}
 
 	id := r.URL.Query().Get("problemId")
-	problemId, err := strconv.Atoi(id)
-	if err != nil {
-		apierror.SendError(w, http.StatusBadRequest, "Invalid problem ID")
-		return
+	var problemId int
+	if id != "" {
+		problemId, err = strconv.Atoi(id)
+		if err != nil {
+			apierror.SendError(w, http.StatusBadRequest, "Invalid problem ID")
+			return
+		}
 	}
 
 	status := r.URL.Query().Get("status")
