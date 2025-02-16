@@ -7,7 +7,6 @@ import (
 
 	"github.com/go-chi/chi/v5/middleware"
 	"kadane.xyz/go-backend/v2/src/apierror"
-	"kadane.xyz/go-backend/v2/src/sql/sql"
 )
 
 func (h *Handler) FirebaseAuth() func(http.Handler) http.Handler {
@@ -82,7 +81,6 @@ func (h *Handler) FirebaseDebugAuth() func(http.Handler) http.Handler {
 				UserID: token,
 				Email:  "john@example.com",
 				Name:   "John Doe",
-				Plan:   sql.AccountPlanPro, //default to pro for debug
 			}
 
 			// Pass the claims to the next handler via the context
