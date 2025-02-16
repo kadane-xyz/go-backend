@@ -28,11 +28,7 @@ func GetClientPlan(w http.ResponseWriter, r *http.Request) (sql.AccountPlan, err
 }
 
 func GetClientAdmin(w http.ResponseWriter, r *http.Request) bool {
-	value := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).Admin
-	if !value {
-		return false
-	}
-	return value
+	return r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).Admin
 }
 
 func GetClientEmail(w http.ResponseWriter, r *http.Request) (string, error) {
