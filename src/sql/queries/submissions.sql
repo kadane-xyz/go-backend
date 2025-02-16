@@ -45,9 +45,9 @@ WITH user_submissions AS (
         ON s.problem_id = p.id
     WHERE
         a.username = @username
-        -- Filter by problem_id only if provided
+        -- Filter by problem_id only if not 0
         AND (
-            @problem_id IS NULL
+            @problem_id = 0
             OR s.problem_id = @problem_id
         )
         -- Filter by status only if not empty string
