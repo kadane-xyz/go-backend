@@ -27,13 +27,12 @@ func GetClientPlan(w http.ResponseWriter, r *http.Request) (sql.AccountPlan, err
 	return value, nil
 }
 
-func GetClientAdmin(w http.ResponseWriter, r *http.Request) (bool, error) {
+func GetClientAdmin(w http.ResponseWriter, r *http.Request) bool {
 	value := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).Admin
 	if !value {
-		apierror.SendError(w, http.StatusBadRequest, "Missing client admin context")
-		return false, errors.New("missing client admin context")
+		return false
 	}
-	return value, nil
+	return value
 }
 
 func GetClientEmail(w http.ResponseWriter, r *http.Request) (string, error) {

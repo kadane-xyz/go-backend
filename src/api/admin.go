@@ -3,8 +3,6 @@ package api
 import (
 	"encoding/json"
 	"net/http"
-
-	"kadane.xyz/go-backend/v2/src/apierror"
 )
 
 type AdminValidation struct {
@@ -17,15 +15,7 @@ type AdminValidationResponse struct {
 
 // GET: /admin/validate
 func (h *Handler) GetAdminValidation(w http.ResponseWriter, r *http.Request) {
-	admin, err := GetClientAdmin(w, r)
-	if err != nil {
-		return
-	}
-
-	if !admin {
-		apierror.SendError(w, http.StatusForbidden, "You are not authorized as admin")
-		return
-	}
+	admin := GetClientAdmin(w, r)
 
 	response := AdminValidationResponse{
 		Data: AdminValidation{

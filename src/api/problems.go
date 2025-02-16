@@ -196,18 +196,14 @@ func (h *Handler) GetProblems(w http.ResponseWriter, r *http.Request) {
 
 // POST: /problems
 func (h *Handler) CreateProblem(w http.ResponseWriter, r *http.Request) {
-	admin, err := GetClientAdmin(w, r)
-	if err != nil {
-		return
-	}
-
+	admin := GetClientAdmin(w, r)
 	if !admin {
 		apierror.SendError(w, http.StatusForbidden, "You are not authorized to create problems")
 		return
 	}
 
 	var request ProblemRequest
-	err = json.NewDecoder(r.Body).Decode(&request)
+	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
 		apierror.SendError(w, http.StatusBadRequest, "Invalid request body")
 		return
