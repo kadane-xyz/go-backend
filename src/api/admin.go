@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"kadane.xyz/go-backend/v2/src/apierror"
@@ -126,64 +127,73 @@ func (h *Handler) CreateAdminProblemRun(w http.ResponseWriter, r *http.Request) 
 		Runs: make(map[string]AdminProblemRunResult),
 	}
 
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+
 	// Create submissions for each language
 	for language := range solutionRuns {
-		runResponses, err := h.Judge0Client.CreateSubmissionBatchAndWait(solutionRuns[language])
-		if err != nil {
-			apierror.SendError(w, http.StatusInternalServerError, "Failed to create solution submission for language: "+language)
-			return
-		}
+		wg.Add(1)
+		go func(language string, submissions []judge0.Submission) {
+			defer wg.Done()
+			runResponses, _ := h.Judge0Client.CreateSubmissionBatchAndWait(submissions)
+			/*if err != nil {
+				apierror.SendError(w, http.StatusInternalServerError, "Failed to create solution submission for language: "+language)
+				continue
+			}*/
 
-		// Compare outputs for each test case
-		for i, solutionResp := range runResponses {
-			// store user code test case results
-			testCase := RunTestCase{
-				Time:           solutionResp.Time,
-				Memory:         int(solutionResp.Memory),
-				Status:         sql.SubmissionStatus(solutionResp.Status.Description),
-				Output:         solutionResp.Stdout,
-				ExpectedOutput: runRequest.TestCases[i].Output, // solution code output
+			// We'll store test cases in a local slice
+			var localTestCases []RunTestCase
+
+			// Compare outputs for each test case
+			for i, solutionResp := range runResponses {
+				testCase := RunTestCase{
+					Time:           solutionResp.Time,
+					Memory:         int(solutionResp.Memory),
+					Status:         sql.SubmissionStatus(solutionResp.Status.Description),
+					Output:         solutionResp.Stdout,
+					ExpectedOutput: runRequest.TestCases[i].Output,
+				}
+
+				if strings.Contains(solutionResp.Stdout, "[") {
+					solutionResp.Stdout = strings.ReplaceAll(solutionResp.Stdout, " ", "")
+				}
+				if strings.Contains(solutionResp.Stdout, "\n") {
+					solutionResp.Stdout = strings.ReplaceAll(solutionResp.Stdout, "\n", "")
+				}
+
+				if solutionResp.Status.Description != "Accepted" || solutionResp.Stdout != runRequest.TestCases[i].Output {
+					testCase.Status = sql.SubmissionStatus("Wrong Answer")
+				}
+
+				localTestCases = append(localTestCases, testCase)
 			}
 
-			// check stdout before using status and remove spaces from array elements
-			if strings.Contains(solutionResp.Stdout, "[") {
-				solutionResp.Stdout = strings.ReplaceAll(solutionResp.Stdout, " ", "")
+			// Determine overall status for this language
+			var responseState string
+			for _, testCase := range localTestCases {
+				if testCase.Status == "Wrong Answer" {
+					responseState = "Wrong Answer"
+					break
+				} else if testCase.Status == "Accepted" {
+					responseState = "Accepted"
+				}
 			}
 
-			// remove newlines from stdout
-			if strings.Contains(solutionResp.Stdout, "\n") {
-				solutionResp.Stdout = strings.ReplaceAll(solutionResp.Stdout, "\n", "")
+			// Package the results in a local variable
+			result := AdminProblemRunResult{
+				TestCases: localTestCases,
+				Status:    sql.SubmissionStatus(responseState),
+				CreatedAt: time.Now(),
 			}
 
-			// First check if both executions were successful
-			if solutionResp.Status.Description != "Accepted" || solutionResp.Stdout != runRequest.TestCases[i].Output {
-				// store user code test case results
-				testCase.Status = sql.SubmissionStatus("Wrong Answer")
-			}
-
-			temp := responseData.Data.Runs[language]
-			temp.TestCases = append(temp.TestCases, testCase)
-			responseData.Data.Runs[language] = temp
-		}
-
-		var responseState string // if all test cases passed, then Accepted, otherwise Wrong Answer
-		for _, testCase := range responseData.Data.Runs[language].TestCases {
-			if testCase.Status == "Wrong Answer" {
-				responseState = "Wrong Answer"
-				break
-			} else if testCase.Status == "Accepted" {
-				responseState = "Accepted"
-			}
-		}
-
-		response := AdminProblemRunResult{
-			TestCases: responseData.Data.Runs[language].TestCases,
-			Status:    sql.SubmissionStatus(responseState), // if all test cases passed, then Accepted, otherwise Wrong Answer
-			CreatedAt: time.Now(),
-		}
-
-		responseData.Data.Runs[language] = response
+			// Protect map access with the mutex during write
+			mu.Lock()
+			responseData.Data.Runs[language] = result
+			mu.Unlock()
+		}(language, solutionRuns[language])
 	}
+
+	wg.Wait()
 
 	// Determine the overall status of all runs
 	var status string
