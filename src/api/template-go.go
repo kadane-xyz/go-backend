@@ -49,7 +49,7 @@ func main() {
 }
 
 func TemplateGo(templateInput TemplateInput) judge0.Submission {
-	inputs := TemplateGoInputs(templateInput.TestCases)                                              // Get the inputs
+	inputs := TemplateGoInputs(templateInput.TestCase)                                               // Get the inputs
 	sourceCode := TemplateGoSourceCode(templateInput.FunctionName, inputs, templateInput.SourceCode) // Get the source code
 
 	submission := judge0.Submission{

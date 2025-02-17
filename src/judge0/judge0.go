@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"sync"
 	"time"
@@ -102,7 +101,7 @@ func (c *Judge0Client) CreateSubmissionBatchAndWait(submissions []Submission) ([
 			defer wg.Done()
 			resp, err := c.CreateSubmissionAndWait(submission)
 			if err != nil {
-				errors <- fmt.Errorf("submission %d error: %w", i, err)
+				errors <- fmt.Errorf("submission %d error: %s", i, err.Error())
 				return
 			}
 			results[i] = *resp
@@ -113,9 +112,6 @@ func (c *Judge0Client) CreateSubmissionBatchAndWait(submissions []Submission) ([
 	close(errors)
 
 	if len(errors) > 0 {
-		for err := range errors {
-			log.Println(err)
-		}
 		return nil, fmt.Errorf("one or more submissions failed")
 	}
 
@@ -126,6 +122,7 @@ func (c *Judge0Client) CreateSubmissionAndWait(submission Submission) (*Submissi
 	// First base64 encode submission
 	submission = EncodeSubmissionInputs(submission)
 	// First create the submission without waiting
+
 	resp, err := c.CreateSubmission(submission)
 	if err != nil {
 		return nil, err
@@ -252,21 +249,18 @@ func (c *Judge0Client) GetSubmission(token string) (*SubmissionResult, error) {
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		log.Println(err)
 		return nil, err
 	}
 	req.Header.Set("X-Auth-Token", c.Token)
 
 	resp, err := c.Client.Do(req)
 	if err != nil {
-		log.Println(err)
 		return nil, fmt.Errorf("error sending request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Println(err)
 		return nil, fmt.Errorf("error reading response body: %w", err)
 	}
 
@@ -277,7 +271,6 @@ func (c *Judge0Client) GetSubmission(token string) (*SubmissionResult, error) {
 	var result SubmissionResult
 	err = json.Unmarshal(body, &result)
 	if err != nil {
-		log.Println(err)
 		return nil, fmt.Errorf("error unmarshaling response: %w", err)
 	}
 

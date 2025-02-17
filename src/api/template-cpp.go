@@ -46,7 +46,7 @@ int main() {
 }
 
 func TemplateCpp(templateInput TemplateInput) judge0.Submission {
-	inputs := TemplateCppInputs(templateInput.TestCases)                                              // Get the inputs
+	inputs := TemplateCppInputs(templateInput.TestCase)                                               // Get the inputs
 	sourceCode := TemplateCppSourceCode(templateInput.FunctionName, inputs, templateInput.SourceCode) // Get the source code
 	languageID := judge0.LanguageToLanguageID("cpp")
 

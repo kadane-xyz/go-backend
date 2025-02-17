@@ -121,6 +121,7 @@ func RegisterApiRoutes(h *Handler, r chi.Router) {
 			})
 		})
 		r.Route("/admin", func(r chi.Router) {
+			r.Post("/problems/run", h.CreateAdminProblemRun)
 			r.Get("/validate", h.GetAdminValidation)
 		})
 	})

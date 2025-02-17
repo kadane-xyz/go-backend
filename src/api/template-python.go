@@ -81,7 +81,7 @@ func TemplatePythonSourceCode(functionName string, inputs string, sourceCode str
 }
 
 func TemplatePython(templateInput TemplateInput) judge0.Submission {
-	inputs := TemplatePythonInputs(templateInput.TestCases)                                              // Get the inputs
+	inputs := TemplatePythonInputs(templateInput.TestCase)                                               // Get the inputs
 	sourceCode := TemplatePythonSourceCode(templateInput.FunctionName, inputs, templateInput.SourceCode) // Get the source code
 
 	submission := judge0.Submission{

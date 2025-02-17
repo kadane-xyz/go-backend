@@ -35,7 +35,7 @@ func TemplateTypescriptSourceCode(functionName string, inputs string, sourceCode
 }
 
 func TemplateTypescript(templateInput TemplateInput) judge0.Submission {
-	inputs := TemplateTypescriptInputs(templateInput.TestCases)                                              // Get the inputs
+	inputs := TemplateTypescriptInputs(templateInput.TestCase)                                               // Get the inputs
 	sourceCode := TemplateTypescriptSourceCode(templateInput.FunctionName, inputs, templateInput.SourceCode) // Get the source code
 
 	submission := judge0.Submission{

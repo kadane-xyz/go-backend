@@ -8,7 +8,7 @@ type TemplateInput struct {
 	SourceCode     string   `json:"sourceCode"`
 	ExpectedOutput string   `json:"expectedOutput"`
 	Problem        Problem  `json:"problem"`
-	TestCases      TestCase `json:"testCases"`
+	TestCase       TestCase `json:"testCase"`
 }
 
 func TemplateCreate(templateInput TemplateInput) judge0.Submission {
