@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"kadane.xyz/go-backend/v2/src/apierror"
 	"kadane.xyz/go-backend/v2/src/judge0"
 	"kadane.xyz/go-backend/v2/src/sql/sql"
@@ -40,8 +39,22 @@ type AdminProblemRequest struct {
 	TestCases []TestCase        `json:"testCases"`
 }
 
+type AdminProblemRunResult struct {
+	TestCases []RunTestCase        `json:"testCases"`
+	Status    sql.SubmissionStatus `json:"status"` // Accepted, Wrong Answer, etc
+	CreatedAt time.Time            `json:"createdAt"`
+}
+
+type AdminProblemData struct {
+	Runs        map[string]AdminProblemRunResult `json:"runs"`
+	Status      sql.SubmissionStatus             `json:"status"`
+	AccountID   string                           `json:"accountId"`
+	ProblemID   int32                            `json:"problemId"`
+	CompletedAt time.Time                        `json:"completedAt"`
+}
+
 type AdminProblemResponse struct {
-	Data map[string]RunResult `json:"data"`
+	Data AdminProblemData `json:"data"`
 }
 
 // POST: /admin/problems/run
@@ -53,6 +66,7 @@ func (h *Handler) CreateAdminProblemRun(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Decode request body
 	var runRequest AdminProblemRequest
 	err = json.NewDecoder(r.Body).Decode(&runRequest)
 	if err != nil {
@@ -77,29 +91,24 @@ func (h *Handler) CreateAdminProblemRun(w http.ResponseWriter, r *http.Request) 
 	}
 
 	solutionRuns := make(map[string][]judge0.Submission) // Store all judge0 submission inputs for each language
-	solutionTestCases := []TestCase{}                    // Store all judge0 submission test cases inputs
 
-	// Handle all judge0 submission test cases inputs
-	for _, testCase := range runRequest.TestCases {
-		var testCaseInput []TestCaseInput
-
-		// Handle both empty array and populated array cases
-		testCaseInput = append(testCaseInput, testCase.Input...)
-
-		solutionTestCases = append(solutionTestCases, TestCase{
-			Input:  testCaseInput,
-			Output: testCase.Output,
-		})
-	}
-
-	// Create judge0 submission inputs
+	// Create judge0 submission inputs by combining test case handling and template creation.
 	for language, sourceCode := range runRequest.Solution {
-		for _, testCase := range solutionTestCases {
+		for _, testCase := range runRequest.TestCases {
+			var testCaseInput []TestCaseInput
+
+			// Append testCase.Input values (handles both empty and populated arrays)
+			testCaseInput = append(testCaseInput, testCase.Input...)
+
+			// Create the submission for this test case and language
 			solutionRun := TemplateCreate(TemplateInput{
 				Language:     language,
 				SourceCode:   sourceCode,
 				FunctionName: "myNewProblem",
-				TestCase:     testCase,
+				TestCase: TestCase{
+					Input:  testCaseInput,
+					Output: testCase.Output,
+				},
 			})
 			solutionRuns[language] = append(solutionRuns[language], solutionRun)
 		}
@@ -111,31 +120,30 @@ func (h *Handler) CreateAdminProblemRun(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	problemId := 0
-
+	// Initialize response data
 	var responseData AdminProblemResponse
-	responseData.Data = make(map[string]RunResult)
+	responseData.Data = AdminProblemData{
+		Runs: make(map[string]AdminProblemRunResult),
+	}
 
-	for language, _ := range solutionRuns {
+	// Create submissions for each language
+	for language := range solutionRuns {
 		runResponses, err := h.Judge0Client.CreateSubmissionBatchAndWait(solutionRuns[language])
 		if err != nil {
-			apierror.SendError(w, http.StatusInternalServerError, "Failed to create solution submission")
+			apierror.SendError(w, http.StatusInternalServerError, "Failed to create solution submission for language: "+language)
 			return
 		}
-
-		var dbSubmission sql.CreateSubmissionParams
-		var testCases []RunTestCase
 
 		// Compare outputs for each test case
 		for i, solutionResp := range runResponses {
 			// store user code test case results
-			testCases = append(testCases, RunTestCase{
+			testCase := RunTestCase{
 				Time:           solutionResp.Time,
 				Memory:         int(solutionResp.Memory),
 				Status:         sql.SubmissionStatus(solutionResp.Status.Description),
 				Output:         solutionResp.Stdout,
 				ExpectedOutput: runRequest.TestCases[i].Output, // solution code output
-			})
+			}
 
 			// check stdout before using status and remove spaces from array elements
 			if strings.Contains(solutionResp.Stdout, "[") {
@@ -150,61 +158,49 @@ func (h *Handler) CreateAdminProblemRun(w http.ResponseWriter, r *http.Request) 
 			// First check if both executions were successful
 			if solutionResp.Status.Description != "Accepted" || solutionResp.Stdout != runRequest.TestCases[i].Output {
 				// store user code test case results
-				testCases[i].Status = sql.SubmissionStatus("Wrong Answer")
+				testCase.Status = sql.SubmissionStatus("Wrong Answer")
+			}
 
-				// Test case failed - outputs don't match
-				dbSubmission, err = SummarizeSubmissionResponses(userId, int32(problemId), runRequest.Solution[language], runResponses[i:i+1])
-				if err != nil {
-					apierror.SendError(w, http.StatusInternalServerError, "Failed to process submission")
-					return
-				}
-				// Update status to Wrong Answer
-				dbSubmission.Status = sql.SubmissionStatus("Wrong Answer")
-				break // Stop at first mismatch
+			temp := responseData.Data.Runs[language]
+			temp.TestCases = append(temp.TestCases, testCase)
+			responseData.Data.Runs[language] = temp
+		}
+
+		var responseState string // if all test cases passed, then Accepted, otherwise Wrong Answer
+		for _, testCase := range responseData.Data.Runs[language].TestCases {
+			if testCase.Status == "Wrong Answer" {
+				responseState = "Wrong Answer"
+				break
+			} else if testCase.Status == "Accepted" {
+				responseState = "Accepted"
 			}
 		}
 
-		// If all test cases passed, create submission with averaged results
-		if dbSubmission.Status == "" {
-			dbSubmission, err = SummarizeSubmissionResponses(userId, int32(problemId), runRequest.Solution[language], runResponses)
-			if err != nil {
-				apierror.SendError(w, http.StatusInternalServerError, "Failed to process submission")
-				return
-			}
-		}
-
-		convertedLanguage := judge0.LanguageIDToLanguage(int(dbSubmission.LanguageID))
-		//dbSubmission.LanguageName = language // Add language name to submission
-
-		// create submission in db
-		/*_, err = h.PostgresQueries.CreateSubmission(r.Context(), dbSubmission)
-		if err != nil {
-			apierror.SendError(w, http.StatusInternalServerError, "Failed to create submission")
-			return
-		}*/
-
-		submissionId := uuid.UUID(dbSubmission.ID.Bytes)
-
-		var responseState string
-		if dbSubmission.Status == "Accepted" {
-			responseState = "Accepted"
-		} else {
-			responseState = "Wrong Answer"
-		}
-
-		response := RunResult{
-			Id:        submissionId.String(),
-			TestCases: testCases,
-			Time:      dbSubmission.Time,                   // average of test case times
+		response := AdminProblemRunResult{
+			TestCases: responseData.Data.Runs[language].TestCases,
 			Status:    sql.SubmissionStatus(responseState), // if all test cases passed, then Accepted, otherwise Wrong Answer
-			Language:  convertedLanguage,
-			AccountID: userId,
-			ProblemID: int32(problemId),
 			CreatedAt: time.Now(),
 		}
 
-		responseData.Data[convertedLanguage] = response
+		responseData.Data.Runs[language] = response
 	}
+
+	// Determine the overall status of all runs
+	var status string
+	for _, run := range responseData.Data.Runs {
+		if run.Status == "Wrong Answer" {
+			status = "Wrong Answer"
+			break
+		} else if run.Status == "Accepted" {
+			status = "Accepted"
+		}
+	}
+
+	// Set response values
+	responseData.Data.AccountID = userId
+	responseData.Data.Status = sql.SubmissionStatus(status)
+	responseData.Data.CompletedAt = time.Now()
+	responseData.Data.ProblemID = 0
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(responseData)
