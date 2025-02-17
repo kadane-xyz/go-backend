@@ -37,7 +37,10 @@ func TemplateJavaInputs(testCases TestCase) string {
 
 // Java template
 func TemplateJavaSourceCode(functionName string, inputs string, sourceCode string) string {
-	// For void functions
+	// Check if the source code already contains a print statement
+	containsPrint := strings.Contains(sourceCode, "System.out.print")
+
+	// For void functions, just call the function.
 	if strings.Contains(sourceCode, "void") {
 		return fmt.Sprintf(`
 public class Main {
@@ -52,7 +55,22 @@ public class Main {
 }`, sourceCode, functionName, inputs)
 	}
 
-	// For non-void functions
+	// For non-void functions, if the user already prints inside their function, call it without printing its return value.
+	if containsPrint {
+		return fmt.Sprintf(`
+public class Main {
+
+	// Source Code
+	%s
+
+	public static void main(String[] args) {
+		Main main = new Main();
+		main.%s(%s);
+	}
+}`, sourceCode, functionName, inputs)
+	}
+
+	// Otherwise, for non-void functions, print the result of the function call.
 	return fmt.Sprintf(`
 public class Main {
 
@@ -66,8 +84,9 @@ public class Main {
 }`, sourceCode, functionName, inputs)
 }
 
+// TemplateJava creates a judge0.Submission for Java
 func TemplateJava(templateInput TemplateInput) judge0.Submission {
-	inputs := TemplateJavaInputs(templateInput.TestCases)                                              // Get the inputs
+	inputs := TemplateJavaInputs(templateInput.TestCase)                                               // Get the inputs
 	sourceCode := TemplateJavaSourceCode(templateInput.FunctionName, inputs, templateInput.SourceCode) // Get the source code
 
 	submission := judge0.Submission{
