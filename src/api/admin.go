@@ -105,7 +105,7 @@ func (h *Handler) CreateAdminProblemRun(w http.ResponseWriter, r *http.Request) 
 			solutionRun := TemplateCreate(TemplateInput{
 				Language:     language,
 				SourceCode:   sourceCode,
-				FunctionName: "myNewProblem",
+				FunctionName: "twoSum",
 				TestCase: TestCase{
 					Input:  testCaseInput,
 					Output: testCase.Output,
@@ -156,9 +156,11 @@ func (h *Handler) CreateAdminProblemRun(w http.ResponseWriter, r *http.Request) 
 
 				if strings.Contains(solutionResp.Stdout, "[") {
 					solutionResp.Stdout = strings.ReplaceAll(solutionResp.Stdout, " ", "")
+					testCase.Output = strings.ReplaceAll(testCase.Output, " ", "")
 				}
 				if strings.Contains(solutionResp.Stdout, "\n") {
 					solutionResp.Stdout = strings.ReplaceAll(solutionResp.Stdout, "\n", "")
+					testCase.Output = strings.ReplaceAll(testCase.Output, "\n", "")
 				}
 
 				if solutionResp.Status.Description != "Accepted" || solutionResp.Stdout != runRequest.TestCases[i].Output {

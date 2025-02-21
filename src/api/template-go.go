@@ -40,11 +40,30 @@ func TemplateGoSourceCode(functionName string, inputs string, sourceCode string)
 	return fmt.Sprintf(`
 package main
 
+import (
+	"fmt"
+	"strings"
+	"reflect"
+)
+
 // Source Code
 %s
 
+func formatOutput(output interface{}) string {
+	val := reflect.ValueOf(output)
+	if val.Kind() == reflect.Slice {
+		var parts []string
+		for i := 0; i < val.Len(); i++ {
+			parts = append(parts, fmt.Sprint(val.Index(i).Interface()))
+		}
+		return "[" + strings.Join(parts, ",") + "]"
+	}
+	return fmt.Sprint(output)
+}
+
 func main() {
-	%s(%s)
+	response := %s(%s)
+	fmt.Print(formatOutput(response))
 }`, sourceCode, functionName, inputs)
 }
 

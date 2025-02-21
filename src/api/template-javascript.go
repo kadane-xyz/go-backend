@@ -33,7 +33,7 @@ func TemplateJavascriptSourceCode(functionName string, inputs string, sourceCode
 	return fmt.Sprintf(`
 %s
 
-%s(%s)
+console.log(%s(%s))
 `, sourceCode, functionName, inputs)
 }
 
