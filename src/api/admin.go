@@ -36,8 +36,9 @@ func (h *Handler) GetAdminValidation(w http.ResponseWriter, r *http.Request) {
 }
 
 type AdminProblemRequest struct {
-	Solution  map[string]string `json:"solution"` // ["language": "sourceCode"]
-	TestCases []TestCase        `json:"testCases"`
+	FunctionName string            `json:"functionName"`
+	Solution     map[string]string `json:"solution"` // ["language": "sourceCode"]
+	TestCases    []TestCase        `json:"testCases"`
 }
 
 type AdminProblemRunResult struct {
@@ -50,7 +51,6 @@ type AdminProblemData struct {
 	Runs        map[string]AdminProblemRunResult `json:"runs"`
 	Status      sql.SubmissionStatus             `json:"status"`
 	AccountID   string                           `json:"accountId"`
-	ProblemID   int32                            `json:"problemId"`
 	CompletedAt time.Time                        `json:"completedAt"`
 }
 
@@ -75,6 +75,11 @@ func (h *Handler) CreateAdminProblemRun(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	if runRequest.FunctionName == "" {
+		apierror.SendError(w, http.StatusBadRequest, "Missing function name")
+		return
+	}
+
 	// check map for missing values
 	for language, sourceCode := range runRequest.Solution {
 		// Check if source code is missing
@@ -87,6 +92,12 @@ func (h *Handler) CreateAdminProblemRun(w http.ResponseWriter, r *http.Request) 
 		lang := string(sql.ProblemLanguage(language))
 		if language == "" || language != lang {
 			apierror.SendError(w, http.StatusBadRequest, "Invalid language: "+language)
+			return
+		}
+
+		// Check if function name is valid
+		if !strings.Contains(sourceCode, runRequest.FunctionName) {
+			apierror.SendError(w, http.StatusBadRequest, "Function name not found in "+language+" source code")
 			return
 		}
 	}
@@ -105,7 +116,7 @@ func (h *Handler) CreateAdminProblemRun(w http.ResponseWriter, r *http.Request) 
 			solutionRun := TemplateCreate(TemplateInput{
 				Language:     language,
 				SourceCode:   sourceCode,
-				FunctionName: "twoSum",
+				FunctionName: runRequest.FunctionName,
 				TestCase: TestCase{
 					Input:  testCaseInput,
 					Output: testCase.Output,
@@ -212,7 +223,6 @@ func (h *Handler) CreateAdminProblemRun(w http.ResponseWriter, r *http.Request) 
 	responseData.Data.AccountID = userId
 	responseData.Data.Status = sql.SubmissionStatus(status)
 	responseData.Data.CompletedAt = time.Now()
-	responseData.Data.ProblemID = 0
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(responseData)
