@@ -1611,8 +1611,6 @@ components:
         status:
           type: string
           enum: [accepted, wrong_answer, runtime_error, compilation_error, time_limit_exceeded, memory_limit_exceeded, output_limit_exceeded, internal_error]
-        accountId:
-          type: string
         completedAt:
           type: string
           format: date-time
