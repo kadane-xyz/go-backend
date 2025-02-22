@@ -233,6 +233,31 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AccountValidationResponse'
+  /admin/problems/run:
+    post:
+      tags:
+        - Admin
+      summary: Run a problem
+      description: Run a problem.
+      operationId: runProblem
+      requestBody:
+        description: Problem data to be run
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminProblemRunRequest'
+      responses:
+        '200':
+          description: Problem run response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProblemRunResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /admin/validate:
     get:
       tags:
@@ -1520,6 +1545,77 @@ components:
         username: "john_doe"
         email: "john@example.com"
     # Admin
+    AdminProblemRunRequest:
+      description: Admin problem run request
+      type: object
+      properties:
+        functionName:
+          type: string
+        solution:
+          type: object
+          properties:
+            language:
+              type: string
+            sourceCode:
+              type: string
+        testCase:
+          $ref: '#/components/schemas/TestCase'
+    TestCase:
+      description: Test case
+      type: object
+      properties:
+        description:
+          type: string
+        input:
+          type: string
+        output:
+          type: string
+        visibility:
+          type: string
+          enum: [public, private]
+    AdminProblemRunResponse:
+      description: Admin problem run response
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/AdminProblemRunData'
+    RunTestCase:
+      description: Run test case
+      type: object
+      properties:
+        time:
+          type: string
+        memory:
+          type: integer
+        status:
+          type: string
+        output:
+          type: string
+        expectedOutput:
+          type: string
+    AdminProblemRunData:
+      description: Admin problem run data
+      type: object
+      properties:
+        runs:
+          type: object
+          properties:
+            testCase:
+              $ref: '#/components/schemas/RunTestCase'
+            status:
+              type: string
+              enum: [accepted, wrong_answer, runtime_error, compilation_error, time_limit_exceeded, memory_limit_exceeded, output_limit_exceeded, internal_error]
+            createdAt:
+              type: string
+              format: date-time
+        status:
+          type: string
+          enum: [accepted, wrong_answer, runtime_error, compilation_error, time_limit_exceeded, memory_limit_exceeded, output_limit_exceeded, internal_error]
+        accountId:
+          type: string
+        completedAt:
+          type: string
+          format: date-time
     AdminValidation:
       description: Admin validation
       type: object
@@ -1532,7 +1628,7 @@ components:
       properties:
         data:
           $ref: '#/components/schemas/AdminValidation'
-    # Comments
+    # Comment
     Comment:
       description: Comment
       type: object
