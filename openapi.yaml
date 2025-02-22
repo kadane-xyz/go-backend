@@ -1553,11 +1553,9 @@ components:
           type: string
         solution:
           type: object
-          properties:
-            language:
-              type: string
-            sourceCode:
-              type: string
+          additionalProperties:
+            type: string
+          description: Map of language identifiers to solution code
         testCase:
           $ref: '#/components/schemas/TestCase'
     TestCase:
