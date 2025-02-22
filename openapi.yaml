@@ -1589,6 +1589,8 @@ components:
           type: string
         output:
           type: string
+        compileOutput:
+          type: string
         expectedOutput:
           type: string
     AdminProblemRunData:
