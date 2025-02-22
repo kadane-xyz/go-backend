@@ -38,11 +38,11 @@ func (h *Handler) GetAdminValidation(w http.ResponseWriter, r *http.Request) {
 type AdminProblemRequest struct {
 	FunctionName string            `json:"functionName"`
 	Solution     map[string]string `json:"solution"` // ["language": "sourceCode"]
-	TestCases    []TestCase        `json:"testCases"`
+	TestCase     TestCase          `json:"testCase"`
 }
 
 type AdminProblemRunResult struct {
-	TestCases []RunTestCase        `json:"testCases"`
+	TestCase  RunTestCase          `json:"testCase"`
 	Status    sql.SubmissionStatus `json:"status"` // Accepted, Wrong Answer, etc
 	CreatedAt time.Time            `json:"createdAt"`
 }
@@ -106,24 +106,14 @@ func (h *Handler) CreateAdminProblemRun(w http.ResponseWriter, r *http.Request) 
 
 	// Create judge0 submission inputs by combining test case handling and template creation.
 	for language, sourceCode := range runRequest.Solution {
-		for _, testCase := range runRequest.TestCases {
-			var testCaseInput []TestCaseInput
-
-			// Append testCase.Input values (handles both empty and populated arrays)
-			testCaseInput = append(testCaseInput, testCase.Input...)
-
-			// Create the submission for this test case and language
-			solutionRun := TemplateCreate(TemplateInput{
-				Language:     language,
-				SourceCode:   sourceCode,
-				FunctionName: runRequest.FunctionName,
-				TestCase: TestCase{
-					Input:  testCaseInput,
-					Output: testCase.Output,
-				},
-			})
-			solutionRuns[language] = append(solutionRuns[language], solutionRun)
-		}
+		// Create the submission for this test case and language
+		solutionRun := TemplateCreate(TemplateInput{
+			Language:     language,
+			SourceCode:   sourceCode,
+			FunctionName: runRequest.FunctionName,
+			TestCase:     runRequest.TestCase,
+		})
+		solutionRuns[language] = append(solutionRuns[language], solutionRun)
 	}
 
 	// Validate submissions before sending
@@ -152,17 +142,16 @@ func (h *Handler) CreateAdminProblemRun(w http.ResponseWriter, r *http.Request) 
 				continue
 			}*/
 
-			// We'll store test cases in a local slice
-			var localTestCases []RunTestCase
+			var localTestCase RunTestCase
 
 			// Compare outputs for each test case
-			for i, solutionResp := range runResponses {
+			for _, solutionResp := range runResponses {
 				testCase := RunTestCase{
 					Time:           solutionResp.Time,
 					Memory:         int(solutionResp.Memory),
 					Status:         sql.SubmissionStatus(solutionResp.Status.Description),
 					Output:         solutionResp.Stdout,
-					ExpectedOutput: runRequest.TestCases[i].Output,
+					ExpectedOutput: runRequest.TestCase.Output,
 				}
 
 				if strings.Contains(solutionResp.Stdout, "[") {
@@ -174,27 +163,24 @@ func (h *Handler) CreateAdminProblemRun(w http.ResponseWriter, r *http.Request) 
 					testCase.Output = strings.ReplaceAll(testCase.Output, "\n", "")
 				}
 
-				if solutionResp.Status.Description != "Accepted" || solutionResp.Stdout != runRequest.TestCases[i].Output {
+				if solutionResp.Status.Description != "Accepted" || solutionResp.Stdout != runRequest.TestCase.Output {
 					testCase.Status = sql.SubmissionStatus("Wrong Answer")
 				}
 
-				localTestCases = append(localTestCases, testCase)
+				localTestCase = testCase
 			}
 
 			// Determine overall status for this language
 			var responseState string
-			for _, testCase := range localTestCases {
-				if testCase.Status == "Wrong Answer" {
-					responseState = "Wrong Answer"
-					break
-				} else if testCase.Status == "Accepted" {
-					responseState = "Accepted"
-				}
+			if localTestCase.Status == "Wrong Answer" {
+				responseState = "Wrong Answer"
+			} else if localTestCase.Status == "Accepted" {
+				responseState = "Accepted"
 			}
 
 			// Package the results in a local variable
 			result := AdminProblemRunResult{
-				TestCases: localTestCases,
+				TestCase:  localTestCase,
 				Status:    sql.SubmissionStatus(responseState),
 				CreatedAt: time.Now(),
 			}
