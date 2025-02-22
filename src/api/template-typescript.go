@@ -30,12 +30,12 @@ func TemplateTypescriptSourceCode(functionName string, inputs string, sourceCode
 	return fmt.Sprintf(`
 %s
 
-%s(%s)
+console.log(%s(%s))
 `, sourceCode, functionName, inputs)
 }
 
 func TemplateTypescript(templateInput TemplateInput) judge0.Submission {
-	inputs := TemplateTypescriptInputs(templateInput.TestCases)                                              // Get the inputs
+	inputs := TemplateTypescriptInputs(templateInput.TestCase)                                               // Get the inputs
 	sourceCode := TemplateTypescriptSourceCode(templateInput.FunctionName, inputs, templateInput.SourceCode) // Get the source code
 
 	submission := judge0.Submission{

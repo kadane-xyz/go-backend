@@ -149,7 +149,7 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 			Language:     submissionRequest.Language,
 			SourceCode:   submissionRequest.SourceCode,
 			FunctionName: problem.FunctionName,
-			TestCases:    testCase,
+			TestCase:     testCase,
 			Problem: Problem{
 				Title:       problem.Title,
 				Description: problem.Description.String,

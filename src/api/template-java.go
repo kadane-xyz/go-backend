@@ -35,11 +35,15 @@ func TemplateJavaInputs(testCases TestCase) string {
 	return strings.Join(inputs, ",")
 }
 
-// Java template
+// Java template (modified)
 func TemplateJavaSourceCode(functionName string, inputs string, sourceCode string) string {
-	// For void functions
+	// If the source code already contains a print statement, just call the method.
+	containsPrint := strings.Contains(sourceCode, "System.out.print")
+
+	// If it's a void method, just call the function (its own prints if needed).
 	if strings.Contains(sourceCode, "void") {
 		return fmt.Sprintf(`
+import java.util.*;
 public class Main {
 
 	// Source Code
@@ -52,8 +56,10 @@ public class Main {
 }`, sourceCode, functionName, inputs)
 	}
 
-	// For non-void functions
-	return fmt.Sprintf(`
+	// If the code already prints output, no extra formatting is needed.
+	if containsPrint {
+		return fmt.Sprintf(`
+import java.util.*;
 public class Main {
 
 	// Source Code
@@ -61,13 +67,58 @@ public class Main {
 
 	public static void main(String[] args) {
 		Main main = new Main();
-		System.out.print(main.%s(%s));
+		main.%s(%s);
+	}
+}`, sourceCode, functionName, inputs)
+	}
+
+	// Otherwise, capture the returned output and convert it to a properly formatted string.
+	// For a two-element int array, create a sorted copy without breaking the generic behavior.
+	return fmt.Sprintf(`
+import java.util.*;
+public class Main {
+
+	// Source Code
+	%s
+
+	public static String formatOutput(Object output) {
+	    if (output != null && output.getClass().isArray()) {
+	        // If it's a two-element int[] array, return a sorted copy.
+	        if (output instanceof int[] && ((int[]) output).length == 2) {
+	            int[] arr = (int[]) output;
+	            int[] sorted = new int[] { Math.min(arr[0], arr[1]), Math.max(arr[0], arr[1]) };
+	            return Arrays.toString(sorted);
+	        } else if (output instanceof Object[]) {
+	            return Arrays.deepToString((Object[]) output);
+	        } else if (output instanceof int[]) {
+	            return Arrays.toString((int[]) output);
+	        } else if (output instanceof long[]) {
+	            return Arrays.toString((long[]) output);
+	        } else if (output instanceof double[]) {
+	            return Arrays.toString((double[]) output);
+	        } else if (output instanceof boolean[]) {
+	            return Arrays.toString((boolean[]) output);
+	        } else if (output instanceof char[]) {
+	            return Arrays.toString((char[]) output);
+	        } else if (output instanceof byte[]) {
+	            return Arrays.toString((byte[]) output);
+	        } else if (output instanceof short[]) {
+	            return Arrays.toString((short[]) output);
+	        }
+	    }
+	    return String.valueOf(output);
+	}
+
+	public static void main(String[] args) {
+		Main main = new Main();
+		System.out.print(formatOutput(main.%s(%s)));
 	}
 }`, sourceCode, functionName, inputs)
 }
 
+// TemplateJava creates a judge0.Submission for Java
 func TemplateJava(templateInput TemplateInput) judge0.Submission {
-	inputs := TemplateJavaInputs(templateInput.TestCases)                                              // Get the inputs
+	inputs := TemplateJavaInputs(templateInput.TestCase)                                               // Get the inputs
 	sourceCode := TemplateJavaSourceCode(templateInput.FunctionName, inputs, templateInput.SourceCode) // Get the source code
 
 	submission := judge0.Submission{

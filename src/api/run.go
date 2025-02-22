@@ -212,7 +212,7 @@ func (h *Handler) CreateRun(w http.ResponseWriter, r *http.Request) {
 			Language:     runRequest.Language,
 			SourceCode:   runRequest.SourceCode,
 			FunctionName: problem.FunctionName,
-			TestCases:    testCase,
+			TestCase:     testCase,
 			Problem: Problem{
 				Title:       problem.Title,
 				Description: problem.Description.String,

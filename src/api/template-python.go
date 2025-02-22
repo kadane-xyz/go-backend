@@ -76,12 +76,25 @@ func TemplatePythonSourceCode(functionName string, inputs string, sourceCode str
 	return fmt.Sprintf(`
 %s
 
-%s(%s)
-`, sourceCode, functionName, inputs)
+# Create a Solution class if the code uses 'self'
+class Solution:
+    pass
+
+# Create instance if function uses self parameter
+if 'self' in %s.__code__.co_varnames:
+    result = %s(Solution(), %s)
+else:
+    result = %s(%s)
+
+if isinstance(result, (list, tuple)):
+    print('[' + ','.join(map(str, result)) + ']')
+else:
+    print(result)
+`, sourceCode, functionName, functionName, inputs, functionName, inputs)
 }
 
 func TemplatePython(templateInput TemplateInput) judge0.Submission {
-	inputs := TemplatePythonInputs(templateInput.TestCases)                                              // Get the inputs
+	inputs := TemplatePythonInputs(templateInput.TestCase)                                               // Get the inputs
 	sourceCode := TemplatePythonSourceCode(templateInput.FunctionName, inputs, templateInput.SourceCode) // Get the source code
 
 	submission := judge0.Submission{
