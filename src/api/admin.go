@@ -50,7 +50,6 @@ type AdminProblemRunResult struct {
 type AdminProblemData struct {
 	Runs        map[string]AdminProblemRunResult `json:"runs"`
 	Status      sql.SubmissionStatus             `json:"status"`
-	AccountID   string                           `json:"accountId"`
 	CompletedAt time.Time                        `json:"completedAt"`
 }
 
@@ -61,15 +60,9 @@ type AdminProblemResponse struct {
 // POST: /admin/problems/run
 // Make sure to check test cases for each language
 func (h *Handler) CreateAdminProblemRun(w http.ResponseWriter, r *http.Request) {
-	// Get userid from middleware context
-	userId, err := GetClientUserID(w, r)
-	if err != nil {
-		return
-	}
-
 	// Decode request body
 	var runRequest AdminProblemRequest
-	err = json.NewDecoder(r.Body).Decode(&runRequest)
+	err := json.NewDecoder(r.Body).Decode(&runRequest)
 	if err != nil {
 		apierror.SendError(w, http.StatusBadRequest, "Invalid run data format")
 		return
@@ -206,7 +199,6 @@ func (h *Handler) CreateAdminProblemRun(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Set response values
-	responseData.Data.AccountID = userId
 	responseData.Data.Status = sql.SubmissionStatus(status)
 	responseData.Data.CompletedAt = time.Now()
 
