@@ -144,6 +144,7 @@ func (h *Handler) CreateAdminProblemRun(w http.ResponseWriter, r *http.Request) 
 					Memory:         int(solutionResp.Memory),
 					Status:         sql.SubmissionStatus(solutionResp.Status.Description),
 					Output:         solutionResp.Stdout,
+					CompileOutput:  solutionResp.CompileOutput,
 					ExpectedOutput: runRequest.TestCase.Output,
 				}
 
