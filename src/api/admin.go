@@ -153,37 +153,31 @@ func (h *Handler) ProblemRun(runRequest AdminProblemRunRequest) (AdminProblemRes
 	return responseData, nil
 }
 
-func ProblemRunRequestValidate(r *http.Request) (AdminProblemRunRequest, *apierror.APIError) {
-	var runRequest AdminProblemRunRequest
-	err := json.NewDecoder(r.Body).Decode(&runRequest)
-	if err != nil {
-		return AdminProblemRunRequest{}, apierror.NewError(http.StatusBadRequest, "Invalid run data format")
-	}
-
+func ProblemRunRequestValidate(runRequest AdminProblemRunRequest) *apierror.APIError {
 	if runRequest.FunctionName == "" {
-		return AdminProblemRunRequest{}, apierror.NewError(http.StatusBadRequest, "Missing function name")
+		return apierror.NewError(http.StatusBadRequest, "Missing function name")
 	}
 
 	// check map for missing values
 	for language, sourceCode := range runRequest.Solution {
 		// Check if source code is missing
 		if sourceCode == "" {
-			return AdminProblemRunRequest{}, apierror.NewError(http.StatusBadRequest, "Missing source code")
+			return apierror.NewError(http.StatusBadRequest, "Missing source code")
 		}
 
 		// Check if language is valid
 		lang := string(sql.ProblemLanguage(language))
 		if language == "" || language != lang {
-			return AdminProblemRunRequest{}, apierror.NewError(http.StatusBadRequest, "Invalid language: "+language)
+			return apierror.NewError(http.StatusBadRequest, "Invalid language: "+language)
 		}
 
 		// Check if function name is valid
 		if !strings.Contains(sourceCode, runRequest.FunctionName) {
-			return AdminProblemRunRequest{}, apierror.NewError(http.StatusBadRequest, "Function name not found in "+language+" source code")
+			return apierror.NewError(http.StatusBadRequest, "Function name not found in "+language+" source code")
 		}
 	}
 
-	return runRequest, nil
+	return nil
 }
 
 // GET: /admin/validate
@@ -203,14 +197,58 @@ func (h *Handler) GetAdminValidation(w http.ResponseWriter, r *http.Request) {
 
 // POST: /admin/problems
 func (h *Handler) CreateAdminProblem(w http.ResponseWriter, r *http.Request) {
-	// Validate request
+	request, apiErr := DecodeJSONRequest[ProblemRequest](r)
+	if apiErr != nil {
+		apierror.SendError(w, apiErr.StatusCode, apiErr.Message)
+		return
+	}
+
+	apiErr = CreateProblemRequestValidate(request)
+	if apiErr != nil {
+		apierror.SendError(w, apiErr.StatusCode, apiErr.Message)
+		return
+	}
+
+	// Test problem test cases against solutions in each language
+	for i, testCase := range request.TestCases {
+		responseData, apiErr := h.ProblemRun(AdminProblemRunRequest{
+			FunctionName: request.FunctionName,
+			Solution:     request.Solutions,
+			TestCase:     testCase,
+		})
+		if apiErr != nil {
+			apierror.SendError(w, apiErr.StatusCode, apiErr.Message)
+			return
+		}
+
+		// Check if any test cases fail
+		if responseData.Data.Status == "Wrong Answer" {
+			apierror.SendError(w, http.StatusBadRequest, "Wrong answer for test case: "+testCase.Input[i].Name)
+			return
+		}
+	}
+
+	// Create problem in database if all test cases pass
+	apiErr = h.CreateProblem(request)
+	if apiErr != nil {
+		apierror.SendError(w, apiErr.StatusCode, apiErr.Message)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
 }
 
 // POST: /admin/problems/run
 // Make sure to check test cases for each language
 func (h *Handler) CreateAdminProblemRun(w http.ResponseWriter, r *http.Request) {
+	runRequest, apiErr := DecodeJSONRequest[AdminProblemRunRequest](r)
+	if apiErr != nil {
+		apierror.SendError(w, apiErr.StatusCode, apiErr.Message)
+		return
+	}
+
 	// Validate request
-	runRequest, apiErr := ProblemRunRequestValidate(r)
+	apiErr = ProblemRunRequestValidate(runRequest)
 	if apiErr != nil {
 		apierror.SendError(w, apiErr.StatusCode, apiErr.Message)
 		return

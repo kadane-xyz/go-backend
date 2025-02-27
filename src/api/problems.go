@@ -39,7 +39,7 @@ type ProblemRequest struct {
 	Code         ProblemRequestCode   `json:"code"`
 	Hints        []ProblemRequestHint `json:"hints"`
 	Points       int                  `json:"points"`
-	Solution     string               `json:"solution"`
+	Solutions    map[string]string    `json:"solutions"` // ["language": "sourceCode"]
 	TestCases    []TestCase           `json:"testCases"`
 }
 
@@ -194,31 +194,25 @@ func (h *Handler) GetProblems(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-func CreateProblemRequestValidate(r *http.Request) (ProblemRequest, *apierror.APIError) {
-	var request ProblemRequest
-	err := json.NewDecoder(r.Body).Decode(&request)
-	if err != nil {
-		return ProblemRequest{}, apierror.NewError(http.StatusBadRequest, "Invalid request body")
-	}
-
+func CreateProblemRequestValidate(request ProblemRequest) *apierror.APIError {
 	// Check problem fields
-	if request.Title == "" || request.Description == "" || request.FunctionName == "" || len(request.Solution) == 0 {
-		return ProblemRequest{}, apierror.NewError(http.StatusBadRequest, "Title, description, function name, and solution are required")
+	if request.Title == "" || request.Description == "" || request.FunctionName == "" || len(request.Solutions) == 0 {
+		return apierror.NewError(http.StatusBadRequest, "Title, description, function name, and solution are required")
 	}
 
 	if len(request.Code) == 0 {
-		return ProblemRequest{}, apierror.NewError(http.StatusBadRequest, "At least one code is required")
+		return apierror.NewError(http.StatusBadRequest, "At least one code is required")
 	}
 
 	if request.Points < 0 {
-		return ProblemRequest{}, apierror.NewError(http.StatusBadRequest, "Points must be greater than 0")
+		return apierror.NewError(http.StatusBadRequest, "Points must be greater than 0")
 	}
 
-	if len(request.Solution) == 0 {
-		return ProblemRequest{}, apierror.NewError(http.StatusBadRequest, "Solution is required")
+	if len(request.Solutions) == 0 {
+		return apierror.NewError(http.StatusBadRequest, "Solution is required")
 	}
 
-	return request, nil
+	return nil
 }
 
 func (h *Handler) CreateProblem(request ProblemRequest) *apierror.APIError {
@@ -287,6 +281,17 @@ func (h *Handler) CreateProblem(request ProblemRequest) *apierror.APIError {
 		}
 	}
 
+	for language, code := range request.Solutions {
+		_, err = h.PostgresQueries.CreateProblemSolution(context.Background(), sql.CreateProblemSolutionParams{
+			ProblemID: pgtype.Int4{Int32: int32(problemID), Valid: true},
+			Language:  sql.ProblemLanguage(language),
+			Code:      code,
+		})
+		if err != nil {
+			return apierror.NewError(http.StatusInternalServerError, "Failed to create solution")
+		}
+	}
+
 	return nil
 }
 
@@ -298,7 +303,13 @@ func (h *Handler) CreateProblemRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	request, apiErr := CreateProblemRequestValidate(r)
+	request, apiErr := DecodeJSONRequest[ProblemRequest](r)
+	if apiErr != nil {
+		apierror.SendError(w, apiErr.StatusCode, apiErr.Message)
+		return
+	}
+
+	apiErr = CreateProblemRequestValidate(request)
 	if apiErr != nil {
 		apierror.SendError(w, apiErr.StatusCode, apiErr.Message)
 		return
