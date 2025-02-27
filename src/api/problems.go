@@ -39,7 +39,7 @@ type ProblemRequest struct {
 	Code         ProblemRequestCode   `json:"code"`
 	Hints        []ProblemRequestHint `json:"hints"`
 	Points       int                  `json:"points"`
-	Solution     string               `json:"solution"`
+	Solutions    map[string]string    `json:"solutions"` // ["language": "sourceCode"]
 	TestCases    []TestCase           `json:"testCases"`
 }
 
@@ -194,43 +194,28 @@ func (h *Handler) GetProblems(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-// POST: /problems
-func (h *Handler) CreateProblem(w http.ResponseWriter, r *http.Request) {
-	admin := GetClientAdmin(w, r)
-	if !admin {
-		apierror.SendError(w, http.StatusForbidden, "You are not authorized to create problems")
-		return
-	}
-
-	var request ProblemRequest
-	err := json.NewDecoder(r.Body).Decode(&request)
-	if err != nil {
-		apierror.SendError(w, http.StatusBadRequest, "Invalid request body")
-		return
-	}
-
+func CreateProblemRequestValidate(request ProblemRequest) *apierror.APIError {
 	// Check problem fields
-	if request.Title == "" || request.Description == "" || request.FunctionName == "" || len(request.Solution) == 0 {
-		apierror.SendError(w, http.StatusBadRequest, "Title, description, function name, and solution are required")
-		return
+	if request.Title == "" || request.Description == "" || request.FunctionName == "" || len(request.Solutions) == 0 {
+		return apierror.NewError(http.StatusBadRequest, "Title, description, function name, and solution are required")
 	}
 
 	if len(request.Code) == 0 {
-		apierror.SendError(w, http.StatusBadRequest, "At least one code is required")
-		return
+		return apierror.NewError(http.StatusBadRequest, "At least one code is required")
 	}
 
 	if request.Points < 0 {
-		apierror.SendError(w, http.StatusBadRequest, "Points must be greater than 0")
-		return
+		return apierror.NewError(http.StatusBadRequest, "Points must be greater than 0")
 	}
 
-	if len(request.Solution) == 0 {
-		apierror.SendError(w, http.StatusBadRequest, "Solution is required")
-		return
+	if len(request.Solutions) == 0 {
+		return apierror.NewError(http.StatusBadRequest, "Solution is required")
 	}
 
-	// 1. Create problem first
+	return nil
+}
+
+func (h *Handler) CreateProblem(request ProblemRequest) *apierror.APIError {
 	problemID, err := h.PostgresQueries.CreateProblem(context.Background(), sql.CreateProblemParams{
 		Title:        request.Title,
 		Description:  pgtype.Text{String: request.Description, Valid: true},
@@ -240,11 +225,9 @@ func (h *Handler) CreateProblem(w http.ResponseWriter, r *http.Request) {
 		Difficulty:   sql.ProblemDifficulty(request.Difficulty),
 	})
 	if err != nil {
-		apierror.SendError(w, http.StatusInternalServerError, "Failed to create problem")
-		return
+		return apierror.NewError(http.StatusInternalServerError, "Failed to create problem")
 	}
 
-	// 2. Create hints using the problem ID
 	for _, hint := range request.Hints {
 		err = h.PostgresQueries.CreateProblemHint(context.Background(), sql.CreateProblemHintParams{
 			ProblemID:   pgtype.Int4{Int32: int32(problemID), Valid: true},
@@ -252,8 +235,7 @@ func (h *Handler) CreateProblem(w http.ResponseWriter, r *http.Request) {
 			Answer:      hint.Answer,
 		})
 		if err != nil {
-			apierror.SendError(w, http.StatusInternalServerError, "Failed to create hint")
-			return
+			return apierror.NewError(http.StatusInternalServerError, "Failed to create hint")
 		}
 	}
 
@@ -264,12 +246,10 @@ func (h *Handler) CreateProblem(w http.ResponseWriter, r *http.Request) {
 			Code:      code,
 		})
 		if err != nil {
-			apierror.SendError(w, http.StatusInternalServerError, "Failed to create code")
-			return
+			return apierror.NewError(http.StatusInternalServerError, "Failed to create code")
 		}
 	}
 
-	// 4. Create test cases using the problem ID
 	for _, testCase := range request.TestCases {
 		testCaseID, err := h.PostgresQueries.CreateProblemTestCase(context.Background(), sql.CreateProblemTestCaseParams{
 			Description: testCase.Description,
@@ -277,8 +257,7 @@ func (h *Handler) CreateProblem(w http.ResponseWriter, r *http.Request) {
 			Visibility:  sql.Visibility(testCase.Visibility),
 		})
 		if err != nil {
-			apierror.SendError(w, http.StatusInternalServerError, "Failed to create test case")
-			return
+			return apierror.NewError(http.StatusInternalServerError, "Failed to create test case")
 		}
 
 		for _, input := range testCase.Input {
@@ -289,8 +268,7 @@ func (h *Handler) CreateProblem(w http.ResponseWriter, r *http.Request) {
 				Name:              input.Name,
 			})
 			if err != nil {
-				apierror.SendError(w, http.StatusInternalServerError, "Failed to create test case input")
-				return
+				return apierror.NewError(http.StatusInternalServerError, "Failed to create test case input")
 			}
 		}
 
@@ -299,9 +277,48 @@ func (h *Handler) CreateProblem(w http.ResponseWriter, r *http.Request) {
 			Value:             testCase.Output,
 		})
 		if err != nil {
-			apierror.SendError(w, http.StatusInternalServerError, "Failed to create test case output")
-			return
+			return apierror.NewError(http.StatusInternalServerError, "Failed to create test case output")
 		}
+	}
+
+	for language, code := range request.Solutions {
+		_, err = h.PostgresQueries.CreateProblemSolution(context.Background(), sql.CreateProblemSolutionParams{
+			ProblemID: pgtype.Int4{Int32: int32(problemID), Valid: true},
+			Language:  sql.ProblemLanguage(language),
+			Code:      code,
+		})
+		if err != nil {
+			return apierror.NewError(http.StatusInternalServerError, "Failed to create solution")
+		}
+	}
+
+	return nil
+}
+
+// POST: /problems
+func (h *Handler) CreateProblemRoute(w http.ResponseWriter, r *http.Request) {
+	admin := GetClientAdmin(w, r)
+	if !admin {
+		apierror.SendError(w, http.StatusForbidden, "You are not authorized to create problems")
+		return
+	}
+
+	request, apiErr := DecodeJSONRequest[ProblemRequest](r)
+	if apiErr != nil {
+		apierror.SendError(w, apiErr.StatusCode, apiErr.Message)
+		return
+	}
+
+	apiErr = CreateProblemRequestValidate(request)
+	if apiErr != nil {
+		apierror.SendError(w, apiErr.StatusCode, apiErr.Message)
+		return
+	}
+
+	apiErr = h.CreateProblem(request)
+	if apiErr != nil {
+		apierror.SendError(w, apiErr.StatusCode, apiErr.Message)
+		return
 	}
 
 	w.WriteHeader(http.StatusCreated)

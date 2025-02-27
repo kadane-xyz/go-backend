@@ -20,22 +20,7 @@ type AdminValidationResponse struct {
 	Data AdminValidation `json:"data"`
 }
 
-// GET: /admin/validate
-func (h *Handler) GetAdminValidation(w http.ResponseWriter, r *http.Request) {
-	admin := GetClientAdmin(w, r)
-
-	response := AdminValidationResponse{
-		Data: AdminValidation{
-			IsAdmin: admin,
-		},
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
-}
-
-type AdminProblemRequest struct {
+type AdminProblemRunRequest struct {
 	FunctionName string            `json:"functionName"`
 	Solution     map[string]string `json:"solution"` // ["language": "sourceCode"]
 	TestCase     TestCase          `json:"testCase"`
@@ -57,44 +42,7 @@ type AdminProblemResponse struct {
 	Data AdminProblemData `json:"data"`
 }
 
-// POST: /admin/problems/run
-// Make sure to check test cases for each language
-func (h *Handler) CreateAdminProblemRun(w http.ResponseWriter, r *http.Request) {
-	// Decode request body
-	var runRequest AdminProblemRequest
-	err := json.NewDecoder(r.Body).Decode(&runRequest)
-	if err != nil {
-		apierror.SendError(w, http.StatusBadRequest, "Invalid run data format")
-		return
-	}
-
-	if runRequest.FunctionName == "" {
-		apierror.SendError(w, http.StatusBadRequest, "Missing function name")
-		return
-	}
-
-	// check map for missing values
-	for language, sourceCode := range runRequest.Solution {
-		// Check if source code is missing
-		if sourceCode == "" {
-			apierror.SendError(w, http.StatusBadRequest, "Missing source code")
-			return
-		}
-
-		// Check if language is valid
-		lang := string(sql.ProblemLanguage(language))
-		if language == "" || language != lang {
-			apierror.SendError(w, http.StatusBadRequest, "Invalid language: "+language)
-			return
-		}
-
-		// Check if function name is valid
-		if !strings.Contains(sourceCode, runRequest.FunctionName) {
-			apierror.SendError(w, http.StatusBadRequest, "Function name not found in "+language+" source code")
-			return
-		}
-	}
-
+func (h *Handler) ProblemRun(runRequest AdminProblemRunRequest) (AdminProblemResponse, *apierror.APIError) {
 	solutionRuns := make(map[string][]judge0.Submission) // Store all judge0 submission inputs for each language
 
 	// Create judge0 submission inputs by combining test case handling and template creation.
@@ -111,8 +59,7 @@ func (h *Handler) CreateAdminProblemRun(w http.ResponseWriter, r *http.Request) 
 
 	// Validate submissions before sending
 	if len(solutionRuns) == 0 {
-		apierror.SendError(w, http.StatusBadRequest, "Failed to create runs")
-		return
+		return AdminProblemResponse{}, apierror.NewError(http.StatusBadRequest, "Failed to create runs")
 	}
 
 	// Initialize response data
@@ -202,6 +149,117 @@ func (h *Handler) CreateAdminProblemRun(w http.ResponseWriter, r *http.Request) 
 	// Set response values
 	responseData.Data.Status = sql.SubmissionStatus(status)
 	responseData.Data.CompletedAt = time.Now()
+
+	return responseData, nil
+}
+
+func ProblemRunRequestValidate(runRequest AdminProblemRunRequest) *apierror.APIError {
+	if runRequest.FunctionName == "" {
+		return apierror.NewError(http.StatusBadRequest, "Missing function name")
+	}
+
+	// check map for missing values
+	for language, sourceCode := range runRequest.Solution {
+		// Check if source code is missing
+		if sourceCode == "" {
+			return apierror.NewError(http.StatusBadRequest, "Missing source code")
+		}
+
+		// Check if language is valid
+		lang := string(sql.ProblemLanguage(language))
+		if language == "" || language != lang {
+			return apierror.NewError(http.StatusBadRequest, "Invalid language: "+language)
+		}
+
+		// Check if function name is valid
+		if !strings.Contains(sourceCode, runRequest.FunctionName) {
+			return apierror.NewError(http.StatusBadRequest, "Function name not found in "+language+" source code")
+		}
+	}
+
+	return nil
+}
+
+// GET: /admin/validate
+func (h *Handler) GetAdminValidation(w http.ResponseWriter, r *http.Request) {
+	admin := GetClientAdmin(w, r)
+
+	response := AdminValidationResponse{
+		Data: AdminValidation{
+			IsAdmin: admin,
+		},
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+}
+
+// POST: /admin/problems
+func (h *Handler) CreateAdminProblem(w http.ResponseWriter, r *http.Request) {
+	request, apiErr := DecodeJSONRequest[ProblemRequest](r)
+	if apiErr != nil {
+		apierror.SendError(w, apiErr.StatusCode, apiErr.Message)
+		return
+	}
+
+	apiErr = CreateProblemRequestValidate(request)
+	if apiErr != nil {
+		apierror.SendError(w, apiErr.StatusCode, apiErr.Message)
+		return
+	}
+
+	// Test problem test cases against solutions in each language
+	for i, testCase := range request.TestCases {
+		responseData, apiErr := h.ProblemRun(AdminProblemRunRequest{
+			FunctionName: request.FunctionName,
+			Solution:     request.Solutions,
+			TestCase:     testCase,
+		})
+		if apiErr != nil {
+			apierror.SendError(w, apiErr.StatusCode, apiErr.Message)
+			return
+		}
+
+		// Check if any test cases fail
+		if responseData.Data.Status == "Wrong Answer" {
+			apierror.SendError(w, http.StatusBadRequest, "Wrong answer for test case: "+testCase.Input[i].Name)
+			return
+		}
+	}
+
+	// Create problem in database if all test cases pass
+	apiErr = h.CreateProblem(request)
+	if apiErr != nil {
+		apierror.SendError(w, apiErr.StatusCode, apiErr.Message)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+}
+
+// POST: /admin/problems/run
+// Make sure to check test cases for each language
+func (h *Handler) CreateAdminProblemRun(w http.ResponseWriter, r *http.Request) {
+	runRequest, apiErr := DecodeJSONRequest[AdminProblemRunRequest](r)
+	if apiErr != nil {
+		apierror.SendError(w, apiErr.StatusCode, apiErr.Message)
+		return
+	}
+
+	// Validate request
+	apiErr = ProblemRunRequestValidate(runRequest)
+	if apiErr != nil {
+		apierror.SendError(w, apiErr.StatusCode, apiErr.Message)
+		return
+	}
+
+	// Run problems against judge0
+	responseData, apiErr := h.ProblemRun(runRequest)
+	if apiErr != nil {
+		apierror.SendError(w, apiErr.StatusCode, apiErr.Message)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(responseData)

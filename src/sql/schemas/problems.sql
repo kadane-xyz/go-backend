@@ -17,9 +17,10 @@ CREATE TABLE problem (
 CREATE TABLE problem_solution (
     id SERIAL PRIMARY KEY,
     problem_id INT REFERENCES problem(id) ON DELETE CASCADE,
-    solution TEXT NOT NULL,
+    language problem_language NOT NULL,
+    code TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (problem_id, id)
+    UNIQUE (problem_id, language)
 );
 
 CREATE TABLE problem_code (

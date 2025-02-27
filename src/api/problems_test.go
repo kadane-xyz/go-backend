@@ -152,7 +152,14 @@ func TestCreateProblem(t *testing.T) {
 						Answer:      "This is a test answer",
 					},
 				},
-				Solution: "This is a test solution",
+				Solutions: map[string]string{
+					"go":         "package main\n\nfunc TestProblem()",
+					"python":     "def test_problem():\n    pass",
+					"javascript": "function testProblem() {\n    // test code\n}",
+					"java":       "public class TestProblem {\n    public static void main(String[] args) {\n        // test code\n    }\n}",
+					"cpp":        "int testProblem() {\n    // test code\n}",
+					"typescript": "function testProblem() {\n    // test code\n}",
+				},
 			},
 			expectedStatus: http.StatusCreated,
 		},
@@ -170,7 +177,7 @@ func TestCreateProblem(t *testing.T) {
 			req := newTestRequest(t, http.MethodPost, "/problems", bytes.NewBuffer(body))
 			req.Header.Set("Content-Type", "application/json")
 
-			executeTestRequest(t, req, testCase.expectedStatus, handler.CreateProblem)
+			executeTestRequest(t, req, testCase.expectedStatus, handler.CreateProblemRoute)
 		})
 	}
 }

@@ -301,6 +301,9 @@ INSERT INTO problem_test_case_input (problem_test_case_id, name, value, type) VA
 -- name: CreateProblemTestCaseOutput :one
 INSERT INTO problem_test_case_output (problem_test_case_id, value) VALUES ($1, $2) RETURNING *;
 
+-- name: CreateProblemSolution :one
+INSERT INTO problem_solution (problem_id, language, code) VALUES ($1, $2, $3) RETURNING *;
+
 -- name: GetProblemTestCases :many
 SELECT ptc.*,
     (
