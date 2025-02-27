@@ -57,44 +57,7 @@ type AdminProblemResponse struct {
 	Data AdminProblemData `json:"data"`
 }
 
-// POST: /admin/problems/run
-// Make sure to check test cases for each language
-func (h *Handler) CreateAdminProblemRun(w http.ResponseWriter, r *http.Request) {
-	// Decode request body
-	var runRequest AdminProblemRequest
-	err := json.NewDecoder(r.Body).Decode(&runRequest)
-	if err != nil {
-		apierror.SendError(w, http.StatusBadRequest, "Invalid run data format")
-		return
-	}
-
-	if runRequest.FunctionName == "" {
-		apierror.SendError(w, http.StatusBadRequest, "Missing function name")
-		return
-	}
-
-	// check map for missing values
-	for language, sourceCode := range runRequest.Solution {
-		// Check if source code is missing
-		if sourceCode == "" {
-			apierror.SendError(w, http.StatusBadRequest, "Missing source code")
-			return
-		}
-
-		// Check if language is valid
-		lang := string(sql.ProblemLanguage(language))
-		if language == "" || language != lang {
-			apierror.SendError(w, http.StatusBadRequest, "Invalid language: "+language)
-			return
-		}
-
-		// Check if function name is valid
-		if !strings.Contains(sourceCode, runRequest.FunctionName) {
-			apierror.SendError(w, http.StatusBadRequest, "Function name not found in "+language+" source code")
-			return
-		}
-	}
-
+func (h *Handler) ProblemRun(runRequest AdminProblemRequest) (AdminProblemResponse, *apierror.APIError) {
 	solutionRuns := make(map[string][]judge0.Submission) // Store all judge0 submission inputs for each language
 
 	// Create judge0 submission inputs by combining test case handling and template creation.
@@ -111,8 +74,7 @@ func (h *Handler) CreateAdminProblemRun(w http.ResponseWriter, r *http.Request) 
 
 	// Validate submissions before sending
 	if len(solutionRuns) == 0 {
-		apierror.SendError(w, http.StatusBadRequest, "Failed to create runs")
-		return
+		return AdminProblemResponse{}, apierror.NewError(http.StatusBadRequest, "Failed to create runs")
 	}
 
 	// Initialize response data
@@ -201,6 +163,59 @@ func (h *Handler) CreateAdminProblemRun(w http.ResponseWriter, r *http.Request) 
 	// Set response values
 	responseData.Data.Status = sql.SubmissionStatus(status)
 	responseData.Data.CompletedAt = time.Now()
+
+	return responseData, nil
+}
+
+func ProblemRunRequestValidate(r *http.Request) (AdminProblemRequest, *apierror.APIError) {
+	var runRequest AdminProblemRequest
+	err := json.NewDecoder(r.Body).Decode(&runRequest)
+	if err != nil {
+		return AdminProblemRequest{}, apierror.NewError(http.StatusBadRequest, "Invalid run data format")
+	}
+
+	if runRequest.FunctionName == "" {
+		return AdminProblemRequest{}, apierror.NewError(http.StatusBadRequest, "Missing function name")
+	}
+
+	// check map for missing values
+	for language, sourceCode := range runRequest.Solution {
+		// Check if source code is missing
+		if sourceCode == "" {
+			return AdminProblemRequest{}, apierror.NewError(http.StatusBadRequest, "Missing source code")
+		}
+
+		// Check if language is valid
+		lang := string(sql.ProblemLanguage(language))
+		if language == "" || language != lang {
+			return AdminProblemRequest{}, apierror.NewError(http.StatusBadRequest, "Invalid language: "+language)
+		}
+
+		// Check if function name is valid
+		if !strings.Contains(sourceCode, runRequest.FunctionName) {
+			return AdminProblemRequest{}, apierror.NewError(http.StatusBadRequest, "Function name not found in "+language+" source code")
+		}
+	}
+
+	return runRequest, nil
+}
+
+// POST: /admin/problems/run
+// Make sure to check test cases for each language
+func (h *Handler) CreateAdminProblemRun(w http.ResponseWriter, r *http.Request) {
+	// Validate request
+	runRequest, apiErr := ProblemRunRequestValidate(r)
+	if apiErr != nil {
+		apierror.SendError(w, apiErr.StatusCode, apiErr.Message)
+		return
+	}
+
+	// Run problems against judge0
+	responseData, apiErr := h.ProblemRun(runRequest)
+	if apiErr != nil {
+		apierror.SendError(w, apiErr.StatusCode, apiErr.Message)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(responseData)
