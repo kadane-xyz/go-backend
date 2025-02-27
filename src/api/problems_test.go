@@ -170,7 +170,7 @@ func TestCreateProblem(t *testing.T) {
 			req := newTestRequest(t, http.MethodPost, "/problems", bytes.NewBuffer(body))
 			req.Header.Set("Content-Type", "application/json")
 
-			executeTestRequest(t, req, testCase.expectedStatus, handler.CreateProblem)
+			executeTestRequest(t, req, testCase.expectedStatus, handler.CreateProblemRoute)
 		})
 	}
 }
