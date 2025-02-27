@@ -1553,11 +1553,9 @@ components:
           type: string
         solution:
           type: object
-          properties:
-            language:
-              type: string
-            sourceCode:
-              type: string
+          additionalProperties:
+            type: string
+          description: Map of language identifiers to solution code
         testCase:
           $ref: '#/components/schemas/TestCase'
     TestCase:
@@ -1591,6 +1589,8 @@ components:
           type: string
         output:
           type: string
+        compileOutput:
+          type: string
         expectedOutput:
           type: string
     AdminProblemRunData:
@@ -1611,8 +1611,6 @@ components:
         status:
           type: string
           enum: [accepted, wrong_answer, runtime_error, compilation_error, time_limit_exceeded, memory_limit_exceeded, output_limit_exceeded, internal_error]
-        accountId:
-          type: string
         completedAt:
           type: string
           format: date-time

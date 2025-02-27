@@ -106,6 +106,7 @@ func (h *Handler) ProblemRun(runRequest AdminProblemRequest) (AdminProblemRespon
 					Memory:         int(solutionResp.Memory),
 					Status:         sql.SubmissionStatus(solutionResp.Status.Description),
 					Output:         solutionResp.Stdout,
+					CompileOutput:  solutionResp.CompileOutput,
 					ExpectedOutput: runRequest.TestCase.Output,
 				}
 

@@ -31,6 +31,7 @@ type RunTestCase struct {
 	Memory         int                  `json:"memory"`
 	Status         sql.SubmissionStatus `json:"status"`         // Accepted, Wrong Answer, etc
 	Output         string               `json:"output"`         // User code output
+	CompileOutput  string               `json:"compileOutput"`  // Compile output
 	ExpectedOutput string               `json:"expectedOutput"` // Solution code output
 }
 
