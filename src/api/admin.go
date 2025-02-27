@@ -20,22 +20,7 @@ type AdminValidationResponse struct {
 	Data AdminValidation `json:"data"`
 }
 
-// GET: /admin/validate
-func (h *Handler) GetAdminValidation(w http.ResponseWriter, r *http.Request) {
-	admin := GetClientAdmin(w, r)
-
-	response := AdminValidationResponse{
-		Data: AdminValidation{
-			IsAdmin: admin,
-		},
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
-}
-
-type AdminProblemRequest struct {
+type AdminProblemRunRequest struct {
 	FunctionName string            `json:"functionName"`
 	Solution     map[string]string `json:"solution"` // ["language": "sourceCode"]
 	TestCase     TestCase          `json:"testCase"`
@@ -57,7 +42,7 @@ type AdminProblemResponse struct {
 	Data AdminProblemData `json:"data"`
 }
 
-func (h *Handler) ProblemRun(runRequest AdminProblemRequest) (AdminProblemResponse, *apierror.APIError) {
+func (h *Handler) ProblemRun(runRequest AdminProblemRunRequest) (AdminProblemResponse, *apierror.APIError) {
 	solutionRuns := make(map[string][]judge0.Submission) // Store all judge0 submission inputs for each language
 
 	// Create judge0 submission inputs by combining test case handling and template creation.
@@ -168,37 +153,57 @@ func (h *Handler) ProblemRun(runRequest AdminProblemRequest) (AdminProblemRespon
 	return responseData, nil
 }
 
-func ProblemRunRequestValidate(r *http.Request) (AdminProblemRequest, *apierror.APIError) {
-	var runRequest AdminProblemRequest
+func ProblemRunRequestValidate(r *http.Request) (AdminProblemRunRequest, *apierror.APIError) {
+	var runRequest AdminProblemRunRequest
 	err := json.NewDecoder(r.Body).Decode(&runRequest)
 	if err != nil {
-		return AdminProblemRequest{}, apierror.NewError(http.StatusBadRequest, "Invalid run data format")
+		return AdminProblemRunRequest{}, apierror.NewError(http.StatusBadRequest, "Invalid run data format")
 	}
 
 	if runRequest.FunctionName == "" {
-		return AdminProblemRequest{}, apierror.NewError(http.StatusBadRequest, "Missing function name")
+		return AdminProblemRunRequest{}, apierror.NewError(http.StatusBadRequest, "Missing function name")
 	}
 
 	// check map for missing values
 	for language, sourceCode := range runRequest.Solution {
 		// Check if source code is missing
 		if sourceCode == "" {
-			return AdminProblemRequest{}, apierror.NewError(http.StatusBadRequest, "Missing source code")
+			return AdminProblemRunRequest{}, apierror.NewError(http.StatusBadRequest, "Missing source code")
 		}
 
 		// Check if language is valid
 		lang := string(sql.ProblemLanguage(language))
 		if language == "" || language != lang {
-			return AdminProblemRequest{}, apierror.NewError(http.StatusBadRequest, "Invalid language: "+language)
+			return AdminProblemRunRequest{}, apierror.NewError(http.StatusBadRequest, "Invalid language: "+language)
 		}
 
 		// Check if function name is valid
 		if !strings.Contains(sourceCode, runRequest.FunctionName) {
-			return AdminProblemRequest{}, apierror.NewError(http.StatusBadRequest, "Function name not found in "+language+" source code")
+			return AdminProblemRunRequest{}, apierror.NewError(http.StatusBadRequest, "Function name not found in "+language+" source code")
 		}
 	}
 
 	return runRequest, nil
+}
+
+// GET: /admin/validate
+func (h *Handler) GetAdminValidation(w http.ResponseWriter, r *http.Request) {
+	admin := GetClientAdmin(w, r)
+
+	response := AdminValidationResponse{
+		Data: AdminValidation{
+			IsAdmin: admin,
+		},
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+}
+
+// POST: /admin/problems
+func (h *Handler) CreateAdminProblem(w http.ResponseWriter, r *http.Request) {
+	// Validate request
 }
 
 // POST: /admin/problems/run
