@@ -71,7 +71,12 @@ SELECT
     
     (
         SELECT COALESCE(
-            json_agg(solution),
+            json_agg(
+                json_build_object(
+                    'language', ps.language,
+                    'code', ps.code
+                )
+            ),
             '[]'
         )
         FROM problem_solution ps 
@@ -239,7 +244,12 @@ SELECT
     
     (
         SELECT COALESCE(
-            json_agg(solution),
+            json_agg(
+                json_build_object(
+                    'language', ps.language,
+                    'code', ps.code
+                )
+            ),
             '[]'
         )
         FROM problem_solution ps 

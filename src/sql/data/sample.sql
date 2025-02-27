@@ -16,10 +16,10 @@ INSERT INTO problem (title, description, function_name, points, difficulty, tags
 ('Merge k Sorted Lists', 'You are given an array of k linked-lists lists, each linked-list is sorted in ascending order. Merge all the linked-lists into one sorted linked-list and return it.', 'mergeKLists', 10, 'hard', ARRAY['linked list', 'heap', 'divide and conquer']);
 
 -- Insert problem_solution
-INSERT INTO problem_solution (problem_id, solution) VALUES
-(1, 'Efficient Two Sum Solution'),
-(2, 'Recursive Reverse Linked List'),
-(3, 'Merge K Sorted Lists using Priority Queue');
+INSERT INTO problem_solution (problem_id, language, code) VALUES
+(1, 'python', 'def twoSum(nums, target):'),
+(2, 'python', 'def reverseList(head):'),
+(3, 'python', 'def mergeKLists(lists):');
 
 -- Insert problem_code
 INSERT INTO problem_code (problem_id, language, code) VALUES
