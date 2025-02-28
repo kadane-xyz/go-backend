@@ -22,7 +22,7 @@ type AdminValidationResponse struct {
 
 type AdminProblemRunRequest struct {
 	FunctionName string            `json:"functionName"`
-	Solution     map[string]string `json:"solution"` // ["language": "sourceCode"]
+	Solutions    map[string]string `json:"solutions"` // ["language": "sourceCode"]
 	TestCase     TestCase          `json:"testCase"`
 }
 
@@ -46,7 +46,7 @@ func (h *Handler) ProblemRun(runRequest AdminProblemRunRequest) (AdminProblemRes
 	solutionRuns := make(map[string][]judge0.Submission) // Store all judge0 submission inputs for each language
 
 	// Create judge0 submission inputs by combining test case handling and template creation.
-	for language, sourceCode := range runRequest.Solution {
+	for language, sourceCode := range runRequest.Solutions {
 		// Create the submission for this test case and language
 		solutionRun := TemplateCreate(TemplateInput{
 			Language:     language,
@@ -159,7 +159,7 @@ func ProblemRunRequestValidate(runRequest AdminProblemRunRequest) *apierror.APIE
 	}
 
 	// check map for missing values
-	for language, sourceCode := range runRequest.Solution {
+	for language, sourceCode := range runRequest.Solutions {
 		// Check if source code is missing
 		if sourceCode == "" {
 			return apierror.NewError(http.StatusBadRequest, "Missing source code")
@@ -213,7 +213,7 @@ func (h *Handler) CreateAdminProblem(w http.ResponseWriter, r *http.Request) {
 	for i, testCase := range request.TestCases {
 		responseData, apiErr := h.ProblemRun(AdminProblemRunRequest{
 			FunctionName: request.FunctionName,
-			Solution:     request.Solutions,
+			Solutions:    request.Solutions,
 			TestCase:     testCase,
 		})
 		if apiErr != nil {
