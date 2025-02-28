@@ -233,6 +233,31 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AccountValidationResponse'
+  /admin/problems:
+    post:
+      tags:
+        - Admin
+      summary: Create a problem
+      description: Create a problem.
+      operationId: adminCreateProblem
+      requestBody:
+        description: Problem data to be created
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProblemRequest'
+      responses:
+        '201':
+          description: Problem created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateAdminProblemResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /admin/problems/run:
     post:
       tags:
@@ -1545,6 +1570,19 @@ components:
         username: "john_doe"
         email: "john@example.com"
     # Admin
+    CreateAdminProblemResponse:
+      description: Create admin problem response
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/CreateAdminProblemData'
+    CreateAdminProblemData:
+      description: Create admin problem data
+      type: object
+      properties:
+        problemId:
+          type: string
+          description: The ID of the created problem.
     AdminProblemRunRequest:
       description: Admin problem run request
       type: object
