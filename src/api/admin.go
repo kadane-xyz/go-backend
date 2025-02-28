@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -40,6 +41,14 @@ type AdminProblemData struct {
 
 type AdminProblemResponse struct {
 	Data AdminProblemData `json:"data"`
+}
+
+type CreateAdminProblemData struct {
+	ProblemID string `json:"problemId"`
+}
+
+type CreateAdminProblemResponse struct {
+	Data CreateAdminProblemData `json:"data"`
 }
 
 func (h *Handler) ProblemRun(runRequest AdminProblemRunRequest) (AdminProblemResponse, *apierror.APIError) {
@@ -229,13 +238,21 @@ func (h *Handler) CreateAdminProblem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create problem in database if all test cases pass
-	apiErr = h.CreateProblem(request)
+	problemID, apiErr := h.CreateProblem(request)
 	if apiErr != nil {
 		apierror.SendError(w, apiErr.StatusCode(), apiErr.Message())
 		return
 	}
 
+	response := CreateAdminProblemResponse{
+		Data: CreateAdminProblemData{
+			ProblemID: strconv.Itoa(int(*problemID)),
+		},
+	}
+
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(response)
 }
 
 // POST: /admin/problems/run

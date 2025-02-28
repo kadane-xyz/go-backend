@@ -215,7 +215,7 @@ func CreateProblemRequestValidate(request ProblemRequest) *apierror.APIError {
 	return nil
 }
 
-func (h *Handler) CreateProblem(request ProblemRequest) *apierror.APIError {
+func (h *Handler) CreateProblem(request ProblemRequest) (*int32, *apierror.APIError) {
 	problemID, err := h.PostgresQueries.CreateProblem(context.Background(), sql.CreateProblemParams{
 		Title:        request.Title,
 		Description:  pgtype.Text{String: request.Description, Valid: true},
@@ -225,7 +225,7 @@ func (h *Handler) CreateProblem(request ProblemRequest) *apierror.APIError {
 		Difficulty:   sql.ProblemDifficulty(request.Difficulty),
 	})
 	if err != nil {
-		return apierror.NewError(http.StatusInternalServerError, "Failed to create problem")
+		return nil, apierror.NewError(http.StatusInternalServerError, "Failed to create problem")
 	}
 
 	for _, hint := range request.Hints {
@@ -235,7 +235,7 @@ func (h *Handler) CreateProblem(request ProblemRequest) *apierror.APIError {
 			Answer:      hint.Answer,
 		})
 		if err != nil {
-			return apierror.NewError(http.StatusInternalServerError, "Failed to create hint")
+			return nil, apierror.NewError(http.StatusInternalServerError, "Failed to create hint")
 		}
 	}
 
@@ -246,7 +246,7 @@ func (h *Handler) CreateProblem(request ProblemRequest) *apierror.APIError {
 			Code:      code,
 		})
 		if err != nil {
-			return apierror.NewError(http.StatusInternalServerError, "Failed to create code")
+			return nil, apierror.NewError(http.StatusInternalServerError, "Failed to create code")
 		}
 	}
 
@@ -257,7 +257,7 @@ func (h *Handler) CreateProblem(request ProblemRequest) *apierror.APIError {
 			Visibility:  sql.Visibility(testCase.Visibility),
 		})
 		if err != nil {
-			return apierror.NewError(http.StatusInternalServerError, "Failed to create test case")
+			return nil, apierror.NewError(http.StatusInternalServerError, "Failed to create test case")
 		}
 
 		for _, input := range testCase.Input {
@@ -268,7 +268,7 @@ func (h *Handler) CreateProblem(request ProblemRequest) *apierror.APIError {
 				Name:              input.Name,
 			})
 			if err != nil {
-				return apierror.NewError(http.StatusInternalServerError, "Failed to create test case input")
+				return nil, apierror.NewError(http.StatusInternalServerError, "Failed to create test case input")
 			}
 		}
 
@@ -277,7 +277,7 @@ func (h *Handler) CreateProblem(request ProblemRequest) *apierror.APIError {
 			Value:             testCase.Output,
 		})
 		if err != nil {
-			return apierror.NewError(http.StatusInternalServerError, "Failed to create test case output")
+			return nil, apierror.NewError(http.StatusInternalServerError, "Failed to create test case output")
 		}
 	}
 
@@ -288,11 +288,11 @@ func (h *Handler) CreateProblem(request ProblemRequest) *apierror.APIError {
 			Code:      code,
 		})
 		if err != nil {
-			return apierror.NewError(http.StatusInternalServerError, "Failed to create solution")
+			return nil, apierror.NewError(http.StatusInternalServerError, "Failed to create solution")
 		}
 	}
 
-	return nil
+	return &problemID, nil
 }
 
 // POST: /problems
@@ -315,13 +315,21 @@ func (h *Handler) CreateProblemRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	apiErr = h.CreateProblem(request)
+	problemID, apiErr := h.CreateProblem(request)
 	if apiErr != nil {
 		apierror.SendError(w, apiErr.StatusCode(), apiErr.Message())
 		return
 	}
 
+	response := CreateAdminProblemResponse{
+		Data: CreateAdminProblemData{
+			ProblemID: strconv.Itoa(int(*problemID)),
+		},
+	}
+
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(response)
 }
 
 // GET: /problems/{problemId}
