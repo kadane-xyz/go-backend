@@ -130,10 +130,9 @@ func (h *Handler) CreateRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var runRequest RunRequest
-	err = json.NewDecoder(r.Body).Decode(&runRequest)
-	if err != nil {
-		apierror.SendError(w, http.StatusBadRequest, "Invalid run data format")
+	runRequest, apiErr := DecodeJSONRequest[RunRequest](r)
+	if apiErr != nil {
+		apierror.SendError(w, apiErr.StatusCode(), apiErr.Message())
 		return
 	}
 

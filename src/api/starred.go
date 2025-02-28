@@ -232,10 +232,9 @@ func (h *Handler) PutStarProblem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var problemRequest StarProblemRequest
-	err = json.NewDecoder(r.Body).Decode(&problemRequest)
-	if err != nil {
-		apierror.SendError(w, http.StatusBadRequest, "Invalid request body")
+	problemRequest, apiErr := DecodeJSONRequest[StarProblemRequest](r)
+	if apiErr != nil {
+		apierror.SendError(w, apiErr.StatusCode(), apiErr.Message())
 		return
 	}
 
@@ -269,10 +268,9 @@ func (h *Handler) PutStarSolution(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var solutionRequest StarSolutionRequest
-	err = json.NewDecoder(r.Body).Decode(&solutionRequest)
-	if err != nil {
-		apierror.SendError(w, http.StatusBadRequest, "Invalid request body")
+	solutionRequest, apiErr := DecodeJSONRequest[StarSolutionRequest](r)
+	if apiErr != nil {
+		apierror.SendError(w, apiErr.StatusCode(), apiErr.Message())
 		return
 	}
 
@@ -305,10 +303,9 @@ func (h *Handler) PutStarSubmission(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var submissionRequest StarSubmissionRequest
-	err = json.NewDecoder(r.Body).Decode(&submissionRequest)
-	if err != nil {
-		apierror.SendError(w, http.StatusBadRequest, "Invalid request body")
+	submissionRequest, apiErr := DecodeJSONRequest[StarSubmissionRequest](r)
+	if apiErr != nil {
+		apierror.SendError(w, apiErr.StatusCode(), apiErr.Message())
 		return
 	}
 

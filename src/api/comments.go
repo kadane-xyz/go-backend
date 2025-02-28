@@ -160,10 +160,9 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var comment CommentCreateRequest
-	err = json.NewDecoder(r.Body).Decode(&comment)
-	if err != nil {
-		apierror.SendError(w, http.StatusBadRequest, "Invalid comment data format")
+	comment, apiErr := DecodeJSONRequest[CommentCreateRequest](r)
+	if apiErr != nil {
+		apierror.SendError(w, apiErr.StatusCode(), apiErr.Message())
 		return
 	}
 
@@ -290,10 +289,9 @@ func (h *Handler) UpdateComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var comment CommentUpdateRequest
-	err = json.NewDecoder(r.Body).Decode(&comment)
-	if err != nil {
-		apierror.SendError(w, http.StatusBadRequest, "Invalid comment data format")
+	comment, apiErr := DecodeJSONRequest[CommentUpdateRequest](r)
+	if apiErr != nil {
+		apierror.SendError(w, apiErr.StatusCode(), apiErr.Message())
 		return
 	}
 
@@ -372,9 +370,9 @@ func (h *Handler) VoteComment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Decode the request body into VoteRequest struct
-	var req VoteRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		apierror.SendError(w, http.StatusBadRequest, "Error decoding request body")
+	req, apiErr := DecodeJSONRequest[VoteRequest](r)
+	if apiErr != nil {
+		apierror.SendError(w, apiErr.StatusCode(), apiErr.Message())
 		return
 	}
 

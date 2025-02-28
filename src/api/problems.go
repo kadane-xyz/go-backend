@@ -305,19 +305,19 @@ func (h *Handler) CreateProblemRoute(w http.ResponseWriter, r *http.Request) {
 
 	request, apiErr := DecodeJSONRequest[ProblemRequest](r)
 	if apiErr != nil {
-		apierror.SendError(w, apiErr.StatusCode, apiErr.Message)
+		apierror.SendError(w, apiErr.StatusCode(), apiErr.Message())
 		return
 	}
 
 	apiErr = CreateProblemRequestValidate(request)
 	if apiErr != nil {
-		apierror.SendError(w, apiErr.StatusCode, apiErr.Message)
+		apierror.SendError(w, apiErr.StatusCode(), apiErr.Message())
 		return
 	}
 
 	apiErr = h.CreateProblem(request)
 	if apiErr != nil {
-		apierror.SendError(w, apiErr.StatusCode, apiErr.Message)
+		apierror.SendError(w, apiErr.StatusCode(), apiErr.Message())
 		return
 	}
 
