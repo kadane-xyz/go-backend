@@ -208,10 +208,9 @@ func (h *Handler) CreateSolution(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var solution CreateSolutionRequest
-	err = json.NewDecoder(r.Body).Decode(&solution)
-	if err != nil {
-		apierror.SendError(w, http.StatusBadRequest, "Invalid solution data format")
+	solution, apiErr := DecodeJSONRequest[CreateSolutionRequest](r)
+	if apiErr != nil {
+		apierror.SendError(w, apiErr.StatusCode(), apiErr.Message())
 		return
 	}
 
@@ -322,9 +321,9 @@ func (h *Handler) UpdateSolution(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var solutionRequest UpdateSolutionRequest
-	if err := json.NewDecoder(r.Body).Decode(&solutionRequest); err != nil {
-		apierror.SendError(w, http.StatusBadRequest, "error decoding request body")
+	solutionRequest, apiErr := DecodeJSONRequest[UpdateSolutionRequest](r)
+	if apiErr != nil {
+		apierror.SendError(w, apiErr.StatusCode(), apiErr.Message())
 		return
 	}
 
@@ -412,9 +411,9 @@ func (h *Handler) VoteSolution(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Decode the request body into VoteRequest struct
-	var req VoteRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		apierror.SendError(w, http.StatusBadRequest, "Error decoding request body")
+	req, apiErr := DecodeJSONRequest[VoteRequest](r)
+	if apiErr != nil {
+		apierror.SendError(w, apiErr.StatusCode(), apiErr.Message())
 		return
 	}
 

@@ -199,13 +199,13 @@ func (h *Handler) GetAdminValidation(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) CreateAdminProblem(w http.ResponseWriter, r *http.Request) {
 	request, apiErr := DecodeJSONRequest[ProblemRequest](r)
 	if apiErr != nil {
-		apierror.SendError(w, apiErr.StatusCode, apiErr.Message)
+		apierror.SendError(w, apiErr.StatusCode(), apiErr.Message())
 		return
 	}
 
 	apiErr = CreateProblemRequestValidate(request)
 	if apiErr != nil {
-		apierror.SendError(w, apiErr.StatusCode, apiErr.Message)
+		apierror.SendError(w, apiErr.StatusCode(), apiErr.Message())
 		return
 	}
 
@@ -217,7 +217,7 @@ func (h *Handler) CreateAdminProblem(w http.ResponseWriter, r *http.Request) {
 			TestCase:     testCase,
 		})
 		if apiErr != nil {
-			apierror.SendError(w, apiErr.StatusCode, apiErr.Message)
+			apierror.SendError(w, apiErr.StatusCode(), apiErr.Message())
 			return
 		}
 
@@ -231,7 +231,7 @@ func (h *Handler) CreateAdminProblem(w http.ResponseWriter, r *http.Request) {
 	// Create problem in database if all test cases pass
 	apiErr = h.CreateProblem(request)
 	if apiErr != nil {
-		apierror.SendError(w, apiErr.StatusCode, apiErr.Message)
+		apierror.SendError(w, apiErr.StatusCode(), apiErr.Message())
 		return
 	}
 
@@ -243,21 +243,21 @@ func (h *Handler) CreateAdminProblem(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) CreateAdminProblemRun(w http.ResponseWriter, r *http.Request) {
 	runRequest, apiErr := DecodeJSONRequest[AdminProblemRunRequest](r)
 	if apiErr != nil {
-		apierror.SendError(w, apiErr.StatusCode, apiErr.Message)
+		apierror.SendError(w, apiErr.StatusCode(), apiErr.Message())
 		return
 	}
 
 	// Validate request
 	apiErr = ProblemRunRequestValidate(runRequest)
 	if apiErr != nil {
-		apierror.SendError(w, apiErr.StatusCode, apiErr.Message)
+		apierror.SendError(w, apiErr.StatusCode(), apiErr.Message())
 		return
 	}
 
 	// Run problems against judge0
 	responseData, apiErr := h.ProblemRun(runRequest)
 	if apiErr != nil {
-		apierror.SendError(w, apiErr.StatusCode, apiErr.Message)
+		apierror.SendError(w, apiErr.StatusCode(), apiErr.Message())
 		return
 	}
 

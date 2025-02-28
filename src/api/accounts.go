@@ -165,10 +165,9 @@ func (h *Handler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var createAccountRequest CreateAccountRequest
-	err := json.NewDecoder(r.Body).Decode(&createAccountRequest)
-	if err != nil {
-		apierror.SendError(w, http.StatusBadRequest, "Invalid JSON format in request body")
+	createAccountRequest, apiErr := DecodeJSONRequest[CreateAccountRequest](r)
+	if apiErr != nil {
+		apierror.SendError(w, apiErr.StatusCode(), apiErr.Message())
 		return
 	}
 
@@ -193,7 +192,7 @@ func (h *Handler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create account in the database
-	err = h.PostgresQueries.CreateAccount(r.Context(), sql.CreateAccountParams{
+	err := h.PostgresQueries.CreateAccount(r.Context(), sql.CreateAccountParams{
 		ID:       createAccountRequest.ID,
 		Username: createAccountRequest.Username,
 		Email:    createAccountRequest.Email,

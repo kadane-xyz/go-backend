@@ -82,10 +82,9 @@ func (h *Handler) CreateFriendRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var friendRequest FriendRequestRequest
-	err = json.NewDecoder(r.Body).Decode(&friendRequest)
-	if err != nil {
-		apierror.SendError(w, http.StatusBadRequest, "Invalid request body")
+	friendRequest, apiErr := DecodeJSONRequest[FriendRequestRequest](r)
+	if apiErr != nil {
+		apierror.SendError(w, apiErr.StatusCode(), apiErr.Message())
 		return
 	}
 
@@ -210,10 +209,9 @@ func (h *Handler) AcceptFriendRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var friendRequest FriendRequest
-	err = json.NewDecoder(r.Body).Decode(&friendRequest)
-	if err != nil {
-		apierror.SendError(w, http.StatusBadRequest, "Invalid request body")
+	friendRequest, apiErr := DecodeJSONRequest[FriendRequest](r)
+	if apiErr != nil {
+		apierror.SendError(w, apiErr.StatusCode(), apiErr.Message())
 		return
 	}
 
@@ -235,10 +233,9 @@ func (h *Handler) BlockFriendRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var friendRequest FriendRequest
-	err = json.NewDecoder(r.Body).Decode(&friendRequest)
-	if err != nil {
-		apierror.SendError(w, http.StatusBadRequest, "Invalid request body")
+	friendRequest, apiErr := DecodeJSONRequest[FriendRequest](r)
+	if apiErr != nil {
+		apierror.SendError(w, apiErr.StatusCode(), apiErr.Message())
 		return
 	}
 
@@ -260,10 +257,9 @@ func (h *Handler) UnblockFriendRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var friendRequest FriendRequest
-	err = json.NewDecoder(r.Body).Decode(&friendRequest)
-	if err != nil {
-		apierror.SendError(w, http.StatusBadRequest, "Invalid request body")
+	friendRequest, apiErr := DecodeJSONRequest[FriendRequest](r)
+	if apiErr != nil {
+		apierror.SendError(w, apiErr.StatusCode(), apiErr.Message())
 		return
 	}
 
