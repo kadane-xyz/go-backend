@@ -165,6 +165,7 @@ func (h *Handler) GetProblems(w http.ResponseWriter, r *http.Request) {
 			ID:            int(problem.ID),
 			Title:         problem.Title,
 			Description:   problem.Description.String,
+			FunctionName:  problem.FunctionName,
 			Tags:          problem.Tags,
 			Difficulty:    problem.Difficulty,
 			Code:          codeMap,
@@ -361,6 +362,7 @@ func (h *Handler) GetProblem(w http.ResponseWriter, r *http.Request) {
 		Data: Problem{
 			ID:            int(problem.ID),
 			Title:         problem.Title,
+			FunctionName:  problem.FunctionName,
 			Description:   problem.Description.String,
 			Tags:          problem.Tags,
 			Difficulty:    problem.Difficulty,
