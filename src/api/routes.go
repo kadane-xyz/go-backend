@@ -77,7 +77,7 @@ func RegisterApiRoutes(h *Handler, r chi.Router) {
 		})
 		//problems
 		r.Route("/problems", func(r chi.Router) {
-			r.Get("/", h.GetProblems)
+			r.Get("/", h.GetProblemsRoute)
 			r.Post("/", h.CreateProblemRoute)
 			r.Route("/{problemId}", func(r chi.Router) {
 				r.Get("/", h.GetProblem)

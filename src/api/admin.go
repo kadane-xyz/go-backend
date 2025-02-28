@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -246,7 +245,7 @@ func (h *Handler) CreateAdminProblem(w http.ResponseWriter, r *http.Request) {
 
 	response := CreateAdminProblemResponse{
 		Data: CreateAdminProblemData{
-			ProblemID: strconv.Itoa(int(*problemID)),
+			ProblemID: problemID.Data.ProblemID,
 		},
 	}
 

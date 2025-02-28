@@ -119,7 +119,7 @@ func TestGetProblems(t *testing.T) {
 			req := baseReq.Clone(baseReq.Context())
 			req = applyQueryParams(req, testCase.queryParams)
 
-			executeTestRequest(t, req, testCase.expectedStatus, handler.GetProblems)
+			executeTestRequest(t, req, testCase.expectedStatus, handler.GetProblemsRoute)
 		})
 	}
 }

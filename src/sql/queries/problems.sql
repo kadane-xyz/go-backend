@@ -1,5 +1,5 @@
 -- name: CreateProblem :one
-INSERT INTO problem (title, description, function_name, points, tags, difficulty) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id;
+INSERT INTO problem (title, description, function_name, points, tags, difficulty) VALUES (@title, @description, @function_name, @points, @tags, @difficulty) RETURNING id;
 
 -- name: CreateProblemCode :exec
 INSERT INTO problem_code (problem_id, language, code) VALUES ($1, $2, $3);
@@ -178,8 +178,8 @@ WITH filtered_problems AS (
         WHERE account_id = @user_id
     ) AS user_submissions ON p.id = user_submissions.problem_id
     WHERE
-        (@title = '' OR p.title ILIKE '%' || @title || '%')
-        AND (@difficulty = '' OR p.difficulty = @difficulty::problem_difficulty)
+        (@title::text = '' OR p.title ILIKE '%' || @title::text || '%')
+        AND (@difficulty::problem_difficulty = '' OR p.difficulty = @difficulty::problem_difficulty)
     GROUP BY p.id, sp.problem_id
 
     -- No ORDER BY / LIMIT / OFFSET here: this is the "full" matching set

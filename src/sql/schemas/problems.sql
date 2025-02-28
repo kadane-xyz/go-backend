@@ -2,6 +2,8 @@ CREATE TYPE problem_language AS ENUM ('cpp', 'go', 'java', 'javascript', 'python
 
 CREATE TYPE problem_difficulty AS ENUM ('easy', 'medium', 'hard');
 
+CREATE TYPE problem_sort AS ENUM ('alpha', 'index');
+
 CREATE TABLE problem (
     id SERIAL PRIMARY KEY,
     title TEXT NOT NULL,

@@ -38,13 +38,13 @@ type ProblemRequest struct {
 	Difficulty   string               `json:"difficulty"`
 	Code         ProblemRequestCode   `json:"code"`
 	Hints        []ProblemRequestHint `json:"hints"`
-	Points       int                  `json:"points"`
+	Points       int32                `json:"points"`
 	Solutions    map[string]string    `json:"solutions"` // ["language": "sourceCode"]
 	TestCases    []TestCase           `json:"testCases"`
 }
 
 type Problem struct {
-	ID            int                   `json:"id"`
+	ID            int32                 `json:"id"`
 	Title         string                `json:"title"`
 	Description   string                `json:"description"`
 	FunctionName  string                `json:"functionName"`
@@ -74,31 +74,29 @@ type ProblemPaginationResponse struct {
 	Pagination Pagination `json:"pagination"`
 }
 
-type Sort string
+type CreateProblemData struct {
+	ProblemID string `json:"problemId"`
+}
 
-const (
-	SortAlpha Sort = "alpha"
-	SortIndex Sort = "index"
-)
+type CreateProblemResponse struct {
+	Data CreateProblemData `json:"data"`
+}
 
-// GET: /problems
-func (h *Handler) GetProblems(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetProblemsValidateRequest(w http.ResponseWriter, r *http.Request) (sql.GetProblemsFilteredPaginatedParams, *apierror.APIError) {
 	titleSearch := strings.TrimSpace(r.URL.Query().Get("titleSearch"))
 	difficulty := strings.TrimSpace(r.URL.Query().Get("difficulty"))
 	sortType := strings.TrimSpace(r.URL.Query().Get("sort"))
 	if sortType == "" {
-		sortType = string(SortIndex)
-	} else if sortType != string(SortAlpha) && sortType != string(SortIndex) {
-		apierror.SendError(w, http.StatusBadRequest, "Invalid sort")
-		return
+		sortType = string(sql.ProblemSortIndex)
+	} else if sortType != string(sql.ProblemSortAlpha) && sortType != string(sql.ProblemSortIndex) {
+		return sql.GetProblemsFilteredPaginatedParams{}, apierror.NewError(http.StatusBadRequest, "Invalid sort")
 	}
 
 	order := strings.TrimSpace(r.URL.Query().Get("order"))
 	if order == "" {
-		order = "asc"
-	} else if order != "asc" && order != "desc" {
-		apierror.SendError(w, http.StatusBadRequest, "Invalid order")
-		return
+		order = string(sql.SortDirectionAsc)
+	} else if order != string(sql.SortDirectionAsc) && order != string(sql.SortDirectionDesc) {
+		return sql.GetProblemsFilteredPaginatedParams{}, apierror.NewError(http.StatusBadRequest, "Invalid order")
 	}
 
 	page, err := strconv.ParseInt(r.URL.Query().Get("page"), 10, 64)
@@ -116,45 +114,44 @@ func (h *Handler) GetProblems(w http.ResponseWriter, r *http.Request) {
 			difficulty == string(sql.ProblemDifficultyMedium) ||
 			difficulty == string(sql.ProblemDifficultyHard))
 		if !valid {
-			apierror.SendError(w, http.StatusBadRequest, "Invalid difficulty")
-			return
+			return sql.GetProblemsFilteredPaginatedParams{}, apierror.NewError(http.StatusBadRequest, "Invalid difficulty")
 		}
 	}
 
-	problems, err := h.PostgresQueries.GetProblemsFilteredPaginated(r.Context(), sql.GetProblemsFilteredPaginatedParams{
+	return sql.GetProblemsFilteredPaginatedParams{
 		Title:         titleSearch,
-		Difficulty:    difficulty,
-		Sort:          sortType,
-		SortDirection: order,
-		PerPage:       int32(perPage),
-		Page:          int32(page),
-	})
+		Difficulty:    sql.ProblemDifficulty(difficulty),
+		Sort:          sql.ProblemSort(sortType),
+		SortDirection: sql.SortDirection(order),
+		PerPage:       perPage,
+		Page:          page,
+	}, nil
+}
+
+func (h *Handler) GetProblems(ctx context.Context, w http.ResponseWriter, params sql.GetProblemsFilteredPaginatedParams) (ProblemPaginationResponse, *apierror.APIError) {
+	problems, err := h.PostgresQueries.GetProblemsFilteredPaginated(ctx, params)
 	if err != nil {
-		apierror.SendError(w, http.StatusInternalServerError, "Failed to get problems")
-		return
+		return ProblemPaginationResponse{}, apierror.NewError(http.StatusInternalServerError, "Failed to get problems")
 	}
 
 	if len(problems) == 0 {
-		apierror.SendError(w, http.StatusNotFound, "No problems found")
-		return
+		return ProblemPaginationResponse{}, apierror.NewError(http.StatusNotFound, "No problems found")
 	}
 
-	totalCount := int64(problems[0].TotalCount)
+	totalCount := problems[0].TotalCount
 	if totalCount == 0 {
-		apierror.SendError(w, http.StatusNotFound, "No problems found")
-		return
+		return ProblemPaginationResponse{}, apierror.NewError(http.StatusNotFound, "No problems found")
 	}
 
-	lastPage := (int64(totalCount) + perPage - 1) / perPage
+	lastPage := (totalCount + params.PerPage - 1) / params.PerPage
 
 	if lastPage == 0 {
 		lastPage = 1
 	}
 
 	// check if page is out of bounds
-	if page < 1 || page > lastPage {
-		apierror.SendError(w, http.StatusBadRequest, "Page out of bounds")
-		return
+	if params.Page < 1 || params.Page > lastPage {
+		return ProblemPaginationResponse{}, apierror.NewError(http.StatusBadRequest, "Page out of bounds")
 	}
 
 	responseData := []Problem{}
@@ -162,12 +159,12 @@ func (h *Handler) GetProblems(w http.ResponseWriter, r *http.Request) {
 	for _, problem := range problems {
 		codeMap := InterfaceToMap(problem.Code)
 		responseData = append(responseData, Problem{
-			ID:            int(problem.ID),
+			ID:            problem.ID,
 			Title:         problem.Title,
 			Description:   problem.Description.String,
 			FunctionName:  problem.FunctionName,
 			Tags:          problem.Tags,
-			Difficulty:    problem.Difficulty,
+			Difficulty:    sql.ProblemDifficulty(problem.Difficulty),
 			Code:          codeMap,
 			Hints:         problem.Hints,
 			Points:        problem.Points,
@@ -181,14 +178,29 @@ func (h *Handler) GetProblems(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Return an empty array if no matches (status 200)
-	response := ProblemPaginationResponse{
+	return ProblemPaginationResponse{
 		Data: responseData,
 		Pagination: Pagination{
-			Page:      page,
-			PerPage:   perPage,
+			Page:      params.Page,
+			PerPage:   params.PerPage,
 			DataCount: totalCount,
 			LastPage:  lastPage,
 		},
+	}, nil
+}
+
+// GET: /problems
+func (h *Handler) GetProblemsRoute(w http.ResponseWriter, r *http.Request) {
+	params, apiErr := h.GetProblemsValidateRequest(w, r)
+	if apiErr != nil {
+		apierror.SendError(w, apiErr.StatusCode(), apiErr.Message())
+		return
+	}
+
+	response, apiErr := h.GetProblems(r.Context(), w, params)
+	if apiErr != nil {
+		apierror.SendError(w, apiErr.StatusCode(), apiErr.Message())
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -216,12 +228,12 @@ func CreateProblemRequestValidate(request ProblemRequest) *apierror.APIError {
 	return nil
 }
 
-func (h *Handler) CreateProblem(request ProblemRequest) (*int32, *apierror.APIError) {
+func (h *Handler) CreateProblem(request ProblemRequest) (*CreateProblemResponse, *apierror.APIError) {
 	problemID, err := h.PostgresQueries.CreateProblem(context.Background(), sql.CreateProblemParams{
 		Title:        request.Title,
 		Description:  pgtype.Text{String: request.Description, Valid: true},
 		FunctionName: request.FunctionName,
-		Points:       int32(request.Points),
+		Points:       request.Points,
 		Tags:         request.Tags,
 		Difficulty:   sql.ProblemDifficulty(request.Difficulty),
 	})
@@ -293,7 +305,11 @@ func (h *Handler) CreateProblem(request ProblemRequest) (*int32, *apierror.APIEr
 		}
 	}
 
-	return &problemID, nil
+	return &CreateProblemResponse{
+		Data: CreateProblemData{
+			ProblemID: strconv.Itoa(int(problemID)),
+		},
+	}, nil
 }
 
 // POST: /problems
@@ -316,16 +332,10 @@ func (h *Handler) CreateProblemRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	problemID, apiErr := h.CreateProblem(request)
+	response, apiErr := h.CreateProblem(request)
 	if apiErr != nil {
 		apierror.SendError(w, apiErr.StatusCode(), apiErr.Message())
 		return
-	}
-
-	response := CreateAdminProblemResponse{
-		Data: CreateAdminProblemData{
-			ProblemID: strconv.Itoa(int(*problemID)),
-		},
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -360,12 +370,12 @@ func (h *Handler) GetProblem(w http.ResponseWriter, r *http.Request) {
 	codeMap := InterfaceToMap(problem.Code)
 	response := ProblemResponse{
 		Data: Problem{
-			ID:            int(problem.ID),
+			ID:            problem.ID,
 			Title:         problem.Title,
 			FunctionName:  problem.FunctionName,
 			Description:   problem.Description.String,
 			Tags:          problem.Tags,
-			Difficulty:    problem.Difficulty,
+			Difficulty:    sql.ProblemDifficulty(problem.Difficulty),
 			Code:          codeMap,
 			Hints:         problem.Hints,
 			Points:        problem.Points,
@@ -387,13 +397,22 @@ func InterfaceToMap(object interface{}) map[string]string {
 	// Convert to array of code entries
 	if codeEntries, ok := object.([]interface{}); ok {
 		for _, entry := range codeEntries {
-			if codeMap, ok := entry.(map[string]interface{}); ok {
-				if language, ok := codeMap["language"].(string); ok {
-					if code, ok := codeMap["code"].(string); ok {
-						response[language] = code
-					}
-				}
+			codeMap, ok := entry.(map[string]interface{})
+			if !ok {
+				continue
 			}
+
+			language, ok := codeMap["language"].(string)
+			if !ok {
+				continue
+			}
+
+			code, ok := codeMap["code"].(string)
+			if !ok {
+				continue
+			}
+
+			response[language] = code
 		}
 	}
 
