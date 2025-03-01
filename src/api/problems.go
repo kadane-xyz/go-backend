@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"kadane.xyz/go-backend/v2/src/apierror"
 	"kadane.xyz/go-backend/v2/src/sql/sql"
 )
@@ -57,8 +56,8 @@ type Problem struct {
 	TestCases     interface{}           `json:"testCases"`
 	Starred       bool                  `json:"starred"`
 	Solved        bool                  `json:"solved"`
-	TotalAttempts int64                 `json:"totalAttempts"`
-	TotalCorrect  int64                 `json:"totalCorrect"`
+	TotalAttempts int32                 `json:"totalAttempts"`
+	TotalCorrect  int32                 `json:"totalCorrect"`
 }
 
 type ProblemResponse struct {
@@ -99,14 +98,22 @@ func (h *Handler) GetProblemsValidateRequest(w http.ResponseWriter, r *http.Requ
 		return sql.GetProblemsFilteredPaginatedParams{}, apierror.NewError(http.StatusBadRequest, "Invalid order")
 	}
 
-	page, err := strconv.ParseInt(r.URL.Query().Get("page"), 10, 64)
-	if err != nil || page < 1 {
+	var page int32
+	pageStr := r.URL.Query().Get("page")
+	pageInt, err := strconv.ParseInt(pageStr, 10, 32)
+	if err != nil {
 		page = 1
+	} else {
+		page = int32(pageInt)
 	}
 
-	perPage, err := strconv.ParseInt(r.URL.Query().Get("perPage"), 10, 64)
-	if err != nil || perPage < 1 {
+	var perPage int32
+	perPageStr := r.URL.Query().Get("perPage")
+	perPageInt, err := strconv.ParseInt(perPageStr, 10, 32)
+	if err != nil {
 		perPage = 10
+	} else {
+		perPage = int32(perPageInt)
 	}
 
 	if difficulty != "" {
@@ -231,7 +238,7 @@ func CreateProblemRequestValidate(request ProblemRequest) *apierror.APIError {
 func (h *Handler) CreateProblem(request ProblemRequest) (*CreateProblemResponse, *apierror.APIError) {
 	problemID, err := h.PostgresQueries.CreateProblem(context.Background(), sql.CreateProblemParams{
 		Title:        request.Title,
-		Description:  pgtype.Text{String: request.Description, Valid: true},
+		Description:  request.Description,
 		FunctionName: request.FunctionName,
 		Points:       request.Points,
 		Tags:         request.Tags,
@@ -243,7 +250,7 @@ func (h *Handler) CreateProblem(request ProblemRequest) (*CreateProblemResponse,
 
 	for _, hint := range request.Hints {
 		err = h.PostgresQueries.CreateProblemHint(context.Background(), sql.CreateProblemHintParams{
-			ProblemID:   pgtype.Int4{Int32: int32(problemID), Valid: true},
+			ProblemID:   problemID,
 			Description: hint.Description,
 			Answer:      hint.Answer,
 		})
@@ -254,7 +261,7 @@ func (h *Handler) CreateProblem(request ProblemRequest) (*CreateProblemResponse,
 
 	for language, code := range request.Code {
 		err = h.PostgresQueries.CreateProblemCode(context.Background(), sql.CreateProblemCodeParams{
-			ProblemID: pgtype.Int4{Int32: int32(problemID), Valid: true},
+			ProblemID: problemID,
 			Language:  sql.ProblemLanguage(language),
 			Code:      code,
 		})
@@ -266,7 +273,7 @@ func (h *Handler) CreateProblem(request ProblemRequest) (*CreateProblemResponse,
 	for _, testCase := range request.TestCases {
 		testCaseID, err := h.PostgresQueries.CreateProblemTestCase(context.Background(), sql.CreateProblemTestCaseParams{
 			Description: testCase.Description,
-			ProblemID:   pgtype.Int4{Int32: int32(problemID), Valid: true},
+			ProblemID:   problemID,
 			Visibility:  sql.Visibility(testCase.Visibility),
 		})
 		if err != nil {
@@ -275,7 +282,7 @@ func (h *Handler) CreateProblem(request ProblemRequest) (*CreateProblemResponse,
 
 		for _, input := range testCase.Input {
 			_, err = h.PostgresQueries.CreateProblemTestCaseInput(context.Background(), sql.CreateProblemTestCaseInputParams{
-				ProblemTestCaseID: pgtype.Int4{Int32: int32(testCaseID.ID), Valid: true},
+				ProblemTestCaseID: testCaseID.ID,
 				Value:             input.Value,
 				Type:              sql.ProblemTestCaseType(input.Type),
 				Name:              input.Name,
@@ -286,7 +293,7 @@ func (h *Handler) CreateProblem(request ProblemRequest) (*CreateProblemResponse,
 		}
 
 		_, err = h.PostgresQueries.CreateProblemTestCaseOutput(context.Background(), sql.CreateProblemTestCaseOutputParams{
-			ProblemTestCaseID: pgtype.Int4{Int32: int32(testCaseID.ID), Valid: true},
+			ProblemTestCaseID: testCaseID.ID,
 			Value:             testCase.Output,
 		})
 		if err != nil {
@@ -296,7 +303,7 @@ func (h *Handler) CreateProblem(request ProblemRequest) (*CreateProblemResponse,
 
 	for language, code := range request.Solutions {
 		_, err = h.PostgresQueries.CreateProblemSolution(context.Background(), sql.CreateProblemSolutionParams{
-			ProblemID: pgtype.Int4{Int32: int32(problemID), Valid: true},
+			ProblemID: problemID,
 			Language:  sql.ProblemLanguage(language),
 			Code:      code,
 		})
@@ -350,15 +357,17 @@ func (h *Handler) GetProblem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id := chi.URLParam(r, "problemId")
-	idInt, err := strconv.Atoi(id)
+	var id int32
+	idStr := chi.URLParam(r, "problemId")
+	idInt, err := strconv.ParseInt(idStr, 10, 32)
 	if err != nil {
 		apierror.SendError(w, http.StatusBadRequest, "Invalid problem ID")
 		return
 	}
+	id = int32(idInt)
 
 	problem, err := h.PostgresQueries.GetProblem(context.Background(), sql.GetProblemParams{
-		ProblemID: int32(idInt),
+		ProblemID: id,
 		UserID:    userId,
 	})
 	if err != nil {
