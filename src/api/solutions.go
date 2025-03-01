@@ -43,14 +43,14 @@ type SolutionResponse struct {
 type SolutionsData struct {
 	Id              int64            `json:"id"`
 	Body            string           `json:"body,omitempty"`
-	Comments        int64            `json:"comments"`
+	Comments        int32            `json:"comments"`
 	Date            pgtype.Timestamp `json:"date"`
 	Tags            []string         `json:"tags"`
 	Title           string           `json:"title"`
 	Username        string           `json:"username,omitempty"`
 	Level           int32            `json:"level,omitempty"`
 	AvatarUrl       string           `json:"avatarUrl,omitempty"`
-	Votes           int64            `json:"votes"`
+	Votes           int32            `json:"votes"`
 	CurrentUserVote sql.VoteType     `json:"currentUserVote"`
 	Starred         bool             `json:"starred"`
 }
@@ -91,15 +91,23 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Handle pagination
-	page, err := strconv.ParseInt(r.URL.Query().Get("page"), 10, 64)
-	if err != nil || page < 1 {
+	var page int32
+	pageStr := r.URL.Query().Get("page")
+	pageInt, err := strconv.ParseInt(pageStr, 10, 32)
+	if err != nil {
 		page = 1
+	} else {
+		page = int32(pageInt)
 	}
 
 	// Handle perPage
-	perPage, err := strconv.ParseInt(r.URL.Query().Get("perPage"), 10, 64)
-	if err != nil || perPage < 1 {
-		perPage = 10 // Default to 10 items per page
+	var perPage int32
+	perPageStr := r.URL.Query().Get("perPage")
+	perPageInt, err := strconv.ParseInt(perPageStr, 10, 32)
+	if err != nil {
+		perPage = 10
+	} else {
+		perPage = int32(perPageInt)
 	}
 
 	// Handle sort
@@ -121,15 +129,12 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 		order = "DESC"
 	}
 
-	// Calculate offset
-	offset := (page - 1) * perPage
-
 	solutions, err := h.PostgresQueries.GetSolutionsPaginated(r.Context(), sql.GetSolutionsPaginatedParams{
 		ProblemID:     pgtype.Int8{Int64: id, Valid: true},
 		Tags:          tagsArray,
 		Title:         titleSearch,
-		PerPage:       int32(perPage),
-		Page:          int32(offset),
+		PerPage:       perPage,
+		Page:          page,
 		Sort:          sort,
 		SortDirection: order,
 		UserID:        userId,
@@ -144,7 +149,7 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	totalCount := int64(solutions[0].TotalCount)
+	totalCount := solutions[0].TotalCount
 	if totalCount == 0 {
 		apierror.SendError(w, http.StatusNotFound, "No solutions found")
 		return
