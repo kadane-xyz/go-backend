@@ -3,10 +3,10 @@ package api
 import "kadane.xyz/go-backend/v2/src/sql/sql"
 
 type Pagination struct {
-	Page      int64 `json:"page"`
-	PerPage   int64 `json:"perPage"`
-	DataCount int64 `json:"dataCount"`
-	LastPage  int64 `json:"lastPage"`
+	Page      int32 `json:"page"`
+	PerPage   int32 `json:"perPage"`
+	DataCount int32 `json:"dataCount"`
+	LastPage  int32 `json:"lastPage"`
 }
 
 type TestCaseType string
