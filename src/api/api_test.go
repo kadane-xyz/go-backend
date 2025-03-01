@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"kadane.xyz/go-backend/v2/src/apierror"
 	"kadane.xyz/go-backend/v2/src/middleware"
 )
 
@@ -58,17 +59,11 @@ func executeTestRequest(t *testing.T, req *http.Request, expectedStatus int, han
 
 // extractErrorMessage tries to decode a JSON error or falls back to the raw body.
 func extractErrorMessage(body *bytes.Buffer) string {
-	if body.Len() > 0 {
-		var response struct {
-			Error struct {
-				StatusCode int    `json:"statusCode"`
-				Message    string `json:"message"`
-			} `json:"error"`
-		}
-		if err := json.NewDecoder(body).Decode(&response); err != nil {
-			return body.String()
-		}
-		return response.Error.Message
+	var response apierror.APIError
+	err := json.NewDecoder(body).Decode(&response)
+	if err != nil {
+		return body.String()
 	}
-	return "no response body"
+
+	return response.Data.Error.Message
 }
