@@ -1136,31 +1136,6 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '500':
           $ref: '#/components/responses/InternalServerError'
-
-    post:
-      tags:
-        - Problems
-      summary: Create a new problem
-      description: Create a new coding problem with test cases, hints, and solution
-      operationId: createProblem
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ProblemRequest'
-      responses:
-        '201':
-          description: Problem created successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CreateProblemResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
   /problems/{id}:
     get:
       tags:

@@ -1,8 +1,6 @@
 package api
 
 import (
-	"bytes"
-	"encoding/json"
 	"net/http"
 	"testing"
 )
@@ -120,64 +118,6 @@ func TestGetProblems(t *testing.T) {
 			req = applyQueryParams(req, testCase.queryParams)
 
 			executeTestRequest(t, req, testCase.expectedStatus, handler.GetProblemsRoute)
-		})
-	}
-}
-
-func TestCreateProblem(t *testing.T) {
-	testCases := []struct {
-		name           string
-		body           ProblemRequest
-		expectedStatus int
-	}{
-		{
-			name: "Create problem",
-			body: ProblemRequest{
-				Title:        "Test Problem",
-				Description:  "This is a test problem",
-				FunctionName: "testFunction",
-				Tags:         []string{"test", "problem"},
-				Difficulty:   "easy",
-				Code: map[string]string{
-					"go":         "package main\n\nfunc TestProblem()",
-					"python":     "def test_problem():\n    pass",
-					"javascript": "function testProblem() {\n    // test code\n}",
-					"java":       "public class TestProblem {\n    public static void main(String[] args) {\n        // test code\n    }\n}",
-					"cpp":        "int testProblem() {\n    // test code\n}",
-					"typescript": "function testProblem() {\n    // test code\n}",
-				},
-				Hints: []ProblemRequestHint{
-					{
-						Description: "This is a test hint",
-						Answer:      "This is a test answer",
-					},
-				},
-				Solutions: map[string]string{
-					"go":         "package main\n\nfunc TestProblem()",
-					"python":     "def test_problem():\n    pass",
-					"javascript": "function testProblem() {\n    // test code\n}",
-					"java":       "public class TestProblem {\n    public static void main(String[] args) {\n        // test code\n    }\n}",
-					"cpp":        "int testProblem() {\n    // test code\n}",
-					"typescript": "function testProblem() {\n    // test code\n}",
-				},
-			},
-			expectedStatus: http.StatusCreated,
-		},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			t.Parallel()
-
-			body, err := json.Marshal(testCase.body)
-			if err != nil {
-				t.Fatalf("Failed to marshal body: %v", err)
-			}
-
-			req := newTestRequest(t, http.MethodPost, "/problems", bytes.NewBuffer(body))
-			req.Header.Set("Content-Type", "application/json")
-
-			executeTestRequest(t, req, testCase.expectedStatus, handler.CreateProblemRoute)
 		})
 	}
 }

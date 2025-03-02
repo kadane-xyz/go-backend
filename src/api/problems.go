@@ -319,37 +319,6 @@ func (h *Handler) CreateProblem(request ProblemRequest) (*CreateProblemResponse,
 	}, nil
 }
 
-// POST: /problems
-func (h *Handler) CreateProblemRoute(w http.ResponseWriter, r *http.Request) {
-	admin := GetClientAdmin(w, r)
-	if !admin {
-		apierror.SendError(w, http.StatusForbidden, "You are not authorized to create problems")
-		return
-	}
-
-	request, apiErr := DecodeJSONRequest[ProblemRequest](r)
-	if apiErr != nil {
-		apierror.SendError(w, apiErr.StatusCode(), apiErr.Message())
-		return
-	}
-
-	apiErr = CreateProblemRequestValidate(request)
-	if apiErr != nil {
-		apierror.SendError(w, apiErr.StatusCode(), apiErr.Message())
-		return
-	}
-
-	response, apiErr := h.CreateProblem(request)
-	if apiErr != nil {
-		apierror.SendError(w, apiErr.StatusCode(), apiErr.Message())
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(response)
-}
-
 // GET: /problems/{problemId}
 func (h *Handler) GetProblem(w http.ResponseWriter, r *http.Request) {
 	userId, err := GetClientUserID(w, r)
