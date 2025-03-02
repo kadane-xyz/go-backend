@@ -6,8 +6,8 @@ SELECT
     a.username as user_username,
     a.avatar_url as user_avatar_url,
     a.level as user_level,
-    COALESCE(c.comment_count, 0) AS comments_count,
-    COALESCE(v.vote_count, 0) AS votes_count,
+    COALESCE(c.comment_count, 0)::int as comments_count,
+    COALESCE(v.vote_count, 0)::int as votes_count,
     COALESCE(uv.vote, 'none') as user_vote,
     CASE WHEN EXISTS (SELECT 1 FROM starred_solution WHERE solution_id = s.id AND starred_solution.user_id = @user_id) THEN true ELSE false END AS starred
 FROM solution s
@@ -38,8 +38,8 @@ SELECT
     a.username as user_username,
     a.avatar_url as user_avatar_url,
     a.level as user_level,
-    COALESCE(c.comment_count, 0) AS comments_count,
-    COALESCE(v.vote_count, 0) AS votes_count,
+    COALESCE(c.comment_count, 0)::int as comments_count,
+    COALESCE(v.vote_count, 0)::int as votes_count,
     COALESCE(uv.vote, 'none') as user_vote
 FROM solution s
 LEFT JOIN account a ON s.user_id = a.id
@@ -99,11 +99,11 @@ SELECT
     a.username as user_username,
     a.avatar_url as user_avatar_url,
     a.level as user_level,
-    COALESCE(c.comment_count, 0) AS comments_count,
-    COALESCE(v.vote_count, 0) AS votes_count,
+    COALESCE(c.comment_count, 0)::int as comments_count,
+    COALESCE(v.vote_count, 0)::int as votes_count,
     COALESCE(uv.vote, 'none') as user_vote,
     CASE WHEN EXISTS (SELECT 1 FROM starred_solution WHERE solution_id = s.id AND starred_solution.user_id = @user_id) THEN true ELSE false END AS starred,
-    (SELECT COUNT(*) FROM filtered_solutions) AS total_count
+    (SELECT COUNT(*) FROM filtered_solutions)::int as total_count
 FROM solution s
 LEFT JOIN (
     SELECT id, username, avatar_url, level
@@ -137,7 +137,8 @@ ORDER BY
     (CASE WHEN @sort = 'votes' AND @sort_direction = 'ASC' THEN s.votes END) ASC,
     (CASE WHEN @sort = 'votes' AND @sort_direction = 'DESC' THEN s.votes END) DESC,
     s.id DESC
-LIMIT @per_page OFFSET @page;
+LIMIT @per_page::int
+OFFSET ((@page::int) - 1) * @per_page::int;
 
 -- name: GetSolutionById :one
 SELECT 1 FROM solution WHERE id = @id;
