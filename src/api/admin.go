@@ -112,7 +112,9 @@ func (h *Handler) ProblemRun(runRequest AdminProblemRunRequest) (AdminProblemRes
 					testCase.Output = strings.ReplaceAll(testCase.Output, "\n", "")
 				}
 
-				if solutionResp.Status.Description != "Accepted" || solutionResp.Stdout != runRequest.TestCase.Output {
+				if solutionResp.Status.Description != "Accepted" ||
+					solutionResp.Stdout != runRequest.TestCase.Output ||
+					solutionResp.CompileOutput != "" {
 					testCase.Status = sql.SubmissionStatus("Wrong Answer")
 				}
 
@@ -121,7 +123,7 @@ func (h *Handler) ProblemRun(runRequest AdminProblemRunRequest) (AdminProblemRes
 
 			// Determine overall status for this language
 			var responseState string
-			if localTestCase.Status == "Wrong Answer" {
+			if localTestCase.Status != "Accepted" {
 				responseState = "Wrong Answer"
 			} else if localTestCase.Status == "Accepted" {
 				responseState = "Accepted"
@@ -230,7 +232,7 @@ func (h *Handler) CreateAdminProblem(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Check if any test cases fail
-		if responseData.Data.Status == "Wrong Answer" {
+		if responseData.Data.Status != "Accepted" {
 			apierror.SendError(w, http.StatusBadRequest, "Wrong answer for test case: "+testCase.Input[i].Name)
 			return
 		}

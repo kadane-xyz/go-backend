@@ -245,7 +245,8 @@ func (c *Judge0Client) CreateSubmissionBatch(submissions []Submission) (*Submiss
 }
 
 func (c *Judge0Client) GetSubmission(token string) (*SubmissionResult, error) {
-	url := fmt.Sprintf("%s/submissions/%s?base64_encoded=false&fields=*", c.BaseURL, token)
+	// return as base64 encoded string with fields *
+	url := fmt.Sprintf("%s/submissions/%s?base64_encoded=true&fields=*", c.BaseURL, token)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -274,7 +275,25 @@ func (c *Judge0Client) GetSubmission(token string) (*SubmissionResult, error) {
 		return nil, fmt.Errorf("error unmarshaling response: %w", err)
 	}
 
-	return &result, nil
+	resultDecoded := result
+	resultDecoded.Stdout, err = DecodeBase64(result.Stdout)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding stdout: %w", err)
+	}
+	resultDecoded.Stderr, err = DecodeBase64(result.Stderr)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding stderr: %w", err)
+	}
+	resultDecoded.CompileOutput, err = DecodeBase64(result.CompileOutput)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding compile output: %w", err)
+	}
+	resultDecoded.Message, err = DecodeBase64(result.Message)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding message: %w", err)
+	}
+
+	return &resultDecoded, nil
 }
 
 func (c *Judge0Client) GetSubmissions() (*SubmissionsResponse, error) {
