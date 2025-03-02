@@ -83,7 +83,6 @@ type CreateProblemResponse struct {
 
 func (h *Handler) GetProblemsValidateRequest(w http.ResponseWriter, r *http.Request) (sql.GetProblemsFilteredPaginatedParams, *apierror.APIError) {
 	titleSearch := strings.TrimSpace(r.URL.Query().Get("titleSearch"))
-	difficulty := strings.TrimSpace(r.URL.Query().Get("difficulty"))
 	sortType := strings.TrimSpace(r.URL.Query().Get("sort"))
 	if sortType == "" {
 		sortType = string(sql.ProblemSortIndex)
@@ -116,18 +115,19 @@ func (h *Handler) GetProblemsValidateRequest(w http.ResponseWriter, r *http.Requ
 		perPage = int32(perPageInt)
 	}
 
-	if difficulty != "" {
-		valid := (difficulty == string(sql.ProblemDifficultyEasy) ||
-			difficulty == string(sql.ProblemDifficultyMedium) ||
-			difficulty == string(sql.ProblemDifficultyHard))
-		if !valid {
-			return sql.GetProblemsFilteredPaginatedParams{}, apierror.NewError(http.StatusBadRequest, "Invalid difficulty")
-		}
+	var difficulty string
+	difficultyStr := r.URL.Query().Get("difficulty")
+	if difficultyStr == string(sql.ProblemDifficultyEasy) ||
+		difficultyStr == string(sql.ProblemDifficultyMedium) ||
+		difficultyStr == string(sql.ProblemDifficultyHard) {
+		difficulty = difficultyStr
+	} else {
+		difficulty = ""
 	}
 
 	return sql.GetProblemsFilteredPaginatedParams{
 		Title:         titleSearch,
-		Difficulty:    sql.ProblemDifficulty(difficulty),
+		Difficulty:    difficulty,
 		Sort:          sql.ProblemSort(sortType),
 		SortDirection: sql.SortDirection(order),
 		PerPage:       perPage,
@@ -171,7 +171,7 @@ func (h *Handler) GetProblems(ctx context.Context, w http.ResponseWriter, params
 			Description:   problem.Description.String,
 			FunctionName:  problem.FunctionName,
 			Tags:          problem.Tags,
-			Difficulty:    sql.ProblemDifficulty(problem.Difficulty),
+			Difficulty:    problem.Difficulty,
 			Code:          codeMap,
 			Hints:         problem.Hints,
 			Points:        problem.Points,

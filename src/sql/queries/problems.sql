@@ -179,7 +179,7 @@ WITH filtered_problems AS (
     ) AS user_submissions ON p.id = user_submissions.problem_id
     WHERE
         (@title::text = '' OR p.title ILIKE '%' || @title::text || '%')
-        AND (@difficulty::problem_difficulty = '' OR p.difficulty = @difficulty::problem_difficulty)
+        AND (@difficulty::text = '' OR p.difficulty = @difficulty::problem_difficulty)
     GROUP BY p.id, sp.problem_id
 
     -- No ORDER BY / LIMIT / OFFSET here: this is the "full" matching set
@@ -273,7 +273,7 @@ LEFT JOIN (
 ) AS user_submissions ON p.id = user_submissions.problem_id
 WHERE
     (@title::text = '' OR p.title ILIKE '%' || @title::text || '%')
-    AND (@difficulty::problem_difficulty = '' OR p.difficulty = @difficulty::problem_difficulty)
+    AND (@difficulty::text = '' OR p.difficulty = @difficulty::problem_difficulty)
 GROUP BY p.id, sp.problem_id
 ORDER BY
     CASE WHEN @sort::problem_sort = 'alpha' AND @sort_direction::sort_direction = 'asc' THEN p.title END ASC,
