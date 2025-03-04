@@ -171,7 +171,7 @@ func (h *Handler) CreateRun(w http.ResponseWriter, r *http.Request) {
 
 	problemTestCases, err := h.PostgresQueries.GetProblemTestCases(r.Context(), sql.GetProblemTestCasesParams{
 		ProblemID:  problemId,
-		Visibility: sql.VisibilityPublic,
+		Visibility: string(sql.VisibilityPublic),
 	})
 	if err != nil {
 		apierror.SendError(w, http.StatusInternalServerError, "Failed to get problem")

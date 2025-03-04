@@ -320,7 +320,8 @@ SELECT ptc.*,
         SELECT COALESCE(json_agg(
             json_build_object(
                 'type', pti.type,
-                'value', pti.value
+                'value', pti.value,
+                'name', pti.name
             )
         ), '[]')
         FROM problem_test_case_input pti 
@@ -331,4 +332,4 @@ SELECT ptc.*,
     ) AS output
 FROM problem_test_case ptc
 WHERE ptc.problem_id = @problem_id::int 
-    AND (@visibility::visibility IS NULL OR ptc.visibility = @visibility::visibility);
+    AND (@visibility::text = '' OR ptc.visibility = @visibility::visibility);

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -49,80 +50,56 @@ type SubmissionsResponse struct {
 	Data []Submission `json:"data"`
 }
 
-// POST: /submissions
-func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
-	// Get userid from middleware context
-	userId, err := GetClientUserID(w, r)
-	if err != nil {
-		return
-	}
-
-	var submissionRequest SubmissionRequest
-	err = json.NewDecoder(r.Body).Decode(&submissionRequest)
-	if err != nil {
-		apierror.SendError(w, http.StatusBadRequest, "Invalid submission data format")
-		return
-	}
-
-	problemId := submissionRequest.ProblemID
+func CreateSubmissionValidate(request SubmissionRequest) *apierror.APIError {
+	problemId := request.ProblemID
 	if problemId == 0 {
-		apierror.SendError(w, http.StatusBadRequest, "Missing problem ID")
-		return
+		return apierror.NewError(http.StatusBadRequest, "Missing problem ID")
 	}
 
-	if submissionRequest.Language == "" {
-		apierror.SendError(w, http.StatusBadRequest, "Missing language")
-		return
+	if request.Language == "" {
+		return apierror.NewError(http.StatusBadRequest, "Missing language")
 	}
 
-	// add check for language
-
-	if submissionRequest.SourceCode == "" {
-		apierror.SendError(w, http.StatusBadRequest, "Missing source code")
-		return
+	if request.SourceCode == "" {
+		return apierror.NewError(http.StatusBadRequest, "Missing source code")
 	}
 
-	problem, err := h.PostgresQueries.GetProblem(r.Context(), sql.GetProblemParams{
-		ProblemID: int32(problemId),
+	return nil
+}
+
+func (h *Handler) CreateSubmission(ctx context.Context, request SubmissionRequest, userId string) (*SubmissionResponse, *apierror.APIError) {
+	problem, err := h.PostgresQueries.GetProblem(ctx, sql.GetProblemParams{
+		ProblemID: int32(request.ProblemID),
 		UserID:    userId,
 	})
 	if err != nil {
-		apierror.SendError(w, http.StatusInternalServerError, "Failed to get problem")
-		return
-	}
-
-	if problem.FunctionName == "" {
-		apierror.SendError(w, http.StatusBadRequest, "Function name is missing from problem")
-		return
+		return nil, apierror.NewError(http.StatusInternalServerError, "Failed to get problem")
 	}
 
 	// get expected output from all test cases
-	problemTestCases, err := h.PostgresQueries.GetProblemTestCases(r.Context(), sql.GetProblemTestCasesParams{
-		ProblemID:  problemId,
-		Visibility: sql.VisibilityPrivate,
+	problemTestCases, err := h.PostgresQueries.GetProblemTestCases(ctx, sql.GetProblemTestCasesParams{
+		ProblemID: request.ProblemID,
 	})
 	if err != nil {
-		apierror.SendError(w, http.StatusInternalServerError, "Failed to get problem solution")
-		return
+		return nil, apierror.NewError(http.StatusInternalServerError, "Failed to get problem solution")
 	}
 
 	if len(problemTestCases) == 0 {
-		apierror.SendError(w, http.StatusBadRequest, "No test cases found")
-		return
+		return nil, apierror.NewError(http.StatusBadRequest, "No test cases found")
 	}
 
 	// create submissions for each test case to be used in judge0 batch submission
 	submissions := []judge0.Submission{}
 
-	var privateTestCases []TestCase
+	var testCases []TestCase
 	for _, testCase := range problemTestCases {
 		var testCaseInput []TestCaseInput
 
 		// Handle both empty array and populated array cases
 		switch input := testCase.Input.(type) {
-		case []interface{}:
+		case []any:
 			for _, item := range input {
-				inputMap := item.(map[string]interface{})
+				inputMap := item.(map[string]any)
 				testCaseInput = append(testCaseInput, TestCaseInput{
 					Value: inputMap["value"].(string),
 					Type:  TestCaseType(inputMap["type"].(string)), // Use TestCaseType instead of sql.ProblemTestCaseType
@@ -133,21 +110,20 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 			testCaseInput = []TestCaseInput{}
 		}
 
-		privateTestCases = append(privateTestCases, TestCase{
+		testCases = append(testCases, TestCase{
 			Input:  testCaseInput,
 			Output: testCase.Output,
 		})
 	}
 
-	if len(privateTestCases) == 0 {
-		apierror.SendError(w, http.StatusBadRequest, "No test cases found")
-		return
+	if len(testCases) == 0 {
+		return nil, apierror.NewError(http.StatusBadRequest, "No test cases found")
 	}
 
-	for _, testCase := range privateTestCases {
+	for _, testCase := range testCases {
 		submissionRun := TemplateCreate(TemplateInput{
-			Language:     submissionRequest.Language,
-			SourceCode:   submissionRequest.SourceCode,
+			Language:     request.Language,
+			SourceCode:   request.SourceCode,
 			FunctionName: problem.FunctionName,
 			TestCase:     testCase,
 			Problem: Problem{
@@ -164,20 +140,17 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(submissions) == 0 {
-		apierror.SendError(w, http.StatusBadRequest, "Failed to create submissions")
-		return
+		return nil, apierror.NewError(http.StatusBadRequest, "Failed to create submissions")
 	}
 
 	// create judge0 batch submission
 	submissionResponses, err := h.Judge0Client.CreateSubmissionBatchAndWait(submissions)
 	if err != nil {
-		apierror.SendError(w, http.StatusInternalServerError, "Failed to create submission")
-		return
+		return nil, apierror.NewError(http.StatusInternalServerError, "Failed to create submission")
 	}
 
 	if len(submissionResponses) == 0 {
-		apierror.SendError(w, http.StatusBadRequest, "Failed to create submissions")
-		return
+		return nil, apierror.NewError(http.StatusBadRequest, "Failed to create submissions")
 	}
 
 	// Calculate averages from all submission responses
@@ -188,9 +161,9 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 	// First pass: check for any failures and collect totals
 	for _, resp := range submissionResponses {
 		language := judge0.LanguageIDToLanguage(int(resp.Language.ID))
-		if resp.Status.Description != "Accepted" {
+		if resp.Status.Description != "Accepted" || resp.CompileOutput != "" {
 			failedSubmission = &Submission{
-				Status:        sql.SubmissionStatus(resp.Status.Description),
+				Status:        "Wrong Answer",
 				Memory:        resp.Memory,
 				Time:          resp.Time,
 				Stdout:        resp.Stdout,
@@ -234,8 +207,8 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 	dbSubmission := sql.CreateSubmissionParams{
 		ID:            pgtype.UUID{Bytes: uuid.New(), Valid: true},
 		AccountID:     userId,
-		ProblemID:     problemId,
-		SubmittedCode: submissionRequest.SourceCode,
+		ProblemID:     problem.ID,
+		SubmittedCode: request.SourceCode,
 		Status:        avgSubmission.Status,
 		Stdout:        avgSubmission.Stdout,
 		Time:          avgSubmission.Time,
@@ -248,10 +221,9 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// create submission in db
-	_, err = h.PostgresQueries.CreateSubmission(r.Context(), dbSubmission)
+	_, err = h.PostgresQueries.CreateSubmission(ctx, dbSubmission)
 	if err != nil {
-		apierror.SendError(w, http.StatusInternalServerError, "Failed to create submission")
-		return
+		return nil, apierror.NewError(http.StatusInternalServerError, "Failed to create submission")
 	}
 
 	language := judge0.LanguageIDToLanguage(int(lastLanguageID))
@@ -269,11 +241,40 @@ func (h *Handler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
 			Status:         avgSubmission.Status,
 			Language:       language,
 			AccountID:      userId,
-			SubmittedCode:  submissionRequest.SourceCode,
+			SubmittedCode:  request.SourceCode,
 			SubmittedStdin: "",
-			ProblemID:      problemId,
+			ProblemID:      request.ProblemID,
 			CreatedAt:      time.Now(),
 		},
+	}
+
+	return &response, nil
+}
+
+// POST: /submissions
+func (h *Handler) CreateSubmissionRoute(w http.ResponseWriter, r *http.Request) {
+	// Get userid from middleware context
+	userId, err := GetClientUserID(w, r)
+	if err != nil {
+		return
+	}
+
+	request, apiErr := DecodeJSONRequest[SubmissionRequest](r)
+	if apiErr != nil {
+		apierror.SendError(w, apiErr.StatusCode(), apiErr.Message())
+		return
+	}
+
+	apiErr = CreateSubmissionValidate(request)
+	if apiErr != nil {
+		apierror.SendError(w, apiErr.StatusCode(), apiErr.Message())
+		return
+	}
+
+	response, apiErr := h.CreateSubmission(r.Context(), request, userId)
+	if apiErr != nil {
+		apierror.SendError(w, apiErr.StatusCode(), apiErr.Message())
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")

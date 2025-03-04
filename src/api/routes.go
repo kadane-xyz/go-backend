@@ -90,7 +90,7 @@ func RegisterApiRoutes(h *Handler, r chi.Router) {
 			r.Route("/username/{username}", func(r chi.Router) {
 				r.Get("/", h.GetSubmissionsByUsername)
 			})
-			r.Post("/", h.CreateSubmission)
+			r.Post("/", h.CreateSubmissionRoute)
 		})
 		//rooms
 		/*r.Route("/rooms", func(r chi.Router) {
