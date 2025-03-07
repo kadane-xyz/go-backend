@@ -1639,8 +1639,41 @@ components:
       description: Admin problem
       type: object
       properties:
-        problem:
-          $ref: '#/components/schemas/Problem'
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        functionName:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        code:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProblemCode'
+        hints:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProblemHint'
+        points:
+          type: integer
+        testCases:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProblemTestCase'
+        starred:
+          type: boolean
+        solved:
+          type: boolean
+        totalAttempts:
+          type: integer
+        totalCorrect:
+          type: integer
         solution:
           type: object
           additionalProperties:
