@@ -234,6 +234,23 @@ paths:
               schema:
                 $ref: '#/components/schemas/AccountValidationResponse'
   /admin/problems:
+    get:
+      tags:
+        - Admin
+      summary: Get all problems
+      description: Get all problems.
+      operationId: adminGetProblems
+      responses:
+        '200':
+          description: A list of problems
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProblemsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
     post:
       tags:
         - Admin
@@ -1610,6 +1627,25 @@ components:
           type: string
         expectedOutput:
           type: string
+    AdminProblemsResponse:
+      description: Admin problems response
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminProblem'
+    AdminProblem:
+      description: Admin problem
+      type: object
+      properties:
+        problem:
+          $ref: '#/components/schemas/Problem'
+        solution:
+          type: object
+          additionalProperties:
+            type: string
+          description: Map of language identifiers to solution code
     AdminProblemRunData:
       description: Admin problem run data
       type: object

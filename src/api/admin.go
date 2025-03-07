@@ -205,6 +205,69 @@ func (h *Handler) GetAdminValidation(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+type AdminProblem struct {
+	Problem  Problem           `json:"problem"`
+	Solution map[string]string `json:"solution,omitempty"` // ["language": "sourceCode"]
+}
+
+type AdminProblemsResponse struct {
+	Data []AdminProblem `json:"data"`
+}
+
+// GET: /admin/problems
+func (h *Handler) GetAdminProblems(w http.ResponseWriter, r *http.Request) {
+	problems, apiErr := h.PostgresQueries.GetAdminProblems(r.Context())
+	if apiErr != nil {
+		apierror.SendError(w, http.StatusInternalServerError, apiErr.Error())
+		return
+	}
+
+	var adminProblems []AdminProblem
+
+	for _, problem := range problems {
+		// Create a map to store language->code mapping
+		solutionMap := make(map[string]string)
+
+		// Handle the solutions data which is already unmarshaled as []interface{}
+		if problem.Solutions != nil {
+			// Check if it's already a slice of interfaces
+			if solutionsArray, ok := problem.Solutions.([]interface{}); ok {
+				for _, solutionItem := range solutionsArray {
+					// Each solution item should be a map[string]interface{}
+					if solutionMap_, ok := solutionItem.(map[string]interface{}); ok {
+						language, languageOk := solutionMap_["language"].(string)
+						code, codeOk := solutionMap_["code"].(string)
+
+						if languageOk && codeOk {
+							solutionMap[language] = code
+						}
+					}
+				}
+			}
+		}
+
+		adminProblems = append(adminProblems, AdminProblem{
+			Problem: Problem{
+				ID:           problem.ID,
+				Title:        problem.Title,
+				Description:  problem.Description.String,
+				FunctionName: problem.FunctionName,
+				Points:       problem.Points,
+				Difficulty:   problem.Difficulty,
+				Tags:         problem.Tags,
+			},
+			Solution: solutionMap,
+		})
+	}
+
+	var response AdminProblemsResponse
+	response.Data = adminProblems
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+}
+
 // POST: /admin/problems
 func (h *Handler) CreateAdminProblem(w http.ResponseWriter, r *http.Request) {
 	request, apiErr := DecodeJSONRequest[ProblemRequest](r)
