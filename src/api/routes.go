@@ -102,7 +102,7 @@ func RegisterApiRoutes(h *Handler, r chi.Router) {
 		})*/
 		//runs
 		r.Route("/runs", func(r chi.Router) {
-			r.Post("/", h.CreateRun)
+			r.Post("/", h.CreateRunRoute)
 		})
 		//starred
 		r.Route("/starred", func(r chi.Router) {

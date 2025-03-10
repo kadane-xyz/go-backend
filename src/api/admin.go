@@ -183,7 +183,7 @@ func ProblemRunRequestValidate(runRequest AdminProblemRunRequest) *apierror.APIE
 
 		// Check if function name is valid
 		if !strings.Contains(sourceCode, runRequest.FunctionName) {
-			return apierror.NewError(http.StatusBadRequest, "Function name not found in "+language+" source code")
+			return apierror.NewError(http.StatusBadRequest, "Correct function name: "+runRequest.FunctionName+" not found in "+language+" source code")
 		}
 	}
 
