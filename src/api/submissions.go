@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -56,8 +57,10 @@ func CreateSubmissionValidate(request SubmissionRequest) *apierror.APIError {
 		return apierror.NewError(http.StatusBadRequest, "Missing problem ID")
 	}
 
-	if request.Language == "" {
-		return apierror.NewError(http.StatusBadRequest, "Missing language")
+	// Check if language is valid
+	lang := string(sql.ProblemLanguage(request.Language))
+	if request.Language == "" || request.Language != lang {
+		return apierror.NewError(http.StatusBadRequest, "Invalid language: "+request.Language)
 	}
 
 	if request.SourceCode == "" {
@@ -159,18 +162,32 @@ func (h *Handler) CreateSubmission(ctx context.Context, request SubmissionReques
 	var failedSubmission *Submission
 
 	// First pass: check for any failures and collect totals
-	for _, resp := range submissionResponses {
-		language := judge0.LanguageIDToLanguage(int(resp.Language.ID))
-		if resp.Status.Description != "Accepted" || resp.CompileOutput != "" {
+	for i, resp := range submissionResponses {
+		actualOuput := resp.Stdout
+		expectedOuput := testCases[i].Output
+
+		// check stdout before using status and remove spaces from array elements
+		if strings.Contains(resp.Stdout, "[") {
+			resp.Stdout = strings.ReplaceAll(resp.Stdout, " ", "")
+		}
+
+		// remove newlines from stdout
+		if strings.Contains(resp.Stdout, "\n") {
+			resp.Stdout = strings.ReplaceAll(resp.Stdout, "\n", "")
+		}
+
+		// First check if both executions were successful
+		if resp.Status.Description != "Accepted" || resp.CompileOutput != "" || actualOuput != expectedOuput {
+			// store user code test case results
 			failedSubmission = &Submission{
-				Status:        "Wrong Answer",
+				Status:        sql.SubmissionStatus("Wrong Answer"),
 				Memory:        resp.Memory,
 				Time:          resp.Time,
 				Stdout:        resp.Stdout,
 				Stderr:        resp.Stderr,
 				CompileOutput: resp.CompileOutput,
 				Message:       resp.Message,
-				Language:      language,
+				Language:      request.Language, // language is the same for all submissions based on the request
 			}
 			break
 		}
