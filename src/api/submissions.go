@@ -29,12 +29,15 @@ type Submission struct {
 	Status        sql.SubmissionStatus `json:"status"`
 	Language      string               `json:"language"`
 	// custom fields
-	AccountID      string    `json:"accountId"`
-	SubmittedCode  string    `json:"submittedCode"`
-	SubmittedStdin string    `json:"submittedStdin"`
-	ProblemID      int32     `json:"problemId"`
-	CreatedAt      time.Time `json:"createdAt"`
-	Starred        bool      `json:"starred"`
+	AccountID       string      `json:"accountId"`
+	SubmittedCode   string      `json:"submittedCode"`
+	SubmittedStdin  string      `json:"submittedStdin"`
+	ProblemID       int32       `json:"problemId"`
+	CreatedAt       time.Time   `json:"createdAt"`
+	Starred         bool        `json:"starred"`
+	FailedTestCase  RunTestCase `json:"failedTestCase,omitempty"`
+	PassedTestCases int32       `json:"passedTestCases"`
+	TotalTestCases  int32       `json:"totalTestCases"`
 }
 
 type SubmissionRequest struct {
@@ -104,6 +107,7 @@ func (h *Handler) CreateSubmission(ctx context.Context, request SubmissionReques
 			for _, item := range input {
 				inputMap := item.(map[string]any)
 				testCaseInput = append(testCaseInput, TestCaseInput{
+					Name:  inputMap["name"].(string),
 					Value: inputMap["value"].(string),
 					Type:  TestCaseType(inputMap["type"].(string)), // Use TestCaseType instead of sql.ProblemTestCaseType
 				})
@@ -142,6 +146,8 @@ func (h *Handler) CreateSubmission(ctx context.Context, request SubmissionReques
 		submissions = append(submissions, submissionRun)
 	}
 
+	totalTestCases := int32(len(testCases)) // total test cases
+
 	if len(submissions) == 0 {
 		return nil, apierror.NewError(http.StatusBadRequest, "Failed to create submissions")
 	}
@@ -160,42 +166,69 @@ func (h *Handler) CreateSubmission(ctx context.Context, request SubmissionReques
 	var totalMemory int
 	var totalTime float64
 	var failedSubmission *Submission
-
+	var passedTestCases int32      // total test cases passed
+	var failedTestCase RunTestCase // failed test case
+	var failed bool = false        // failed to set failed test case once
 	// First pass: check for any failures and collect totals
 	for i, resp := range submissionResponses {
-		actualOuput := resp.Stdout
-		expectedOuput := testCases[i].Output
+		language := judge0.LanguageIDToLanguage(int(resp.Language.ID))
 
-		// check stdout before using status and remove spaces from array elements
-		if strings.Contains(resp.Stdout, "[") {
-			resp.Stdout = strings.ReplaceAll(resp.Stdout, " ", "")
+		// Normalize outputs before comparison
+		actualOutput := resp.Stdout
+		expectedOutput := testCases[i].Output
+
+		// Normalize array outputs by removing spaces
+		if strings.Contains(actualOutput, "[") {
+			actualOutput = strings.ReplaceAll(actualOutput, " ", "")
+			expectedOutput = strings.ReplaceAll(expectedOutput, " ", "")
 		}
 
-		// remove newlines from stdout
-		if strings.Contains(resp.Stdout, "\n") {
-			resp.Stdout = strings.ReplaceAll(resp.Stdout, "\n", "")
-		}
+		// Remove newlines
+		actualOutput = strings.ReplaceAll(actualOutput, "\n", "")
+		expectedOutput = strings.ReplaceAll(expectedOutput, "\n", "")
 
-		// First check if both executions were successful
-		if resp.Status.Description != "Accepted" || resp.CompileOutput != "" || actualOuput != expectedOuput {
-			// store user code test case results
+		// Now compare normalized outputs
+		if resp.Status.Description != "Accepted" || resp.CompileOutput != "" || actualOutput != expectedOutput {
 			failedSubmission = &Submission{
-				Status:        sql.SubmissionStatus("Wrong Answer"),
+				Status:        "Wrong Answer",
 				Memory:        resp.Memory,
 				Time:          resp.Time,
 				Stdout:        resp.Stdout,
 				Stderr:        resp.Stderr,
 				CompileOutput: resp.CompileOutput,
 				Message:       resp.Message,
-				Language:      request.Language, // language is the same for all submissions based on the request
+				Language:      language,
 			}
+
+			// if failed, set failed test case first time
+			if !failed {
+				failedTestCase = RunTestCase{
+					Time:           resp.Time,
+					Memory:         resp.Memory,
+					Status:         "Wrong Answer",
+					Input:          testCases[i].Input,
+					Output:         resp.Stdout,
+					CompileOutput:  resp.CompileOutput,
+					ExpectedOutput: expectedOutput,
+				}
+			}
+
+			failed = true // set failed to true
+
 			break
 		}
+
+		passedTestCases++ // increment total test cases passed
 
 		totalMemory += resp.Memory
 		if timeVal, err := strconv.ParseFloat(resp.Time, 64); err == nil {
 			totalTime += timeVal
 		}
+	}
+
+	// check if passed test cases is greater than total test cases
+	if passedTestCases > totalTestCases {
+		return nil, apierror.NewError(http.StatusInternalServerError, "Passed test cases greater than total test cases")
 	}
 
 	// Create the averaged submission
@@ -248,20 +281,23 @@ func (h *Handler) CreateSubmission(ctx context.Context, request SubmissionReques
 
 	response := SubmissionResponse{
 		Data: Submission{
-			Id:             submissionId.String(),
-			Stdout:         avgSubmission.Stdout,
-			Time:           avgSubmission.Time,
-			Memory:         avgSubmission.Memory,
-			Stderr:         avgSubmission.Stderr,
-			CompileOutput:  avgSubmission.CompileOutput,
-			Message:        avgSubmission.Message,
-			Status:         avgSubmission.Status,
-			Language:       language,
-			AccountID:      userId,
-			SubmittedCode:  request.SourceCode,
-			SubmittedStdin: "",
-			ProblemID:      request.ProblemID,
-			CreatedAt:      time.Now(),
+			Id:              submissionId.String(),
+			Stdout:          avgSubmission.Stdout,
+			Time:            avgSubmission.Time,
+			Memory:          avgSubmission.Memory,
+			Stderr:          avgSubmission.Stderr,
+			CompileOutput:   avgSubmission.CompileOutput,
+			Message:         avgSubmission.Message,
+			Status:          avgSubmission.Status,
+			Language:        language,
+			AccountID:       userId,
+			SubmittedCode:   request.SourceCode,
+			SubmittedStdin:  "",
+			ProblemID:       request.ProblemID,
+			CreatedAt:       time.Now(),
+			FailedTestCase:  failedTestCase,
+			PassedTestCases: passedTestCases,
+			TotalTestCases:  totalTestCases,
 		},
 	}
 

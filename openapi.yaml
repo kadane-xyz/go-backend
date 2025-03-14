@@ -1646,6 +1646,11 @@ components:
           type: integer
         status:
           type: string
+        input:
+          type: array
+          items:
+            $ref: '#/components/schemas/TestCaseInput'
+            nullable: true
         output:
           type: string
         compileOutput:
@@ -1844,6 +1849,9 @@ components:
         time:
           type: string
           format: date-time
+        memory:
+          type: integer
+          format: int32
         testCases:
           type: array
           items:
@@ -2174,6 +2182,18 @@ components:
         createdAt:
           type: string
           format: date-time
+        starred:
+          type: boolean
+        failedTestCase:
+          type: object
+          $ref: '#/components/schemas/RunTestCase'
+          nullable: true
+        passedTestCases:
+          type: integer
+          format: int32
+        totalTestCases:
+          type: integer
+          format: int32
     ProblemWithStarred:
       allOf:
         - $ref: '#/components/schemas/Problem'

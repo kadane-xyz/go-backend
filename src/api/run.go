@@ -29,7 +29,8 @@ type RunResponse struct {
 type RunTestCase struct {
 	Time           string               `json:"time"`
 	Memory         int                  `json:"memory"`
-	Status         sql.SubmissionStatus `json:"status"`         // Accepted, Wrong Answer, etc
+	Status         sql.SubmissionStatus `json:"status"` // Accepted, Wrong Answer, etc
+	Input          []TestCaseInput      `json:"input,omitempty"`
 	Output         string               `json:"output"`         // User code output
 	CompileOutput  string               `json:"compileOutput"`  // Compile output
 	ExpectedOutput string               `json:"expectedOutput"` // Solution code output
@@ -39,6 +40,7 @@ type RunResult struct {
 	Id        string               `json:"id"`
 	Language  string               `json:"language"`
 	Time      string               `json:"time"`
+	Memory    int32                `json:"memory"`
 	TestCases []RunTestCase        `json:"testCases"`
 	Status    sql.SubmissionStatus `json:"status"` // Accepted, Wrong Answer, etc
 	// Our custom fields
@@ -344,7 +346,8 @@ func (h *Handler) CreateRun(r *http.Request, userId string, runRequest RunReques
 		Data: &RunResult{
 			Id:        uuid.UUID(dbRunRecord.ID.Bytes).String(),
 			TestCases: runTestCases,
-			Time:      dbRunRecord.Time,                    // average of test case times
+			Time:      dbRunRecord.Time, // average of test case times
+			Memory:    dbRunRecord.Memory,
 			Status:    sql.SubmissionStatus(responseState), // if all test cases passed, then Accepted, otherwise Wrong Answer
 			Language:  dbRunRecord.LanguageName,
 			AccountID: userId,
@@ -378,5 +381,6 @@ func (h *Handler) CreateRunRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(response)
 }
