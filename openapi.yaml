@@ -729,6 +729,31 @@ paths:
       responses:
         '204':
           description: Friend request deleted successfully
+  /runs:
+    post:
+      tags:
+        - Runs
+      summary: Create a new run
+      description: Create a new run for a specific problem.
+      operationId: createRun
+      requestBody:
+        description: Run data to be created
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RunRequest'
+      responses:
+        '201':
+          description: Run created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunResultResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /solutions:
     get:
       tags:
@@ -1795,6 +1820,50 @@ components:
           enum: [up, down, none]
       required:
         - vote
+    # Runs
+    RunRequest:
+      type: object
+      properties:
+        language:
+          type: string
+        sourceCode:
+          type: string
+        problemId:
+          type: integer
+        testCases:
+          type: array
+          items:
+            $ref: '#/components/schemas/TestCase'
+    RunResult:
+      type: object
+      properties:
+        id:
+          type: string
+        language:
+          type: string
+        time:
+          type: string
+          format: date-time
+        testCases:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunTestCase'
+        status:
+          type: enum
+          $ref: '#/components/schemas/SubmissionStatus'
+        accountId:
+          type: string
+        problemId:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+    RunResultResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          $ref: '#/components/schemas/RunResult'
     # Solutions
     Solutions:
       type: object
@@ -1883,6 +1952,9 @@ components:
         message:
           type: string
     # Submissions
+    SubmissionStatus:
+      type: string
+      enum: [accepted, wrong_answer, runtime_error, compilation_error, time_limit_exceeded, memory_limit_exceeded, output_limit_exceeded, internal_error]
     SubmissionResponse:
       type: object
       properties:
