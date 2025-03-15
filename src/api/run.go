@@ -166,50 +166,6 @@ func (h *Handler) handleProblem(r *http.Request, userId string, runRequest RunRe
 	return problem, nil
 }
 
-// handleTestCases handles the test cases for a problem and appends user test cases to the public test cases
-func (h *Handler) handleTestCases(r *http.Request, runRequest RunRequest) (*[]TestCase, *apierror.APIError) {
-	var publicTestCases []TestCase // Public test cases include kadane test cases and user test cases
-
-	// Get public test cases
-	problemTestCases, err := h.PostgresQueries.GetProblemTestCases(r.Context(), sql.GetProblemTestCasesParams{
-		ProblemID:  int32(runRequest.ProblemID),
-		Visibility: string(sql.VisibilityPublic),
-	})
-	if err != nil {
-		return nil, apierror.NewError(http.StatusInternalServerError, "Failed to get problem")
-	}
-
-	// Add kadane test cases to public test cases
-	for _, testCase := range problemTestCases {
-		var testCaseInput []TestCaseInput // store test case inputs
-
-		// Handle both empty array and populated array cases
-		switch input := testCase.Input.(type) {
-		case []any:
-			for _, item := range input {
-				inputMap := item.(map[string]any)
-				testCaseInput = append(testCaseInput, TestCaseInput{
-					Name:  inputMap["name"].(string),
-					Value: inputMap["value"].(string),
-					Type:  TestCaseType(inputMap["type"].(string)), // Use TestCaseType instead of sql.ProblemTestCaseType
-				})
-			}
-		default:
-			// Empty array or null case - use empty slice
-			testCaseInput = []TestCaseInput{}
-		}
-
-		publicTestCases = append(publicTestCases, TestCase{
-			Input:  testCaseInput,
-			Output: testCase.Output,
-		})
-	}
-
-	publicTestCases = append(publicTestCases, runRequest.TestCases...) // Add user test cases to public test cases
-
-	return &publicTestCases, nil
-}
-
 func (h *Handler) handleJudge0Submissions(runRequest RunRequest, testCases []TestCase, problem sql.GetProblemRow) ([]judge0.Submission, *apierror.APIError) {
 	var judge0Submissions []judge0.Submission // submissions for judge0 to run
 
@@ -305,14 +261,8 @@ func (h *Handler) CreateRun(r *http.Request, userId string, runRequest RunReques
 		return nil, apiErr
 	}
 
-	// Get public test cases and user test cases
-	publicTestCases, apiErr := h.handleTestCases(r, runRequest)
-	if apiErr != nil {
-		return nil, apiErr
-	}
-
 	// Create submissions for judge0 for each test case
-	judge0Submissions, apiErr := h.handleJudge0Submissions(runRequest, *publicTestCases, problem)
+	judge0Submissions, apiErr := h.handleJudge0Submissions(runRequest, runRequest.TestCases, problem)
 	if apiErr != nil {
 		return nil, apiErr
 	}
@@ -324,7 +274,7 @@ func (h *Handler) CreateRun(r *http.Request, userId string, runRequest RunReques
 	}
 
 	// Get submission results and test cases
-	dbRunRecord, runTestCases, apiErr := h.handleJudge0Responses(userId, runRequest, *publicTestCases, judge0Responses)
+	dbRunRecord, runTestCases, apiErr := h.handleJudge0Responses(userId, runRequest, runRequest.TestCases, judge0Responses)
 	if apiErr != nil {
 		return nil, apiErr
 	}
