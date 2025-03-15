@@ -327,12 +327,6 @@ func (h *Handler) CreateRun(r *http.Request, userId string, runRequest RunReques
 		return nil, apiErr
 	}
 
-	// create submission in db
-	_, err = h.PostgresQueries.CreateSubmission(r.Context(), *dbRunRecord)
-	if err != nil {
-		return nil, apierror.NewError(http.StatusInternalServerError, "Failed to create submission")
-	}
-
 	// Get response state
 	var responseState string
 	if dbRunRecord.Status == "Accepted" {
