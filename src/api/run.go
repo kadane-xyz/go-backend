@@ -185,10 +185,11 @@ func (h *Handler) handleTestCases(r *http.Request, runRequest RunRequest) (*[]Te
 
 		// Handle both empty array and populated array cases
 		switch input := testCase.Input.(type) {
-		case []interface{}:
+		case []any:
 			for _, item := range input {
-				inputMap := item.(map[string]interface{})
+				inputMap := item.(map[string]any)
 				testCaseInput = append(testCaseInput, TestCaseInput{
+					Name:  inputMap["name"].(string),
 					Value: inputMap["value"].(string),
 					Type:  TestCaseType(inputMap["type"].(string)), // Use TestCaseType instead of sql.ProblemTestCaseType
 				})
@@ -251,6 +252,7 @@ func (h *Handler) handleJudge0Responses(userId string, runRequest RunRequest, te
 			Time:           judge0Response.Time,
 			Memory:         int(judge0Response.Memory),
 			Status:         sql.SubmissionStatus(judge0Response.Status.Description),
+			Input:          testCases[i].Input,
 			Output:         judge0Response.Stdout,
 			CompileOutput:  judge0Response.CompileOutput,
 			ExpectedOutput: testCases[i].Output, // solution code output
@@ -321,7 +323,7 @@ func (h *Handler) CreateRun(r *http.Request, userId string, runRequest RunReques
 		return nil, apierror.NewError(http.StatusInternalServerError, "Failed to create solution submission")
 	}
 
-	// Get submission results
+	// Get submission results and test cases
 	dbRunRecord, runTestCases, apiErr := h.handleJudge0Responses(userId, runRequest, *publicTestCases, judge0Responses)
 	if apiErr != nil {
 		return nil, apiErr
