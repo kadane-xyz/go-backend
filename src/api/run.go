@@ -8,8 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	"kadane.xyz/go-backend/v2/src/apierror"
 	"kadane.xyz/go-backend/v2/src/judge0"
 	"kadane.xyz/go-backend/v2/src/sql/sql"
@@ -57,27 +55,27 @@ type RunsResponse struct {
 	Data []RunResult `json:"data"`
 }
 
-func SummarizeSubmissionResponses(userId string, problemId int32, sourceCode string, submissionResponses []judge0.SubmissionResult) (sql.CreateSubmissionParams, error) {
+// SummarizeRunResponses summarizes the run responses for use in parent RunResult object
+func SummarizeRunResponses(userId string, problemId int32, sourceCode string, expectedOutput []string, submissionResponses []judge0.SubmissionResult) (RunResult, error) {
 	// Calculate averages from all submission responses
 	var totalMemory int
 	var totalTime float64
-	var failedSubmission *Submission
+	var runResult RunResult // failed run response if any
 
 	// First pass: check for any failures and collect totals
-	for _, resp := range submissionResponses {
+	for i, resp := range submissionResponses {
 		if resp.Status.Description != "Accepted" {
-			failedSubmission = &Submission{
-				Status:        sql.SubmissionStatus(resp.Status.Description),
-				Memory:        resp.Memory,
-				Time:          resp.Time,
-				Stdout:        resp.Stdout,
-				Stderr:        resp.Stderr,
-				CompileOutput: resp.CompileOutput,
-				Message:       resp.Message,
-				Language:      judge0.LanguageIDToLanguage(int(resp.Language.ID)),
-			}
-			break
+			runResult.Status = "Wrong Answer"
 		}
+
+		runResult.TestCases = append(runResult.TestCases, RunTestCase{
+			Time:           resp.Time,
+			Memory:         resp.Memory,
+			Status:         sql.SubmissionStatus(resp.Status.Description),
+			Output:         resp.Stdout,
+			CompileOutput:  resp.CompileOutput,
+			ExpectedOutput: expectedOutput[i], // add expected output to test case back
+		})
 
 		totalMemory += resp.Memory
 		if timeVal, err := strconv.ParseFloat(resp.Time, 64); err == nil {
@@ -89,38 +87,15 @@ func SummarizeSubmissionResponses(userId string, problemId int32, sourceCode str
 	count := len(submissionResponses)
 	lastResp := submissionResponses[len(submissionResponses)-1]
 
-	// If any test failed, use its details, otherwise use averages
-	avgSubmission := Submission{
-		Status:        sql.SubmissionStatus(lastResp.Status.Description),
-		Memory:        int(totalMemory / count),
-		Time:          fmt.Sprintf("%.3f", totalTime/float64(count)),
-		Stdout:        lastResp.Stdout,
-		Stderr:        lastResp.Stderr,
-		CompileOutput: lastResp.CompileOutput,
-		Message:       lastResp.Message,
-	}
-	languageID := lastResp.Language.ID
-	languageName := lastResp.Language.Name
-
-	if failedSubmission != nil {
-		avgSubmission = *failedSubmission
+	response := RunResult{
+		Status:    runResult.Status,
+		Memory:    int32(totalMemory / count),
+		Time:      fmt.Sprintf("%.3f", totalTime/float64(count)),
+		Language:  judge0.LanguageIDToLanguage(int(lastResp.Language.ID)),
+		TestCases: runResult.TestCases,
 	}
 
-	return sql.CreateSubmissionParams{
-		ID:            pgtype.UUID{Bytes: uuid.New(), Valid: true},
-		AccountID:     userId,
-		ProblemID:     int32(problemId),
-		SubmittedCode: sourceCode,
-		Status:        avgSubmission.Status,
-		Stdout:        avgSubmission.Stdout,
-		Time:          avgSubmission.Time,
-		Memory:        int32(avgSubmission.Memory),
-		Stderr:        avgSubmission.Stderr,
-		CompileOutput: avgSubmission.CompileOutput,
-		Message:       avgSubmission.Message,
-		LanguageID:    int32(languageID),
-		LanguageName:  languageName,
-	}, nil
+	return response, nil
 }
 
 func RunRequestValidate(w http.ResponseWriter, r *http.Request) (RunRequest, *apierror.APIError) {
@@ -196,15 +171,15 @@ func (h *Handler) handleJudge0Submissions(runRequest RunRequest, testCases []Tes
 	return judge0Submissions, nil
 }
 
-func (h *Handler) handleJudge0Responses(userId string, runRequest RunRequest, testCases []TestCase, judge0Responses []judge0.SubmissionResult) (*sql.CreateSubmissionParams, []RunTestCase, *apierror.APIError) {
-	var runTestCases []RunTestCase
-	var dbSubmission sql.CreateSubmissionParams
+func (h *Handler) handleJudge0Responses(userId string, runRequest RunRequest, testCases []TestCase, judge0Responses []judge0.SubmissionResult) (*RunResult, *apierror.APIError) {
+	var runResult RunResult     // run result
+	var expectedOutput []string // expected output for each test case
 	var err error
 
 	// Check judge0 responses
 	for i, judge0Response := range judge0Responses {
 		// store user code test case results
-		runTestCases = append(runTestCases, RunTestCase{
+		runResult.TestCases = append(runResult.TestCases, RunTestCase{
 			Time:           judge0Response.Time,
 			Memory:         int(judge0Response.Memory),
 			Status:         sql.SubmissionStatus(judge0Response.Status.Description),
@@ -213,6 +188,9 @@ func (h *Handler) handleJudge0Responses(userId string, runRequest RunRequest, te
 			CompileOutput:  judge0Response.CompileOutput,
 			ExpectedOutput: testCases[i].Output, // solution code output
 		})
+
+		// add expected output to array for summarizing
+		expectedOutput = append(expectedOutput, testCases[i].Output)
 
 		// check stdout before using status and remove spaces from array elements
 		if strings.Contains(judge0Response.Stdout, "[") {
@@ -227,30 +205,24 @@ func (h *Handler) handleJudge0Responses(userId string, runRequest RunRequest, te
 		// First check if both executions were successful
 		if judge0Response.Status.Description != "Accepted" || judge0Response.Stdout != testCases[i].Output {
 			// store user code test case results
-			runTestCases[i].Status = sql.SubmissionStatus("Wrong Answer")
+			runResult.TestCases[i].Status = sql.SubmissionStatus("Wrong Answer")
 
-			// Test case failed - outputs don't match
-			dbSubmission, err = SummarizeSubmissionResponses(userId, int32(runRequest.ProblemID), runRequest.SourceCode, judge0Responses[i:i+1])
-			if err != nil {
-				return nil, nil, apierror.NewError(http.StatusInternalServerError, "Failed to process submission")
-			}
-			// Update status to Wrong Answer
-			dbSubmission.Status = sql.SubmissionStatus("Wrong Answer")
-			break // Stop at first mismatch
+			// Update run result status
+			runResult.Status = sql.SubmissionStatus("Wrong Answer")
 		}
+	}
+
+	finalRunResult, err := SummarizeRunResponses(userId, int32(runRequest.ProblemID), runRequest.SourceCode, expectedOutput, judge0Responses)
+	if err != nil {
+		return nil, apierror.NewError(http.StatusInternalServerError, "Failed to process submission")
 	}
 
 	// If all test cases passed, create submission with averaged results
-	if dbSubmission.Status == "" {
-		dbSubmission, err = SummarizeSubmissionResponses(userId, int32(runRequest.ProblemID), runRequest.SourceCode, judge0Responses)
-		if err != nil {
-			return nil, nil, apierror.NewError(http.StatusInternalServerError, "Failed to process submission")
-		}
+	if runResult.Status == "" {
+		runResult = finalRunResult
 	}
 
-	dbSubmission.LanguageName = judge0.LanguageIDToLanguage(int(dbSubmission.LanguageID)) // Add language name to submission
-
-	return &dbSubmission, runTestCases, nil
+	return &runResult, nil
 }
 
 // Runs should check public test cases first and then user test cases
@@ -274,32 +246,14 @@ func (h *Handler) CreateRun(r *http.Request, userId string, runRequest RunReques
 	}
 
 	// Get submission results and test cases
-	dbRunRecord, runTestCases, apiErr := h.handleJudge0Responses(userId, runRequest, runRequest.TestCases, judge0Responses)
+	runResult, apiErr := h.handleJudge0Responses(userId, runRequest, runRequest.TestCases, judge0Responses)
 	if apiErr != nil {
 		return nil, apiErr
 	}
 
-	// Get response state
-	var responseState string
-	if dbRunRecord.Status == "Accepted" {
-		responseState = "Accepted"
-	} else {
-		responseState = "Wrong Answer"
-	}
-
 	// Create response
 	response := RunResultResponse{
-		Data: &RunResult{
-			Id:        uuid.UUID(dbRunRecord.ID.Bytes).String(),
-			TestCases: runTestCases,
-			Time:      dbRunRecord.Time, // average of test case times
-			Memory:    dbRunRecord.Memory,
-			Status:    sql.SubmissionStatus(responseState), // if all test cases passed, then Accepted, otherwise Wrong Answer
-			Language:  dbRunRecord.LanguageName,
-			AccountID: userId,
-			ProblemID: int32(runRequest.ProblemID),
-			CreatedAt: time.Now(),
-		},
+		Data: runResult,
 	}
 
 	return &response, nil
