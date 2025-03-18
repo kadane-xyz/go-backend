@@ -35,7 +35,7 @@ type RunTestCase struct {
 }
 
 type RunResult struct {
-	Id        string               `json:"id"`
+	Id        string               `json:"id,omitempty"`
 	Language  string               `json:"language"`
 	Time      string               `json:"time"`
 	Memory    int32                `json:"memory"`
@@ -64,10 +64,6 @@ func SummarizeRunResponses(userId string, problemId int32, sourceCode string, ex
 
 	// First pass: check for any failures and collect totals
 	for i, resp := range submissionResponses {
-		if resp.Status.Description != "Accepted" {
-			runResult.Status = "Wrong Answer"
-		}
-
 		runResult.TestCases = append(runResult.TestCases, RunTestCase{
 			Time:           resp.Time,
 			Memory:         resp.Memory,
@@ -76,6 +72,16 @@ func SummarizeRunResponses(userId string, problemId int32, sourceCode string, ex
 			CompileOutput:  resp.CompileOutput,
 			ExpectedOutput: expectedOutput[i], // add expected output to test case back
 		})
+
+		// Set status to accepted if no status is set
+		if runResult.Status == "" {
+			runResult.Status = sql.SubmissionStatus("Accepted")
+		}
+
+		// Set status to wrong answer if any test case is wrong
+		if resp.Status.Description != "Accepted" {
+			runResult.Status = sql.SubmissionStatus("Wrong Answer")
+		}
 
 		totalMemory += resp.Memory
 		if timeVal, err := strconv.ParseFloat(resp.Time, 64); err == nil {
@@ -93,6 +99,9 @@ func SummarizeRunResponses(userId string, problemId int32, sourceCode string, ex
 		Time:      fmt.Sprintf("%.3f", totalTime/float64(count)),
 		Language:  judge0.LanguageIDToLanguage(int(lastResp.Language.ID)),
 		TestCases: runResult.TestCases,
+		AccountID: userId,
+		ProblemID: problemId,
+		CreatedAt: time.Now(),
 	}
 
 	return response, nil
