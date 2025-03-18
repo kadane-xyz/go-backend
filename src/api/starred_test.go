@@ -1,94 +1,84 @@
 package api
 
 import (
-	"bytes"
-	"encoding/json"
 	"net/http"
-	"strconv"
 	"testing"
 )
 
 func TestGetStarredProblems(t *testing.T) {
-	baseReq := newTestRequest(t, http.MethodGet, "/starred/problems", nil)
-
-	testCases := []struct {
-		name           string
-		expectedStatus int
-	}{
-		{name: "Get starred problems", expectedStatus: http.StatusOK},
+	testCases := []TestingCase{
+		{
+			name:           "Get starred problems",
+			expectedStatus: http.StatusOK,
+		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			req := baseReq.Clone(baseReq.Context())
-			executeTestRequest(t, req, testCase.expectedStatus, handler.GetStarredProblems)
+			request := newTestRequest(t, http.MethodGet, "/starred/problems", nil)
+			executeTestRequest(t, request, testCase.expectedStatus, handler.GetStarredProblems)
 		})
 	}
 }
 
 func TestGetStarredSolutions(t *testing.T) {
-	baseReq := newTestRequest(t, http.MethodGet, "/starred/solutions", nil)
-
-	testCases := []struct {
-		name           string
-		expectedStatus int
-	}{
-		{name: "Get starred solutions", expectedStatus: http.StatusOK},
+	testCases := []TestingCase{
+		{
+			name:           "Get starred solutions",
+			expectedStatus: http.StatusOK,
+		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			req := baseReq.Clone(baseReq.Context())
-			executeTestRequest(t, req, testCase.expectedStatus, handler.GetStarredSolutions)
+			request := newTestRequest(t, http.MethodGet, "/starred/solutions", nil)
+			executeTestRequest(t, request, testCase.expectedStatus, handler.GetStarredSolutions)
 		})
 	}
 }
 
 func TestGetStarredSubmissions(t *testing.T) {
-	baseReq := newTestRequest(t, http.MethodGet, "/starred/submissions", nil)
-
-	testCases := []struct {
-		name           string
-		expectedStatus int
-	}{
-		{name: "Get starred submissions", expectedStatus: http.StatusOK},
+	testCases := []TestingCase{
+		{
+			name:           "Get starred submissions",
+			expectedStatus: http.StatusOK,
+		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			req := baseReq.Clone(baseReq.Context())
-			executeTestRequest(t, req, testCase.expectedStatus, handler.GetStarredSubmissions)
+			request := newTestRequest(t, http.MethodGet, "/starred/submissions", nil)
+			executeTestRequest(t, request, testCase.expectedStatus, handler.GetStarredSubmissions)
 		})
 	}
 }
 
 func TestPutStarProblem(t *testing.T) {
-	testCases := []struct {
-		name           string
-		problemId      StarProblemRequest
-		expectedStatus int
-	}{
-		{name: "Problem is starred", problemId: StarProblemRequest{ProblemID: 1}, expectedStatus: http.StatusOK},
-		{name: "Problem is not starred", problemId: StarProblemRequest{ProblemID: 1}, expectedStatus: http.StatusOK},
+	testCases := []TestingCase{
+		{
+			name:           "Put starred problem",
+			urlParams:      map[string]string{"problemId": "1"},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "Problem is not starred",
+			urlParams:      map[string]string{"problemId": "1"},
+			expectedStatus: http.StatusOK,
+		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			body, err := json.Marshal(testCase.problemId)
-			if err != nil {
-				t.Fatalf("Failed to marshal problem request: %v", err)
-			}
-
-			req := newTestRequest(t, http.MethodPut, "/starred/problems", bytes.NewBuffer(body))
-			req = applyRouteParams(req, map[string]string{"problemId": strconv.Itoa(int(testCase.problemId.ProblemID))})
+			req := newTestRequestWithBody(t, http.MethodPut, "/starred/problems", testCase.body)
+			req = applyURLParams(req, testCase.urlParams)
 
 			executeTestRequest(t, req, testCase.expectedStatus, handler.PutStarProblem)
 		})
@@ -96,26 +86,25 @@ func TestPutStarProblem(t *testing.T) {
 }
 
 func TestPutStarSolution(t *testing.T) {
-	testCases := []struct {
-		name           string
-		solutionId     StarSolutionRequest
-		expectedStatus int
-	}{
-		{name: "Solution is starred", solutionId: StarSolutionRequest{SolutionID: 4}, expectedStatus: http.StatusOK},
-		{name: "Solution is not starred", solutionId: StarSolutionRequest{SolutionID: 1}, expectedStatus: http.StatusOK},
+	testCases := []TestingCase{
+		{
+			name:           "Solution is starred",
+			urlParams:      map[string]string{"solutionId": "4"},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "Solution is not starred",
+			urlParams:      map[string]string{"solutionId": "1"},
+			expectedStatus: http.StatusOK,
+		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			body, err := json.Marshal(testCase.solutionId)
-			if err != nil {
-				t.Fatalf("Failed to marshal solution request: %v", err)
-			}
-
-			req := newTestRequest(t, http.MethodPut, "/starred/solutions", bytes.NewBuffer(body))
-			req = applyRouteParams(req, map[string]string{"solutionId": strconv.Itoa(int(testCase.solutionId.SolutionID))})
+			req := newTestRequestWithBody(t, http.MethodPut, "/starred/solutions", testCase.body)
+			req = applyURLParams(req, testCase.urlParams)
 
 			executeTestRequest(t, req, testCase.expectedStatus, handler.PutStarSolution)
 		})

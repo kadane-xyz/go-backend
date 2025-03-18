@@ -1,10 +1,7 @@
 package api
 
 import (
-	"bytes"
-	"encoding/json"
 	"net/http"
-	"strings"
 	"testing"
 )
 
@@ -19,17 +16,11 @@ type TestGetSolutionsQueryParams struct {
 }
 
 func TestGetSolution(t *testing.T) {
-	baseReq := newTestRequest(t, http.MethodGet, "/solutions/1", nil)
-
-	testCases := []struct {
-		name               string
-		solutionIdUrlParam string
-		expectedStatus     int
-	}{
+	testCases := []TestingCase{
 		{
-			name:               "Get solution",
-			solutionIdUrlParam: "1",
-			expectedStatus:     http.StatusOK,
+			name:           "Get solution",
+			urlParams:      map[string]string{"solutionId": "1"},
+			expectedStatus: http.StatusOK,
 		},
 	}
 
@@ -37,31 +28,26 @@ func TestGetSolution(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			req := baseReq.Clone(baseReq.Context())
-			req = applyRouteParams(req, map[string]string{"solutionId": testCase.solutionIdUrlParam})
+			request := newTestRequest(t, http.MethodGet, "/solutions/{solutionId}", nil)
+			request = applyURLParams(request, testCase.urlParams)
 
-			executeTestRequest(t, req, testCase.expectedStatus, handler.GetSolution)
+			executeTestRequest(t, request, testCase.expectedStatus, handler.GetSolution)
 		})
 	}
 }
 
 func TestGetSolutions(t *testing.T) {
-	baseReq := newTestRequest(t, http.MethodGet, "/solutions", nil)
-	testCases := []struct {
-		name           string
-		queryParams    TestGetSolutionsQueryParams
-		expectedStatus int
-	}{
+	testCases := []TestingCase{
 		{
 			name: "Get solutions",
-			queryParams: TestGetSolutionsQueryParams{
-				TitleSearch: "",
-				ProblemId:   "1",
-				Tags:        []string{"array", "hash table"},
-				Page:        "1",
-				PerPage:     "10",
-				Sort:        "time",
-				Order:       "desc",
+			queryParams: map[string]string{
+				"title":     "",
+				"problemId": "1",
+				"tags":      "array,hash table",
+				"page":      "1",
+				"perPage":   "10",
+				"sort":      "time",
+				"order":     "desc",
 			},
 			expectedStatus: http.StatusOK,
 		},
@@ -71,36 +57,23 @@ func TestGetSolutions(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			req := baseReq.Clone(baseReq.Context())
-			queryParams := map[string]string{
-				"problemId": testCase.queryParams.ProblemId,
-				"title":     testCase.queryParams.TitleSearch,
-				"tags":      strings.Join(testCase.queryParams.Tags, ","),
-				"page":      testCase.queryParams.Page,
-				"perPage":   testCase.queryParams.PerPage,
-				"sort":      testCase.queryParams.Sort,
-				"order":     testCase.queryParams.Order,
-			}
-			req = applyQueryParams(req, queryParams)
+			request := newTestRequest(t, http.MethodGet, "/solutions", nil)
+			request = applyQueryParams(request, testCase.queryParams)
 
-			executeTestRequest(t, req, testCase.expectedStatus, handler.GetSolutions)
+			executeTestRequest(t, request, testCase.expectedStatus, handler.GetSolutions)
 		})
 	}
 }
 
 func TestCreateSolution(t *testing.T) {
-	testCases := []struct {
-		name           string
-		input          CreateSolutionRequest
-		expectedStatus int
-	}{
+	testCases := []TestingCase{
 		{
 			name: "Create solution",
-			input: CreateSolutionRequest{
-				Title:     "Solution 1",
-				Body:      "Solution 1 body",
-				ProblemId: 1,
-				Tags:      []string{"array", "hash table"},
+			body: map[string]any{
+				"title":     "Solution 1",
+				"body":      "Solution 1 body",
+				"problemId": 1,
+				"tags":      `["array", "hash table"]`,
 			},
 			expectedStatus: http.StatusCreated,
 		},
@@ -110,14 +83,7 @@ func TestCreateSolution(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			body, err := json.Marshal(testCase.input)
-			if err != nil {
-				t.Fatalf("Failed to marshal input: %v", err)
-			}
-
-			req := newTestRequest(t, http.MethodPost, "/solutions", bytes.NewReader(body))
-			req.Header.Set("Content-Type", "application/json")
-			req = applyRouteParams(req, nil)
+			req := newTestRequestWithBody(t, http.MethodPost, "/solutions", testCase.body)
 
 			executeTestRequest(t, req, testCase.expectedStatus, handler.CreateSolution)
 		})
@@ -125,19 +91,14 @@ func TestCreateSolution(t *testing.T) {
 }
 
 func TestUpdateSolution(t *testing.T) {
-	testCases := []struct {
-		name               string
-		solutionIdUrlParam string
-		input              UpdateSolutionRequest
-		expectedStatus     int
-	}{
+	testCases := []TestingCase{
 		{
-			name:               "Update solution",
-			solutionIdUrlParam: "1",
-			input: UpdateSolutionRequest{
-				Title: "Solution 1",
-				Body:  "Solution 1 body",
-				Tags:  []string{"array", "hash table"},
+			name:      "Update solution",
+			urlParams: map[string]string{"solutionId": "1"},
+			body: map[string]any{
+				"title": "Solution 1",
+				"body":  "Solution 1 body",
+				"tags":  `["array", "hash table"]`,
 			},
 			expectedStatus: http.StatusNoContent,
 		},
@@ -147,14 +108,8 @@ func TestUpdateSolution(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			body, err := json.Marshal(testCase.input)
-			if err != nil {
-				t.Fatalf("Failed to marshal input: %v", err)
-			}
-
-			req := newTestRequest(t, http.MethodPut, "/solutions/1", bytes.NewReader(body))
-			req.Header.Set("Content-Type", "application/json")
-			req = applyRouteParams(req, map[string]string{"solutionId": testCase.solutionIdUrlParam})
+			req := newTestRequestWithBody(t, http.MethodPut, "/solutions/1", testCase.body)
+			req = applyURLParams(req, testCase.urlParams)
 
 			executeTestRequest(t, req, testCase.expectedStatus, handler.UpdateSolution)
 		})
@@ -162,15 +117,11 @@ func TestUpdateSolution(t *testing.T) {
 }
 
 func TestDeleteSolution(t *testing.T) {
-	testCases := []struct {
-		name               string
-		solutionIdUrlParam string
-		expectedStatus     int
-	}{
+	testCases := []TestingCase{
 		{
-			name:               "Delete solution",
-			solutionIdUrlParam: "2",
-			expectedStatus:     http.StatusNoContent,
+			name:           "Delete solution",
+			urlParams:      map[string]string{"solutionId": "2"},
+			expectedStatus: http.StatusNoContent,
 		},
 	}
 
@@ -179,7 +130,7 @@ func TestDeleteSolution(t *testing.T) {
 			t.Parallel()
 
 			req := newTestRequest(t, http.MethodDelete, "/solutions/2", nil)
-			req = applyRouteParams(req, map[string]string{"solutionId": testCase.solutionIdUrlParam})
+			req = applyURLParams(req, testCase.urlParams)
 
 			executeTestRequest(t, req, testCase.expectedStatus, handler.DeleteSolution)
 		})
@@ -187,29 +138,24 @@ func TestDeleteSolution(t *testing.T) {
 }
 
 func TestVoteSolution(t *testing.T) {
-	testCases := []struct {
-		name               string
-		solutionIdUrlParam string
-		input              VoteRequest
-		expectedStatus     int
-	}{
+	testCases := []TestingCase{
 		{
-			name:               "Vote solution",
-			solutionIdUrlParam: "4",
-			input:              VoteRequest{Vote: "up"},
-			expectedStatus:     http.StatusNoContent,
+			name:           "Vote solution",
+			urlParams:      map[string]string{"solutionId": "4"},
+			body:           map[string]any{"vote": "up"},
+			expectedStatus: http.StatusNoContent,
 		},
 		{
-			name:               "Vote solution",
-			solutionIdUrlParam: "4",
-			input:              VoteRequest{Vote: "down"},
-			expectedStatus:     http.StatusNoContent,
+			name:           "Vote solution",
+			urlParams:      map[string]string{"solutionId": "4"},
+			body:           map[string]any{"vote": "down"},
+			expectedStatus: http.StatusNoContent,
 		},
 		{
-			name:               "Remove vote",
-			solutionIdUrlParam: "4",
-			input:              VoteRequest{Vote: "none"},
-			expectedStatus:     http.StatusNoContent,
+			name:           "Remove vote",
+			urlParams:      map[string]string{"solutionId": "4"},
+			body:           map[string]any{"vote": "none"},
+			expectedStatus: http.StatusNoContent,
 		},
 	}
 
@@ -217,14 +163,8 @@ func TestVoteSolution(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			body, err := json.Marshal(testCase.input)
-			if err != nil {
-				t.Fatalf("Failed to marshal input: %v", err)
-			}
-
-			req := newTestRequest(t, http.MethodPatch, "/solutions/4/vote", bytes.NewReader(body))
-			req.Header.Set("Content-Type", "application/json")
-			req = applyRouteParams(req, map[string]string{"solutionId": testCase.solutionIdUrlParam})
+			req := newTestRequestWithBody(t, http.MethodPatch, "/solutions/4/vote", testCase.body)
+			req = applyURLParams(req, testCase.urlParams)
 
 			executeTestRequest(t, req, testCase.expectedStatus, handler.VoteSolution)
 		})

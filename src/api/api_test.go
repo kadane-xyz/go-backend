@@ -42,7 +42,7 @@ func newTestRequest(t *testing.T, method, url string, body io.Reader) *http.Requ
 }
 
 // applyRouteParams adds url parameters using chi's RouteContext.
-func applyRouteParams(req *http.Request, params map[string]string) *http.Request {
+func applyURLParams(req *http.Request, params map[string]string) *http.Request {
 	if params == nil {
 		return req
 	}

@@ -12,7 +12,7 @@ func TestCreateRun(t *testing.T) {
 			name: "Create run",
 			body: RunRequest{
 				Language:   "go",
-				SourceCode: "func twoSum(nums []int, target int) []int { m := make(map[int]int); for i, num := range nums { m[num] = i }; for i, num := range nums { if j, ok := m[target-num]; ok && j != i { return []int{i, j} } }; return []int{} }",
+				SourceCode: `func twoSum(nums []int, target int) []int { m := make(map[int]int); for i, num := range nums { m[num] = i }; for i, num := range nums { if j, ok := m[target-num]; ok && j != i { return []int{i, j} } }; return []int{} }`,
 				ProblemID:  1,
 				TestCases: []TestCase{
 					{
@@ -28,6 +28,7 @@ func TestCreateRun(t *testing.T) {
 								Value: "9",
 							},
 						},
+						Output: "[0, 1]",
 					},
 					{
 						Input: []TestCaseInput{
@@ -42,6 +43,7 @@ func TestCreateRun(t *testing.T) {
 								Value: "6",
 							},
 						},
+						Output: "[1, 2]",
 					},
 					{
 						Input: []TestCaseInput{
@@ -56,6 +58,7 @@ func TestCreateRun(t *testing.T) {
 								Value: "6",
 							},
 						},
+						Output: "[0, 1]",
 					},
 				},
 			},
