@@ -74,13 +74,8 @@ func SummarizeRunResponses(userId string, problemId int32, sourceCode string, ex
 		})
 
 		// Set status to accepted if no status is set
-		if runResult.Status == "" {
-			runResult.Status = sql.SubmissionStatus("Accepted")
-		}
-
-		// Set status to wrong answer if any test case is wrong
-		if resp.Status.Description != "Accepted" {
-			runResult.Status = sql.SubmissionStatus("Wrong Answer")
+		if runResult.Status != "" {
+			runResult.Status = sql.SubmissionStatus(resp.Status.Description)
 		}
 
 		totalMemory += resp.Memory
