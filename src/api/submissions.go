@@ -206,7 +206,6 @@ func (h *Handler) CreateSubmission(ctx context.Context, request SubmissionReques
 				Language:      language,
 			}
 
-			// Set failed test case (will only happen once due to the break)
 			failedTestCase = RunTestCase{
 				Time:           resp.Time,
 				Memory:         resp.Memory,
@@ -256,20 +255,25 @@ func (h *Handler) CreateSubmission(ctx context.Context, request SubmissionReques
 		avgSubmission = *failedSubmission
 	}
 
+	failedTestCaseJson, _ := json.Marshal(failedTestCase)
+
 	dbSubmission := sql.CreateSubmissionParams{
-		ID:            pgtype.UUID{Bytes: uuid.New(), Valid: true},
-		AccountID:     userId,
-		ProblemID:     problem.ID,
-		SubmittedCode: request.SourceCode,
-		Status:        avgSubmission.Status,
-		Stdout:        avgSubmission.Stdout,
-		Time:          avgSubmission.Time,
-		Memory:        int32(avgSubmission.Memory),
-		Stderr:        avgSubmission.Stderr,
-		CompileOutput: avgSubmission.CompileOutput,
-		Message:       avgSubmission.Message,
-		LanguageID:    lastLanguageID,
-		LanguageName:  lastLanguageName,
+		ID:              pgtype.UUID{Bytes: uuid.New(), Valid: true},
+		AccountID:       userId,
+		ProblemID:       problem.ID,
+		SubmittedCode:   request.SourceCode,
+		Status:          avgSubmission.Status,
+		Stdout:          avgSubmission.Stdout,
+		Time:            avgSubmission.Time,
+		Memory:          int32(avgSubmission.Memory),
+		Stderr:          avgSubmission.Stderr,
+		CompileOutput:   avgSubmission.CompileOutput,
+		Message:         avgSubmission.Message,
+		LanguageID:      lastLanguageID,
+		LanguageName:    lastLanguageName,
+		FailedTestCase:  failedTestCaseJson,
+		PassedTestCases: int32(passedTestCases),
+		TotalTestCases:  int32(totalTestCases),
 	}
 
 	// create submission in db
@@ -480,22 +484,31 @@ func (h *Handler) GetSubmissionsByUsername(w http.ResponseWriter, r *http.Reques
 	submissionResults := make([]Submission, 0)
 	for _, submission := range submissions {
 		submissionId := uuid.UUID(submission.ID.Bytes)
+		submissionFailedTestCase := RunTestCase{}
+		err = json.Unmarshal(submission.FailedTestCase, &submissionFailedTestCase)
+		if err != nil {
+			apierror.SendError(w, http.StatusInternalServerError, "Failed to unmarshal failed test case")
+			return
+		}
 		submissionResults = append(submissionResults, Submission{
-			Id:             submissionId.String(),
-			Stdout:         submission.Stdout.String,
-			Time:           submission.Time.String,
-			Memory:         int(submission.Memory.Int32),
-			Stderr:         submission.Stderr.String,
-			CompileOutput:  submission.CompileOutput.String,
-			Message:        submission.Message.String,
-			Status:         submission.Status,
-			Language:       judge0.LanguageIDToLanguage(int(submission.LanguageID)),
-			AccountID:      submission.AccountID,
-			SubmittedCode:  submission.SubmittedCode,
-			SubmittedStdin: submission.SubmittedStdin.String,
-			ProblemID:      submission.ProblemID,
-			CreatedAt:      submission.CreatedAt.Time,
-			Starred:        submission.Starred,
+			Id:              submissionId.String(),
+			Stdout:          submission.Stdout.String,
+			Time:            submission.Time.String,
+			Memory:          int(submission.Memory.Int32),
+			Stderr:          submission.Stderr.String,
+			CompileOutput:   submission.CompileOutput.String,
+			Message:         submission.Message.String,
+			Status:          submission.Status,
+			Language:        judge0.LanguageIDToLanguage(int(submission.LanguageID)),
+			AccountID:       submission.AccountID,
+			SubmittedCode:   submission.SubmittedCode,
+			SubmittedStdin:  submission.SubmittedStdin.String,
+			ProblemID:       submission.ProblemID,
+			CreatedAt:       submission.CreatedAt.Time,
+			Starred:         submission.Starred,
+			FailedTestCase:  submissionFailedTestCase,
+			PassedTestCases: submission.PassedTestCases.Int32,
+			TotalTestCases:  submission.TotalTestCases.Int32,
 		})
 	}
 

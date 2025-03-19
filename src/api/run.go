@@ -73,7 +73,6 @@ func SummarizeRunResponses(userId string, problemId int32, sourceCode string, ex
 			ExpectedOutput: expectedOutput[i], // add expected output to test case back
 		})
 
-		// Set status to accepted if no status is set
 		if runResult.Status != "" {
 			runResult.Status = sql.SubmissionStatus(resp.Status.Description)
 		}
