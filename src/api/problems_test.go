@@ -6,17 +6,11 @@ import (
 )
 
 func TestGetProblem(t *testing.T) {
-	baseReq := newTestRequest(t, http.MethodGet, "/problems/{problemId}", nil)
-
-	testCases := []struct {
-		name              string
-		problemIdUrlParam string
-		expectedStatus    int
-	}{
+	testCases := []TestingCase{
 		{
-			name:              "Get problem",
-			problemIdUrlParam: "1",
-			expectedStatus:    http.StatusOK,
+			name:           "Get problem",
+			urlParams:      map[string]string{"problemId": "1"},
+			expectedStatus: http.StatusOK,
 		},
 	}
 
@@ -24,22 +18,16 @@ func TestGetProblem(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			req := baseReq.Clone(baseReq.Context())
-			req = applyRouteParams(req, map[string]string{"problemId": testCase.problemIdUrlParam})
+			request := newTestRequest(t, http.MethodGet, "/problems/{problemId}", nil)
+			request = applyURLParams(request, testCase.urlParams)
 
-			executeTestRequest(t, req, testCase.expectedStatus, handler.GetProblem)
+			executeTestRequest(t, request, testCase.expectedStatus, handler.GetProblem)
 		})
 	}
 }
 
 func TestGetProblems(t *testing.T) {
-	baseReq := newTestRequest(t, http.MethodGet, "/problems", nil)
-
-	testCases := []struct {
-		name           string
-		queryParams    map[string]string
-		expectedStatus int
-	}{
+	testCases := []TestingCase{
 		{
 			name: "Get problems",
 			queryParams: map[string]string{
@@ -114,10 +102,10 @@ func TestGetProblems(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			req := baseReq.Clone(baseReq.Context())
-			req = applyQueryParams(req, testCase.queryParams)
+			request := newTestRequest(t, http.MethodGet, "/problems", nil)
+			request = applyQueryParams(request, testCase.queryParams)
 
-			executeTestRequest(t, req, testCase.expectedStatus, handler.GetProblemsRoute)
+			executeTestRequest(t, request, testCase.expectedStatus, handler.GetProblemsRoute)
 		})
 	}
 }

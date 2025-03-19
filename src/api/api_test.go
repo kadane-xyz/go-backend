@@ -14,6 +14,24 @@ import (
 	"kadane.xyz/go-backend/v2/src/middleware"
 )
 
+type TestingCase struct {
+	name           string            // name of the test case
+	queryParams    map[string]string // query params of the request ie. filtering params, pagination params, etc.
+	urlParams      map[string]string // url params of the request ie. id, slug, etc.
+	body           any               // body of the request ie. json body for POST requests
+	expectedStatus int               // expected status code of the response
+	//expectedOutput any               // expected output of the response
+}
+
+// newTestRequestWithBody creates a new HTTP request with the given method, url, and body.
+func newTestRequestWithBody(t *testing.T, method, url string, body any) *http.Request {
+	jsonBody, err := json.Marshal(body)
+	if err != nil {
+		t.Fatalf("Failed to marshal body: %v", err)
+	}
+	return newTestRequest(t, method, url, bytes.NewBuffer(jsonBody))
+}
+
 // newTestRequest creates a new HTTP request with the firebase token added to the context.
 func newTestRequest(t *testing.T, method, url string, body io.Reader) *http.Request {
 	req, err := http.NewRequest(method, url, body)
@@ -24,7 +42,7 @@ func newTestRequest(t *testing.T, method, url string, body io.Reader) *http.Requ
 }
 
 // applyRouteParams adds url parameters using chi's RouteContext.
-func applyRouteParams(req *http.Request, params map[string]string) *http.Request {
+func applyURLParams(req *http.Request, params map[string]string) *http.Request {
 	if params == nil {
 		return req
 	}

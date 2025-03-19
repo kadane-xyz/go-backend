@@ -1,34 +1,25 @@
 package api
 
 import (
-	"bytes"
-	"encoding/json"
 	"net/http"
 	"testing"
 )
 
 func TestGetAccount(t *testing.T) {
-	baseReq := newTestRequest(t, http.MethodGet, "/accounts/", nil)
-
-	testCases := []struct {
-		name           string
-		urlParamId     string
-		queryParams    map[string]string
-		expectedStatus int
-	}{
+	testCases := []TestingCase{
 		{
 			name:           "Get account missing id",
-			urlParamId:     "",
+			urlParams:      map[string]string{"id": ""},
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
 			name:           "Get account",
-			urlParamId:     "123abc",
+			urlParams:      map[string]string{"id": "123abc"},
 			expectedStatus: http.StatusOK,
 		},
 		{
 			name:           "Get account with attributes",
-			urlParamId:     "123abc",
+			urlParams:      map[string]string{"id": "123abc"},
 			queryParams:    map[string]string{"attributes": "true"},
 			expectedStatus: http.StatusOK,
 		},
@@ -38,23 +29,17 @@ func TestGetAccount(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			req := baseReq.Clone(baseReq.Context())
-			req = applyRouteParams(req, map[string]string{"id": testCase.urlParamId})
-			req = applyQueryParams(req, testCase.queryParams)
+			request := newTestRequest(t, http.MethodGet, "/accounts", nil)
+			request = applyURLParams(request, testCase.urlParams)
+			request = applyQueryParams(request, testCase.queryParams)
 
-			executeTestRequest(t, req, testCase.expectedStatus, handler.GetAccount)
+			executeTestRequest(t, request, testCase.expectedStatus, handler.GetAccount)
 		})
 	}
 }
 
 func TestGetAccounts(t *testing.T) {
-	baseReq := newTestRequest(t, http.MethodGet, "/accounts", nil)
-
-	testCases := []struct {
-		name           string
-		queryParams    map[string]string
-		expectedStatus int
-	}{
+	testCases := []TestingCase{
 		{
 			name:           "Get accounts by username",
 			queryParams:    map[string]string{"usernames": "[\"johndoe\", \"janedoe\"]"},
@@ -96,38 +81,31 @@ func TestGetAccounts(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			req := baseReq.Clone(baseReq.Context())
-			req = applyQueryParams(req, testCase.queryParams)
+			request := newTestRequest(t, http.MethodGet, "/accounts", nil)
+			request = applyQueryParams(request, testCase.queryParams)
 
-			executeTestRequest(t, req, testCase.expectedStatus, handler.GetAccounts)
+			executeTestRequest(t, request, testCase.expectedStatus, handler.GetAccounts)
 		})
 	}
 }
 
 func TestGetAccountByUsername(t *testing.T) {
-	baseReq := newTestRequest(t, http.MethodGet, "/accounts/username/", nil)
-
-	testCases := []struct {
-		name             string
-		urlParamUsername string
-		queryParams      map[string]string
-		expectedStatus   int
-	}{
+	testCases := []TestingCase{
 		{
-			name:             "Get account by username",
-			urlParamUsername: "johndoe",
-			expectedStatus:   http.StatusOK,
+			name:           "Get account by username",
+			urlParams:      map[string]string{"username": "johndoe"},
+			expectedStatus: http.StatusOK,
 		},
 		{
-			name:             "Get account by username not found",
-			urlParamUsername: "notfound",
-			expectedStatus:   http.StatusOK,
+			name:           "Get account by username not found",
+			urlParams:      map[string]string{"username": "notfound"},
+			expectedStatus: http.StatusOK,
 		},
 		{
-			name:             "Get account by username with attributes",
-			urlParamUsername: "janesmith",
-			queryParams:      map[string]string{"attributes": "true"},
-			expectedStatus:   http.StatusOK,
+			name:           "Get account by username with attributes",
+			urlParams:      map[string]string{"username": "janesmith"},
+			queryParams:    map[string]string{"attributes": "true"},
+			expectedStatus: http.StatusOK,
 		},
 	}
 
@@ -135,63 +113,59 @@ func TestGetAccountByUsername(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			req := baseReq.Clone(baseReq.Context())
-			req = applyRouteParams(req, map[string]string{"username": testCase.urlParamUsername})
-			req = applyQueryParams(req, testCase.queryParams)
+			request := newTestRequest(t, http.MethodGet, "/accounts/username", nil)
+			request = applyURLParams(request, testCase.urlParams)
+			request = applyQueryParams(request, testCase.queryParams)
 
-			executeTestRequest(t, req, testCase.expectedStatus, handler.GetAccountByUsername)
+			executeTestRequest(t, request, testCase.expectedStatus, handler.GetAccountByUsername)
 		})
 	}
 }
 
 func TestCreateAccount(t *testing.T) {
-	testCases := []struct {
-		name           string
-		input          CreateAccountRequest
-		expectedStatus int
-	}{
+	testCases := []TestingCase{
 		{
 			name: "Create account with empty id",
-			input: CreateAccountRequest{
-				ID:       "",
-				Username: "johndoe13",
-				Email:    "johndoe13@example.com",
+			body: map[string]string{
+				"id":       "",
+				"username": "johndoe13",
+				"email":    "johndoe13@example.com",
 			},
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
 			name: "Create account with empty username",
-			input: CreateAccountRequest{
-				ID:       "aabbcc213",
-				Username: "",
-				Email:    "johndoe13@example.com",
+			body: map[string]string{
+				"id":       "aabbcc213",
+				"username": "",
+				"email":    "johndoe13@example.com",
 			},
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
 			name: "Create account with empty email",
-			input: CreateAccountRequest{
-				ID:       "aabbcc213",
-				Username: "johndoe13",
-				Email:    "",
+			body: map[string]string{
+				"id":       "aabbcc213",
+				"username": "johndoe13",
+				"email":    "",
 			},
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
 			name: "Create account",
-			input: CreateAccountRequest{
-				ID:       "aabbcc213",
-				Username: "johndoe13",
-				Email:    "johndoe13@example.com",
+			body: map[string]string{
+				"id":       "aabbcc213",
+				"username": "johndoe13",
+				"email":    "johndoe13@example.com",
 			},
 			expectedStatus: http.StatusCreated,
 		},
 		{
 			name: "Create account with invalid email",
-			input: CreateAccountRequest{
-				ID:       "aabbcc213",
-				Username: "johndoe13",
-				Email:    "johndoe13",
+			body: map[string]string{
+				"id":       "aabbcc213",
+				"username": "johndoe13",
+				"email":    "johndoe13",
 			},
 			expectedStatus: http.StatusBadRequest,
 		},
@@ -201,35 +175,32 @@ func TestCreateAccount(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			body, err := json.Marshal(testCase.input)
-			if err != nil {
-				t.Fatalf("Failed to marshal input: %v", err)
-			}
+			request := newTestRequestWithBody(t, http.MethodPost, "/accounts", testCase.body)
 
-			req := newTestRequest(t, http.MethodPost, "/accounts", bytes.NewBuffer(body))
-			req.Header.Set("Content-Type", "application/json")
-			req = applyRouteParams(req, nil)
-
-			executeTestRequest(t, req, testCase.expectedStatus, handler.CreateAccount)
+			executeTestRequest(t, request, testCase.expectedStatus, handler.CreateAccount)
 		})
 	}
 }
 
 func TestUpdateAccount(t *testing.T) {
-	testCases := []struct {
-		name           string
-		urlParamId     string
-		input          AccountAttributes
-		expectedStatus int
-	}{
+	testCases := []TestingCase{
 		{
-			name:       "Update account",
-			urlParamId: "123abc",
-			input: AccountAttributes{
-				ID:           "123abc",
-				Bio:          "Hello, I'm John Doe",
-				ContactEmail: "john@example.com",
-				Location:     "CN",
+			name:      "Update account",
+			urlParams: map[string]string{"id": "123abc"},
+			body: map[string]string{
+				"bio":          "Hello, I'm John Doe",
+				"contactEmail": "john@example.com",
+				"location":     "CN",
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:      "Update account",
+			urlParams: map[string]string{"id": "123abc"},
+			body: map[string]string{
+				"bio":          "Hello, I'm John Doe",
+				"contactEmail": "john@example.com",
+				"location":     "CN",
 			},
 			expectedStatus: http.StatusOK,
 		},
@@ -239,33 +210,24 @@ func TestUpdateAccount(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			body, err := json.Marshal(testCase.input)
-			if err != nil {
-				t.Fatalf("Failed to marshal input: %v", err)
-			}
+			request := newTestRequestWithBody(t, http.MethodPut, "/accounts", testCase.body)
+			request = applyURLParams(request, testCase.urlParams)
 
-			req := newTestRequest(t, http.MethodPut, "/accounts", bytes.NewBuffer(body))
-			req = applyRouteParams(req, map[string]string{"id": testCase.urlParamId})
-
-			executeTestRequest(t, req, testCase.expectedStatus, handler.UpdateAccount)
+			executeTestRequest(t, request, testCase.expectedStatus, handler.UpdateAccount)
 		})
 	}
 }
 
 func TestDeleteAccount(t *testing.T) {
-	testCases := []struct {
-		name           string
-		urlParamId     string
-		expectedStatus int
-	}{
+	testCases := []TestingCase{
 		{
 			name:           "Delete account",
-			urlParamId:     "789ghi",
+			urlParams:      map[string]string{"id": "789ghi"},
 			expectedStatus: http.StatusNoContent,
 		},
 		{
 			name:           "Delete account missing id",
-			urlParamId:     "",
+			urlParams:      map[string]string{"id": ""},
 			expectedStatus: http.StatusBadRequest,
 		},
 	}
@@ -274,10 +236,10 @@ func TestDeleteAccount(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			req := newTestRequest(t, http.MethodDelete, "/accounts", nil)
-			req = applyRouteParams(req, map[string]string{"id": testCase.urlParamId})
+			request := newTestRequest(t, http.MethodDelete, "/accounts", nil)
+			request = applyURLParams(request, testCase.urlParams)
 
-			executeTestRequest(t, req, testCase.expectedStatus, handler.DeleteAccount)
+			executeTestRequest(t, request, testCase.expectedStatus, handler.DeleteAccount)
 		})
 	}
 }

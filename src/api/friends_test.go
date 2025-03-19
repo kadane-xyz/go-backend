@@ -1,20 +1,12 @@
 package api
 
 import (
-	"bytes"
-	"encoding/json"
-	"io"
 	"net/http"
 	"testing"
 )
 
 func TestGetFriends(t *testing.T) {
-	baseReq := newTestRequest(t, http.MethodGet, "/friends", nil)
-
-	testCases := []struct {
-		name           string
-		expectedStatus int
-	}{
+	testCases := []TestingCase{
 		{
 			name:           "Get friends",
 			expectedStatus: http.StatusOK,
@@ -25,21 +17,15 @@ func TestGetFriends(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			req := baseReq.Clone(baseReq.Context())
-			req = applyRouteParams(req, nil)
+			request := newTestRequest(t, http.MethodGet, "/friends", nil)
 
-			executeTestRequest(t, req, testCase.expectedStatus, handler.GetFriends)
+			executeTestRequest(t, request, testCase.expectedStatus, handler.GetFriends)
 		})
 	}
 }
 
 func TestGetFriendRequestsSent(t *testing.T) {
-	baseReq := newTestRequest(t, http.MethodGet, "/friends/requests/sent", nil)
-
-	testCases := []struct {
-		name           string
-		expectedStatus int
-	}{
+	testCases := []TestingCase{
 		{
 			name:           "Get friend requests sent",
 			expectedStatus: http.StatusOK,
@@ -50,21 +36,15 @@ func TestGetFriendRequestsSent(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			req := baseReq.Clone(baseReq.Context())
-			req = applyRouteParams(req, nil)
+			request := newTestRequest(t, http.MethodGet, "/friends/requests/sent", nil)
 
-			executeTestRequest(t, req, testCase.expectedStatus, handler.GetFriendRequestsSent)
+			executeTestRequest(t, request, testCase.expectedStatus, handler.GetFriendRequestsSent)
 		})
 	}
 }
 
 func TestGetFriendRequestsReceived(t *testing.T) {
-	baseReq := newTestRequest(t, http.MethodGet, "/friends/requests/received", nil)
-
-	testCases := []struct {
-		name           string
-		expectedStatus int
-	}{
+	testCases := []TestingCase{
 		{
 			name:           "Get friend requests received",
 			expectedStatus: http.StatusOK,
@@ -75,27 +55,18 @@ func TestGetFriendRequestsReceived(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			req := baseReq.Clone(baseReq.Context())
-			req = applyRouteParams(req, nil)
+			request := newTestRequest(t, http.MethodGet, "/friends/requests/received", nil)
 
-			executeTestRequest(t, req, testCase.expectedStatus, handler.GetFriendRequestsReceived)
+			executeTestRequest(t, request, testCase.expectedStatus, handler.GetFriendRequestsReceived)
 		})
 	}
 }
 
 func TestAcceptFriendRequest(t *testing.T) {
-	baseReq := newTestRequest(t, http.MethodPost, "/friends/requests/accept", nil)
-
-	testCases := []struct {
-		name           string
-		input          FriendRequest
-		expectedStatus int
-	}{
+	testCases := []TestingCase{
 		{
-			name: "Accept friend request",
-			input: FriendRequest{
-				FriendName: "janesmith",
-			},
+			name:           "Accept friend request",
+			body:           map[string]any{"friendName": "janesmith"},
 			expectedStatus: http.StatusOK,
 		},
 	}
@@ -104,33 +75,18 @@ func TestAcceptFriendRequest(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			body, err := json.Marshal(testCase.input)
-			if err != nil {
-				t.Fatalf("Failed to marshal input: %v", err)
-			}
+			request := newTestRequestWithBody(t, http.MethodPost, "/friends/requests/accept", testCase.body)
 
-			req := baseReq.Clone(baseReq.Context())
-			req.Body = io.NopCloser(bytes.NewReader(body))
-			req = applyRouteParams(req, nil)
-
-			executeTestRequest(t, req, testCase.expectedStatus, handler.AcceptFriendRequest)
+			executeTestRequest(t, request, testCase.expectedStatus, handler.AcceptFriendRequest)
 		})
 	}
 }
 
 func TestBlockFriendRequest(t *testing.T) {
-	baseReq := newTestRequest(t, http.MethodPost, "/friends/requests/block", nil)
-
-	testCases := []struct {
-		name           string
-		input          FriendRequest
-		expectedStatus int
-	}{
+	testCases := []TestingCase{
 		{
-			name: "Block friend request",
-			input: FriendRequest{
-				FriendName: "bobjohnson",
-			},
+			name:           "Block friend request",
+			body:           map[string]any{"friendName": "bobjohnson"},
 			expectedStatus: http.StatusOK,
 		},
 	}
@@ -139,33 +95,18 @@ func TestBlockFriendRequest(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			body, err := json.Marshal(testCase.input)
-			if err != nil {
-				t.Fatalf("Failed to marshal input: %v", err)
-			}
+			request := newTestRequestWithBody(t, http.MethodPost, "/friends/requests/block", testCase.body)
 
-			req := baseReq.Clone(baseReq.Context())
-			req.Body = io.NopCloser(bytes.NewReader(body))
-			req = applyRouteParams(req, nil)
-
-			executeTestRequest(t, req, testCase.expectedStatus, handler.BlockFriendRequest)
+			executeTestRequest(t, request, testCase.expectedStatus, handler.BlockFriendRequest)
 		})
 	}
 }
 
 func TestUnblockFriendRequest(t *testing.T) {
-	baseReq := newTestRequest(t, http.MethodPost, "/friends/requests/unblock", nil)
-
-	testCases := []struct {
-		name           string
-		input          FriendRequest
-		expectedStatus int
-	}{
+	testCases := []TestingCase{
 		{
-			name: "Unblock friend request",
-			input: FriendRequest{
-				FriendName: "bobjohnson",
-			},
+			name:           "Unblock friend request",
+			body:           map[string]any{"friendName": "bobjohnson"},
 			expectedStatus: http.StatusOK,
 		},
 	}
@@ -174,32 +115,19 @@ func TestUnblockFriendRequest(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			body, err := json.Marshal(testCase.input)
-			if err != nil {
-				t.Fatalf("Failed to marshal input: %v", err)
-			}
+			request := newTestRequestWithBody(t, http.MethodPost, "/friends/requests/unblock", testCase.body)
 
-			req := baseReq.Clone(baseReq.Context())
-			req.Body = io.NopCloser(bytes.NewReader(body))
-			req = applyRouteParams(req, nil)
-
-			executeTestRequest(t, req, testCase.expectedStatus, handler.UnblockFriendRequest)
+			executeTestRequest(t, request, testCase.expectedStatus, handler.UnblockFriendRequest)
 		})
 	}
 }
 
 func TestDeleteFriend(t *testing.T) {
-	baseReq := newTestRequest(t, http.MethodDelete, "/friends", nil)
-
-	testCases := []struct {
-		name             string
-		usernameUrlParam string
-		expectedStatus   int
-	}{
+	testCases := []TestingCase{
 		{
-			name:             "Delete friend",
-			usernameUrlParam: "bobjohnson",
-			expectedStatus:   http.StatusNoContent,
+			name:           "Delete friend",
+			body:           map[string]any{"friendName": "bobjohnson"},
+			expectedStatus: http.StatusNoContent,
 		},
 	}
 
@@ -207,32 +135,24 @@ func TestDeleteFriend(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			req := baseReq.Clone(baseReq.Context())
-			req = applyRouteParams(req, map[string]string{"username": testCase.usernameUrlParam})
-			req = applyQueryParams(req, nil)
+			request := newTestRequestWithBody(t, http.MethodDelete, "/friends", testCase.body)
 
-			executeTestRequest(t, req, testCase.expectedStatus, handler.DeleteFriend)
+			executeTestRequest(t, request, testCase.expectedStatus, handler.DeleteFriend)
 		})
 	}
 }
 
 func TestGetFriendsUsername(t *testing.T) {
-	baseReq := newTestRequest(t, http.MethodGet, "/friends/username/", nil)
-
-	testCases := []struct {
-		name             string
-		usernameUrlParam string
-		expectedStatus   int
-	}{
+	testCases := []TestingCase{
 		{
-			name:             "Get friends username",
-			usernameUrlParam: "janesmith",
-			expectedStatus:   http.StatusOK,
+			name:           "Get friends username",
+			body:           map[string]any{"username": "janesmith"},
+			expectedStatus: http.StatusOK,
 		},
 		{
-			name:             "Get friends username not found",
-			usernameUrlParam: "notfound",
-			expectedStatus:   http.StatusNotFound,
+			name:           "Get friends username not found",
+			body:           map[string]any{"username": "notfound"},
+			expectedStatus: http.StatusNotFound,
 		},
 	}
 
@@ -240,27 +160,19 @@ func TestGetFriendsUsername(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			req := baseReq.Clone(baseReq.Context())
-			req = applyRouteParams(req, map[string]string{"username": testCase.usernameUrlParam})
-			req = applyQueryParams(req, nil)
+			request := newTestRequestWithBody(t, http.MethodGet, "/friends/username", testCase.body)
 
-			executeTestRequest(t, req, testCase.expectedStatus, handler.GetFriendsUsername)
+			executeTestRequest(t, request, testCase.expectedStatus, handler.GetFriendsUsername)
 		})
 	}
 }
 
 func TestDeleteFriendRequest(t *testing.T) {
-	baseReq := newTestRequest(t, http.MethodDelete, "/friends/requests", nil)
-
-	testCases := []struct {
-		name             string
-		usernameUrlParam string
-		expectedStatus   int
-	}{
+	testCases := []TestingCase{
 		{
-			name:             "Delete friend request",
-			usernameUrlParam: "bobjohnson",
-			expectedStatus:   http.StatusNoContent,
+			name:           "Delete friend request",
+			body:           map[string]any{"username": "bobjohnson"},
+			expectedStatus: http.StatusNoContent,
 		},
 	}
 
@@ -268,11 +180,9 @@ func TestDeleteFriendRequest(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			req := baseReq.Clone(baseReq.Context())
-			req = applyRouteParams(req, map[string]string{"username": testCase.usernameUrlParam})
-			req = applyQueryParams(req, nil)
+			request := newTestRequestWithBody(t, http.MethodDelete, "/friends/requests", testCase.body)
 
-			executeTestRequest(t, req, testCase.expectedStatus, handler.DeleteFriendRequest)
+			executeTestRequest(t, request, testCase.expectedStatus, handler.DeleteFriendRequest)
 		})
 	}
 }

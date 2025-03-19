@@ -1,5 +1,5 @@
 -- name: CreateSubmission :one
-INSERT INTO submission (id, stdout, time, memory, stderr, compile_output, message, status, language_id, language_name, account_id, problem_id, submitted_code, submitted_stdin) VALUES (@id::uuid, @stdout::text, @time::text, @memory::int, @stderr::text, @compile_output::text, @message::text, @status, @language_id, @language_name, @account_id, @problem_id, @submitted_code, @submitted_stdin) RETURNING *;
+INSERT INTO submission (id, stdout, time, memory, stderr, compile_output, message, status, language_id, language_name, account_id, problem_id, submitted_code, submitted_stdin, failed_test_case, passed_test_cases, total_test_cases) VALUES (@id::uuid, @stdout::text, @time::text, @memory::int, @stderr::text, @compile_output::text, @message::text, @status, @language_id, @language_name, @account_id, @problem_id, @submitted_code, @submitted_stdin, @failed_test_case, @passed_test_cases::int, @total_test_cases::int) RETURNING *;
 
 -- name: GetSubmissionByID :one
 SELECT 
@@ -30,6 +30,9 @@ WITH user_submissions AS (
         s.account_id,
         s.submitted_code,
         s.submitted_stdin,
+        s.failed_test_case,
+        s.passed_test_cases,
+        s.total_test_cases,
         s.problem_id,
         s.created_at,
         p.title             AS problem_title,
@@ -77,7 +80,10 @@ SELECT
     problem_difficulty,
     problem_points,
     username,
-    starred
+    starred,
+    failed_test_case,
+    passed_test_cases,
+    total_test_cases
 FROM user_submissions
 ORDER BY
     -- 1) Sort by 'time' (the "time" column cast to float)

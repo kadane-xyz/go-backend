@@ -30,5 +30,8 @@ CREATE TABLE submission (
     account_id TEXT NOT NULL REFERENCES account(id) ON DELETE CASCADE,
     submitted_code TEXT NOT NULL,
     submitted_stdin TEXT DEFAULT NULL,
+    failed_test_case JSONB NULL,
+    passed_test_cases INTEGER DEFAULT 0,
+    total_test_cases INTEGER DEFAULT 0,
     problem_id INTEGER NOT NULL REFERENCES problem(id) ON DELETE CASCADE
 );

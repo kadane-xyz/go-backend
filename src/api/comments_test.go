@@ -1,9 +1,6 @@
 package api
 
 import (
-	"bytes"
-	"encoding/json"
-	"io"
 	"net/http"
 	"testing"
 
@@ -11,27 +8,21 @@ import (
 )
 
 func TestGetComment(t *testing.T) {
-	baseReq := newTestRequest(t, http.MethodGet, "/comments/", nil)
-
-	testCases := []struct {
-		name              string
-		commentIdUrlParam string
-		expectedStatus    int
-	}{
+	testCases := []TestingCase{
 		{
-			name:              "Get comment",
-			commentIdUrlParam: "1",
-			expectedStatus:    http.StatusOK,
+			name:           "Get comment",
+			urlParams:      map[string]string{"commentId": "1"},
+			expectedStatus: http.StatusOK,
 		},
 		{
-			name:              "Get comment invalid id",
-			commentIdUrlParam: "a",
-			expectedStatus:    http.StatusBadRequest,
+			name:           "Get comment invalid id",
+			urlParams:      map[string]string{"commentId": "a"},
+			expectedStatus: http.StatusBadRequest,
 		},
 		{
-			name:              "Get comment not found",
-			commentIdUrlParam: "0",
-			expectedStatus:    http.StatusOK,
+			name:           "Get comment not found",
+			urlParams:      map[string]string{"commentId": "0"},
+			expectedStatus: http.StatusOK,
 		},
 	}
 
@@ -39,21 +30,16 @@ func TestGetComment(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			req := baseReq.Clone(baseReq.Context())
-			req = applyRouteParams(req, map[string]string{"commentId": testCase.commentIdUrlParam})
-			executeTestRequest(t, req, testCase.expectedStatus, handler.GetComment)
+			request := newTestRequest(t, http.MethodGet, "/comments/", nil)
+			request = applyURLParams(request, testCase.urlParams)
+
+			executeTestRequest(t, request, testCase.expectedStatus, handler.GetComment)
 		})
 	}
 }
 
 func TestGetComments(t *testing.T) {
-	baseReq := newTestRequest(t, http.MethodGet, "/comments", nil)
-
-	testCases := []struct {
-		name           string
-		queryParams    map[string]string
-		expectedStatus int
-	}{
+	testCases := []TestingCase{
 		{
 			name:           "Get comments",
 			queryParams:    map[string]string{"solutionId": "1"},
@@ -65,23 +51,37 @@ func TestGetComments(t *testing.T) {
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
-			name:           "Get comments sort by time order asc",
-			queryParams:    map[string]string{"solutionId": "1", "sortBy": "time", "order": "asc"},
+			name: "Get comments sort by time order asc",
+			queryParams: map[string]string{
+				"solutionId": "1",
+				"sortBy":     "time",
+				"order":      "asc",
+			},
 			expectedStatus: http.StatusOK,
 		},
 		{
-			name:           "Get comments sort by time order desc",
-			queryParams:    map[string]string{"solutionId": "1", "sortBy": "time", "order": "desc"},
+			name: "Get comments sort by time order desc",
+			queryParams: map[string]string{
+				"solutionId": "1",
+				"sortBy":     "time",
+				"order":      "desc",
+			},
 			expectedStatus: http.StatusOK,
 		},
 		{
-			name:           "Get comments order asc",
-			queryParams:    map[string]string{"solutionId": "1", "order": "asc"},
+			name: "Get comments order asc",
+			queryParams: map[string]string{
+				"solutionId": "1",
+				"order":      "asc",
+			},
 			expectedStatus: http.StatusOK,
 		},
 		{
-			name:           "Get comments order desc",
-			queryParams:    map[string]string{"solutionId": "1", "order": "desc"},
+			name: "Get comments order desc",
+			queryParams: map[string]string{
+				"solutionId": "1",
+				"order":      "desc",
+			},
 			expectedStatus: http.StatusOK,
 		},
 	}
@@ -90,54 +90,47 @@ func TestGetComments(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			req := baseReq.Clone(baseReq.Context())
-			req = applyQueryParams(req, testCase.queryParams)
-			req = applyRouteParams(req, nil)
+			request := newTestRequest(t, http.MethodGet, "/comments", nil)
+			request = applyQueryParams(request, testCase.queryParams)
 
-			executeTestRequest(t, req, testCase.expectedStatus, handler.GetComments)
+			executeTestRequest(t, request, testCase.expectedStatus, handler.GetComments)
 		})
 	}
 }
 
 func TestCreateComment(t *testing.T) {
-	baseReq := newTestRequest(t, http.MethodPost, "/comments", nil)
-
 	parentId := int64(7)
 
-	testCases := []struct {
-		name           string
-		input          CommentCreateRequest
-		expectedStatus int
-	}{
+	testCases := []TestingCase{
 		{
 			name: "Create comment",
-			input: CommentCreateRequest{
-				SolutionId: 2,
-				Body:       "This is a test comment",
+			body: map[string]any{
+				"solutionId": 2,
+				"body":       "This is a test comment",
 			},
 			expectedStatus: http.StatusCreated,
 		},
 		{
 			name: "Create child comment",
-			input: CommentCreateRequest{
-				SolutionId: 2,
-				Body:       "This is a test child comment",
-				ParentId:   &parentId,
+			body: map[string]any{
+				"solutionId": 2,
+				"body":       "This is a test child comment",
+				"parentId":   &parentId,
 			},
 			expectedStatus: http.StatusCreated,
 		},
 		{
 			name: "Create comment missing solution id",
-			input: CommentCreateRequest{
-				Body: "This is a test comment",
+			body: map[string]any{
+				"body": "This is a test comment",
 			},
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
 			name: "Create comment missing body",
-			input: CommentCreateRequest{
-				SolutionId: 1,
-				Body:       "",
+			body: map[string]any{
+				"solutionId": 1,
+				"body":       "",
 			},
 			expectedStatus: http.StatusBadRequest,
 		},
@@ -146,94 +139,77 @@ func TestCreateComment(t *testing.T) {
 	// run in order
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			body, err := json.Marshal(testCase.input)
-			if err != nil {
-				t.Fatalf("Failed to marshal input: %v", err)
-			}
+			t.Parallel()
 
-			req := baseReq.Clone(baseReq.Context())
-			req.Body = io.NopCloser(bytes.NewReader(body))
-			req = applyRouteParams(req, nil)
+			request := newTestRequestWithBody(t, http.MethodPost, "/comments", testCase.body)
 
-			executeTestRequest(t, req, testCase.expectedStatus, handler.CreateComment)
+			executeTestRequest(t, request, testCase.expectedStatus, handler.CreateComment)
 		})
 	}
 }
 
 // run in order after TestCreateComment
 func TestUpdateComment(t *testing.T) {
-	testCases := []struct {
-		name              string
-		commentIdUrlParam string
-		input             CommentUpdateRequest
-		expectedStatus    int
-	}{
+	testCases := []TestingCase{
 		{
-			name:              "Update comment",
-			commentIdUrlParam: "6",
-			input:             CommentUpdateRequest{Body: "This is a test comment"},
-			expectedStatus:    http.StatusNoContent,
+			name:           "Update comment",
+			urlParams:      map[string]string{"commentId": "6"},
+			body:           map[string]any{"body": "This is a test comment"},
+			expectedStatus: http.StatusNoContent,
 		},
 		{
-			name:              "Update comment invalid id",
-			commentIdUrlParam: "a",
-			input:             CommentUpdateRequest{Body: "This is a test comment"},
-			expectedStatus:    http.StatusBadRequest,
+			name:           "Update comment invalid id",
+			urlParams:      map[string]string{"commentId": "a"},
+			body:           map[string]any{"body": "This is a test comment"},
+			expectedStatus: http.StatusBadRequest,
 		},
 		{
-			name:              "Update comment not found",
-			commentIdUrlParam: "0",
-			input:             CommentUpdateRequest{Body: "This is a test comment"},
-			expectedStatus:    http.StatusInternalServerError,
+			name:           "Update comment not found",
+			urlParams:      map[string]string{"commentId": "0"},
+			body:           map[string]any{"body": "This is a test comment"},
+			expectedStatus: http.StatusInternalServerError,
 		},
 		{
-			name:              "Update comment empty body",
-			commentIdUrlParam: "1",
-			input:             CommentUpdateRequest{Body: ""},
-			expectedStatus:    http.StatusBadRequest,
+			name:           "Update comment empty body",
+			urlParams:      map[string]string{"commentId": "1"},
+			body:           map[string]any{"body": ""},
+			expectedStatus: http.StatusBadRequest,
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			body, err := json.Marshal(testCase.input)
-			if err != nil {
-				t.Fatalf("Failed to marshal input: %v", err)
-			}
+			t.Parallel()
 
-			req := newTestRequest(t, http.MethodPut, "/comments/", bytes.NewReader(body))
-			req = applyRouteParams(req, map[string]string{"commentId": testCase.commentIdUrlParam})
+			request := newTestRequestWithBody(t, http.MethodPut, "/comments/", testCase.body)
+			request = applyURLParams(request, testCase.urlParams)
 
-			executeTestRequest(t, req, testCase.expectedStatus, handler.UpdateComment)
+			executeTestRequest(t, request, testCase.expectedStatus, handler.UpdateComment)
 		})
 	}
 }
 
 // run in order after TestUpdateComment and TestCreateComment
 func TestDeleteComment(t *testing.T) {
-	testCases := []struct {
-		name              string
-		commentIdUrlParam string
-		expectedStatus    int
-	}{
+	testCases := []TestingCase{
 		{
-			name:              "Delete comment",
-			commentIdUrlParam: "6",
-			expectedStatus:    http.StatusNoContent,
+			name:           "Delete comment",
+			urlParams:      map[string]string{"commentId": "6"},
+			expectedStatus: http.StatusNoContent,
 		},
 		{
-			name:              "Delete comment invalid id",
-			commentIdUrlParam: "a",
-			expectedStatus:    http.StatusBadRequest,
+			name:           "Delete comment invalid id",
+			urlParams:      map[string]string{"commentId": "a"},
+			expectedStatus: http.StatusBadRequest,
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			req := newTestRequest(t, http.MethodDelete, "/comments/", nil)
-			req = applyRouteParams(req, map[string]string{"commentId": testCase.commentIdUrlParam})
+			request := newTestRequest(t, http.MethodDelete, "/comments/", nil)
+			request = applyURLParams(request, testCase.urlParams)
 
-			executeTestRequest(t, req, testCase.expectedStatus, handler.DeleteComment)
+			executeTestRequest(t, request, testCase.expectedStatus, handler.DeleteComment)
 		})
 	}
 
@@ -241,50 +217,41 @@ func TestDeleteComment(t *testing.T) {
 
 // run in order after TestDeleteComment
 func TestVoteComment(t *testing.T) {
-	testCases := []struct {
-		name              string
-		commentIdUrlParam string
-		voteRequest       VoteRequest
-		expectedStatus    int
-	}{
+	testCases := []TestingCase{
 		{
-			name:              "Vote comment up",
-			commentIdUrlParam: "1",
-			voteRequest:       VoteRequest{Vote: sql.VoteTypeUp},
-			expectedStatus:    http.StatusNoContent,
+			name:           "Vote comment up",
+			urlParams:      map[string]string{"commentId": "1"},
+			body:           map[string]any{"vote": sql.VoteTypeUp},
+			expectedStatus: http.StatusNoContent,
 		},
 		{
-			name:              "Vote comment down",
-			commentIdUrlParam: "1",
-			voteRequest:       VoteRequest{Vote: sql.VoteTypeDown},
-			expectedStatus:    http.StatusNoContent,
+			name:           "Vote comment down",
+			urlParams:      map[string]string{"commentId": "1"},
+			body:           map[string]any{"vote": sql.VoteTypeDown},
+			expectedStatus: http.StatusNoContent,
 		},
 		{
-			name:              "Vote comment up empty id",
-			commentIdUrlParam: "",
-			voteRequest:       VoteRequest{Vote: sql.VoteTypeUp},
-			expectedStatus:    http.StatusBadRequest,
+			name:           "Vote comment up empty id",
+			urlParams:      map[string]string{"commentId": ""},
+			body:           map[string]any{"vote": sql.VoteTypeUp},
+			expectedStatus: http.StatusBadRequest,
 		},
 		{
-			name:              "Vote comment up invalid id",
-			commentIdUrlParam: "a",
-			voteRequest:       VoteRequest{Vote: sql.VoteTypeUp},
-			expectedStatus:    http.StatusBadRequest,
+			name:           "Vote comment up invalid id",
+			urlParams:      map[string]string{"commentId": "a"},
+			body:           map[string]any{"vote": sql.VoteTypeUp},
+			expectedStatus: http.StatusBadRequest,
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			body, err := json.Marshal(testCase.voteRequest)
-			if err != nil {
-				t.Fatalf("Failed to marshal input: %v", err)
-			}
+			t.Parallel()
 
-			req := newTestRequest(t, http.MethodPatch, "/comments/"+testCase.commentIdUrlParam+"/vote", bytes.NewReader(body))
-			req.Header.Set("Content-Type", "application/json")
-			req = applyRouteParams(req, map[string]string{"commentId": testCase.commentIdUrlParam})
+			request := newTestRequestWithBody(t, http.MethodPatch, "/comments/vote", testCase.body)
+			request = applyURLParams(request, testCase.urlParams)
 
-			executeTestRequest(t, req, testCase.expectedStatus, handler.VoteComment)
+			executeTestRequest(t, request, testCase.expectedStatus, handler.VoteComment)
 		})
 	}
 }

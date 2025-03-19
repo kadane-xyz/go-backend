@@ -168,7 +168,6 @@ func (h *Handler) CreateSubmission(ctx context.Context, request SubmissionReques
 	var failedSubmission *Submission
 	var passedTestCases int32      // total test cases passed
 	var failedTestCase RunTestCase // failed test case
-	var failed bool = false        // failed to set failed test case once
 	// First pass: check for any failures and collect totals
 	for i, resp := range submissionResponses {
 		language := judge0.LanguageIDToLanguage(int(resp.Language.ID))
@@ -188,9 +187,16 @@ func (h *Handler) CreateSubmission(ctx context.Context, request SubmissionReques
 		expectedOutput = strings.ReplaceAll(expectedOutput, "\n", "")
 
 		// Now compare normalized outputs
-		if resp.Status.Description != "Accepted" || resp.CompileOutput != "" || actualOutput != expectedOutput {
+		if actualOutput == "" || actualOutput != expectedOutput || resp.CompileOutput != "" {
+			var submissionStatus sql.SubmissionStatus
+			if resp.Status.Description != "Accepted" {
+				submissionStatus = sql.SubmissionStatus(resp.Status.Description)
+			} else {
+				submissionStatus = sql.SubmissionStatusWrongAnswer
+			}
+
 			failedSubmission = &Submission{
-				Status:        "Wrong Answer",
+				Status:        submissionStatus,
 				Memory:        resp.Memory,
 				Time:          resp.Time,
 				Stdout:        resp.Stdout,
@@ -200,20 +206,15 @@ func (h *Handler) CreateSubmission(ctx context.Context, request SubmissionReques
 				Language:      language,
 			}
 
-			// if failed, set failed test case first time
-			if !failed {
-				failedTestCase = RunTestCase{
-					Time:           resp.Time,
-					Memory:         resp.Memory,
-					Status:         "Wrong Answer",
-					Input:          testCases[i].Input,
-					Output:         resp.Stdout,
-					CompileOutput:  resp.CompileOutput,
-					ExpectedOutput: expectedOutput,
-				}
+			failedTestCase = RunTestCase{
+				Time:           resp.Time,
+				Memory:         resp.Memory,
+				Status:         submissionStatus,
+				Input:          testCases[i].Input,
+				Output:         resp.Stdout,
+				CompileOutput:  resp.CompileOutput,
+				ExpectedOutput: expectedOutput,
 			}
-
-			failed = true // set failed to true
 
 			break
 		}
@@ -254,20 +255,25 @@ func (h *Handler) CreateSubmission(ctx context.Context, request SubmissionReques
 		avgSubmission = *failedSubmission
 	}
 
+	failedTestCaseJson, _ := json.Marshal(failedTestCase)
+
 	dbSubmission := sql.CreateSubmissionParams{
-		ID:            pgtype.UUID{Bytes: uuid.New(), Valid: true},
-		AccountID:     userId,
-		ProblemID:     problem.ID,
-		SubmittedCode: request.SourceCode,
-		Status:        avgSubmission.Status,
-		Stdout:        avgSubmission.Stdout,
-		Time:          avgSubmission.Time,
-		Memory:        int32(avgSubmission.Memory),
-		Stderr:        avgSubmission.Stderr,
-		CompileOutput: avgSubmission.CompileOutput,
-		Message:       avgSubmission.Message,
-		LanguageID:    lastLanguageID,
-		LanguageName:  lastLanguageName,
+		ID:              pgtype.UUID{Bytes: uuid.New(), Valid: true},
+		AccountID:       userId,
+		ProblemID:       problem.ID,
+		SubmittedCode:   request.SourceCode,
+		Status:          avgSubmission.Status,
+		Stdout:          avgSubmission.Stdout,
+		Time:            avgSubmission.Time,
+		Memory:          int32(avgSubmission.Memory),
+		Stderr:          avgSubmission.Stderr,
+		CompileOutput:   avgSubmission.CompileOutput,
+		Message:         avgSubmission.Message,
+		LanguageID:      lastLanguageID,
+		LanguageName:    lastLanguageName,
+		FailedTestCase:  failedTestCaseJson,
+		PassedTestCases: int32(passedTestCases),
+		TotalTestCases:  int32(totalTestCases),
 	}
 
 	// create submission in db
@@ -478,22 +484,31 @@ func (h *Handler) GetSubmissionsByUsername(w http.ResponseWriter, r *http.Reques
 	submissionResults := make([]Submission, 0)
 	for _, submission := range submissions {
 		submissionId := uuid.UUID(submission.ID.Bytes)
+		submissionFailedTestCase := RunTestCase{}
+		err = json.Unmarshal(submission.FailedTestCase, &submissionFailedTestCase)
+		if err != nil {
+			apierror.SendError(w, http.StatusInternalServerError, "Failed to unmarshal failed test case")
+			return
+		}
 		submissionResults = append(submissionResults, Submission{
-			Id:             submissionId.String(),
-			Stdout:         submission.Stdout.String,
-			Time:           submission.Time.String,
-			Memory:         int(submission.Memory.Int32),
-			Stderr:         submission.Stderr.String,
-			CompileOutput:  submission.CompileOutput.String,
-			Message:        submission.Message.String,
-			Status:         submission.Status,
-			Language:       judge0.LanguageIDToLanguage(int(submission.LanguageID)),
-			AccountID:      submission.AccountID,
-			SubmittedCode:  submission.SubmittedCode,
-			SubmittedStdin: submission.SubmittedStdin.String,
-			ProblemID:      submission.ProblemID,
-			CreatedAt:      submission.CreatedAt.Time,
-			Starred:        submission.Starred,
+			Id:              submissionId.String(),
+			Stdout:          submission.Stdout.String,
+			Time:            submission.Time.String,
+			Memory:          int(submission.Memory.Int32),
+			Stderr:          submission.Stderr.String,
+			CompileOutput:   submission.CompileOutput.String,
+			Message:         submission.Message.String,
+			Status:          submission.Status,
+			Language:        judge0.LanguageIDToLanguage(int(submission.LanguageID)),
+			AccountID:       submission.AccountID,
+			SubmittedCode:   submission.SubmittedCode,
+			SubmittedStdin:  submission.SubmittedStdin.String,
+			ProblemID:       submission.ProblemID,
+			CreatedAt:       submission.CreatedAt.Time,
+			Starred:         submission.Starred,
+			FailedTestCase:  submissionFailedTestCase,
+			PassedTestCases: submission.PassedTestCases.Int32,
+			TotalTestCases:  submission.TotalTestCases.Int32,
 		})
 	}
 
