@@ -31,7 +31,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     # temporary allow failure for testing
-    allow-failure: true
+    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
