@@ -215,6 +215,20 @@ func (h *Handler) handleJudge0Responses(userId string, runRequest RunRequest, te
 		}
 	}
 
+	totalCorrect := 0
+	for _, testCase := range runResult.TestCases {
+		if testCase.Status == "Accepted" {
+			totalCorrect++
+		}
+	}
+
+	totalTestCases := len(runResult.TestCases)
+	if totalCorrect == totalTestCases {
+		runResult.Status = sql.SubmissionStatus("Accepted")
+	} else {
+		runResult.Status = sql.SubmissionStatus("Wrong Answer")
+	}
+
 	finalRunResult, err := SummarizeRunResponses(userId, int32(runRequest.ProblemID), runRequest.SourceCode, expectedOutput, judge0Responses)
 	if err != nil {
 		return nil, apierror.NewError(http.StatusInternalServerError, "Failed to process submission")
