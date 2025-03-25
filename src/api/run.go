@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -55,53 +54,62 @@ type RunsResponse struct {
 	Data []RunResult `json:"data"`
 }
 
-// SummarizeRunResponses summarizes the run responses for use in parent RunResult object
-func SummarizeRunResponses(userId string, problemId int32, sourceCode string, expectedOutput []string, submissionResponses []judge0.SubmissionResult) (RunResult, error) {
-	// Calculate averages from all submission responses
+// AggregateTestResults aggregates the results of multiple test runs
+// Renamed from SummarizeRunResponses to better reflect its purpose
+func AggregateTestResults(userId string, problemId int32, sourceCode string, expectedOutput []string, submissionResponses []judge0.SubmissionResult) (RunResult, error) {
+	// Initialize the result structure
+	runResult := RunResult{
+		AccountID: userId,
+		ProblemID: problemId,
+		CreatedAt: time.Now(),
+		Status:    sql.SubmissionStatusAccepted, // Default to Accepted, will override if any failures
+		TestCases: make([]RunTestCase, 0, len(submissionResponses)),
+	}
+
 	var totalMemory int
 	var totalTime float64
-	var runResult RunResult // failed run response if any
 
-	// First pass: check for any failures and collect totals
+	// Process all test cases
 	for i, resp := range submissionResponses {
+		testCaseStatus := sql.SubmissionStatus(resp.Status.Description)
+
+		// Add test case to results
 		runResult.TestCases = append(runResult.TestCases, RunTestCase{
 			Time:           resp.Time,
 			Memory:         resp.Memory,
-			Status:         sql.SubmissionStatus(resp.Status.Description),
+			Status:         testCaseStatus,
 			Output:         resp.Stdout,
 			CompileOutput:  resp.CompileOutput,
-			ExpectedOutput: expectedOutput[i], // add expected output to test case back
+			ExpectedOutput: expectedOutput[i],
 		})
 
-		if runResult.Status != "" {
-			runResult.Status = sql.SubmissionStatus(resp.Status.Description)
+		// If any test case failed, update the overall status
+		if testCaseStatus != sql.SubmissionStatusAccepted {
+			runResult.Status = testCaseStatus
 		}
 
+		// Collect metrics for averaging
 		totalMemory += resp.Memory
 		if timeVal, err := strconv.ParseFloat(resp.Time, 64); err == nil {
 			totalTime += timeVal
 		}
 	}
 
-	// Create the averaged submission
+	// Calculate averages
 	count := len(submissionResponses)
 	lastResp := submissionResponses[len(submissionResponses)-1]
 
-	response := RunResult{
-		Status:    runResult.Status,
-		Memory:    int32(totalMemory / count),
-		Time:      fmt.Sprintf("%.3f", totalTime/float64(count)),
-		Language:  judge0.LanguageIDToLanguage(int(lastResp.Language.ID)),
-		TestCases: runResult.TestCases,
-		AccountID: userId,
-		ProblemID: problemId,
-		CreatedAt: time.Now(),
-	}
+	// Set the averaged metrics
+	runResult.Memory = int32(totalMemory / count)
+	runResult.Time = fmt.Sprintf("%.3f", totalTime/float64(count))
+	runResult.Language = judge0.LanguageIDToLanguage(int(lastResp.Language.ID))
 
-	return response, nil
+	return runResult, nil
 }
 
-func RunRequestValidate(w http.ResponseWriter, r *http.Request) (RunRequest, *apierror.APIError) {
+// ValidateRunRequest validates the incoming run request
+// Renamed from RunRequestValidate to follow verb-noun convention
+func ValidateRunRequest(w http.ResponseWriter, r *http.Request) (RunRequest, *apierror.APIError) {
 	runRequest, apiErr := DecodeJSONRequest[RunRequest](r)
 	if apiErr != nil {
 		return RunRequest{}, apiErr
@@ -126,7 +134,9 @@ func RunRequestValidate(w http.ResponseWriter, r *http.Request) (RunRequest, *ap
 	return runRequest, nil
 }
 
-func (h *Handler) handleProblem(r *http.Request, userId string, runRequest RunRequest) (sql.GetProblemRow, *apierror.APIError) {
+// FetchAndValidateProblem gets problem details and validates against request
+// Renamed from handleProblem to be more specific about what it does
+func (h *Handler) FetchAndValidateProblem(r *http.Request, userId string, runRequest RunRequest) (sql.GetProblemRow, *apierror.APIError) {
 	// Get problem
 	problem, err := h.PostgresQueries.GetProblem(r.Context(), sql.GetProblemParams{
 		ProblemID: int32(runRequest.ProblemID),
@@ -144,7 +154,9 @@ func (h *Handler) handleProblem(r *http.Request, userId string, runRequest RunRe
 	return problem, nil
 }
 
-func (h *Handler) handleJudge0Submissions(runRequest RunRequest, testCases []TestCase, problem sql.GetProblemRow) ([]judge0.Submission, *apierror.APIError) {
+// PrepareJudge0Submissions creates submissions for Judge0 from test cases
+// Renamed from createJudge0Submissions to be more descriptive
+func (h *Handler) PrepareJudge0Submissions(runRequest RunRequest, testCases []TestCase, problem sql.GetProblemRow) ([]judge0.Submission, *apierror.APIError) {
 	var judge0Submissions []judge0.Submission // submissions for judge0 to run
 
 	for _, testCase := range testCases {
@@ -174,109 +186,138 @@ func (h *Handler) handleJudge0Submissions(runRequest RunRequest, testCases []Tes
 	return judge0Submissions, nil
 }
 
-func (h *Handler) handleJudge0Responses(userId string, runRequest RunRequest, testCases []TestCase, judge0Responses []judge0.SubmissionResult) (*RunResult, *apierror.APIError) {
-	var runResult RunResult     // run result
-	var expectedOutput []string // expected output for each test case
-	var err error
+// ProcessTestCaseResults processes each test case result and determines overall status
+// Split from handleJudge0Responses to separate concerns
+func ProcessTestCaseResults(testCases []TestCase, judge0Responses []judge0.SubmissionResult) ([]RunTestCase, map[string]int, []string) {
+	testCaseResults := make([]RunTestCase, len(judge0Responses))
+	statusMap := make(map[string]int)
+	expectedOutput := make([]string, len(testCases))
 
-	// Check judge0 responses
-	for i, judge0Response := range judge0Responses {
-		// store user code test case results
-		runResult.TestCases = append(runResult.TestCases, RunTestCase{
-			Time:           judge0Response.Time,
-			Memory:         int(judge0Response.Memory),
-			Status:         sql.SubmissionStatus(judge0Response.Status.Description),
+	for i, resp := range judge0Responses {
+		expectedOutput[i] = testCases[i].Output
+		actualOutput := resp.Stdout
+
+		// Determine status using helper function
+		status := DetermineTestCaseStatus(resp, actualOutput, testCases[i].Output)
+
+		// Record test case result
+		testCaseResults[i] = RunTestCase{
+			Time:           resp.Time,
+			Memory:         int(resp.Memory),
+			Status:         status,
 			Input:          testCases[i].Input,
-			Output:         judge0Response.Stdout,
-			CompileOutput:  judge0Response.CompileOutput,
-			ExpectedOutput: testCases[i].Output, // solution code output
-		})
-
-		// add expected output to array for summarizing
-		expectedOutput = append(expectedOutput, testCases[i].Output)
-
-		// check stdout before using status and remove spaces from array elements
-		if strings.Contains(judge0Response.Stdout, "[") {
-			judge0Response.Stdout = strings.ReplaceAll(judge0Response.Stdout, " ", "")
+			Output:         resp.Stdout,
+			CompileOutput:  resp.CompileOutput,
+			ExpectedOutput: testCases[i].Output,
 		}
 
-		// remove newlines from stdout
-		if strings.Contains(judge0Response.Stdout, "\n") {
-			judge0Response.Stdout = strings.ReplaceAll(judge0Response.Stdout, "\n", "")
-		}
-
-		// First check if both executions were successful
-		if judge0Response.Status.Description != "Accepted" || judge0Response.Stdout != testCases[i].Output {
-			// store user code test case results
-			runResult.TestCases[i].Status = sql.SubmissionStatus("Wrong Answer")
-
-			// Update run result status
-			runResult.Status = sql.SubmissionStatus("Wrong Answer")
-		}
+		// Track status counts
+		statusMap[string(status)]++
 	}
 
-	totalCorrect := 0
-	for _, testCase := range runResult.TestCases {
-		if testCase.Status == "Accepted" {
-			totalCorrect++
-		}
+	return testCaseResults, statusMap, expectedOutput
+}
+
+// DetermineTestCaseStatus determines the status of a single test case
+// New helper function extracted from handleJudge0Responses
+func DetermineTestCaseStatus(response judge0.SubmissionResult, actualOutput, expectedOutput string) sql.SubmissionStatus {
+	if response.Status.Description != "Accepted" {
+		return sql.SubmissionStatus(response.Status.Description)
 	}
 
-	totalTestCases := len(runResult.TestCases)
-	if totalCorrect == totalTestCases {
-		runResult.Status = sql.SubmissionStatus("Accepted")
-	} else {
-		runResult.Status = sql.SubmissionStatus("Wrong Answer")
+	normalizedActual := NormalizeOutput(actualOutput)
+	normalizedExpected := NormalizeOutput(expectedOutput)
+
+	if normalizedActual != normalizedExpected || response.CompileOutput != "" {
+		return sql.SubmissionStatusWrongAnswer
 	}
 
-	finalRunResult, err := SummarizeRunResponses(userId, int32(runRequest.ProblemID), runRequest.SourceCode, expectedOutput, judge0Responses)
+	return sql.SubmissionStatusAccepted
+}
+
+// NormalizeOutput standardizes output for comparison
+// New helper function extracted from prior code
+func NormalizeOutput(output string) string {
+	result := output
+	// Remove spaces from array elements
+	if strings.Contains(result, "[") {
+		result = strings.ReplaceAll(result, " ", "")
+	}
+	// Remove newlines
+	return strings.ReplaceAll(result, "\n", "")
+}
+
+// EvaluateRunResults processes judge0 responses and creates final result
+// Renamed from handleJudge0Responses to better reflect its purpose
+func (h *Handler) EvaluateRunResults(userId string, runRequest RunRequest, testCases []TestCase, judge0Responses []judge0.SubmissionResult) (*RunResult, *apierror.APIError) {
+	// Process each test case
+	testCaseResults, statusMap, expectedOutput := ProcessTestCaseResults(testCases, judge0Responses)
+
+	// Determine overall status
+	overallStatus := DetermineOverallStatus(statusMap, len(testCases))
+
+	// Get the aggregated results which includes all metadata
+	finalResult, err := AggregateTestResults(userId, int32(runRequest.ProblemID), runRequest.SourceCode, expectedOutput, judge0Responses)
 	if err != nil {
 		return nil, apierror.NewError(http.StatusInternalServerError, "Failed to process submission")
 	}
 
-	// If all test cases passed, create submission with averaged results
-	if runResult.Status == "" {
-		runResult = finalRunResult
+	// Always use the aggregated results, but override status and test cases if needed
+	if overallStatus != sql.SubmissionStatusAccepted {
+		// Keep metadata from finalResult but use our calculated status and test cases
+		finalResult.Status = overallStatus
+		finalResult.TestCases = testCaseResults
 	}
 
-	return &runResult, nil
+	return &finalResult, nil
 }
 
-// Runs should check public test cases first and then user test cases
-func (h *Handler) CreateRun(r *http.Request, userId string, runRequest RunRequest) (*RunResultResponse, *apierror.APIError) {
+// DetermineOverallStatus calculates the overall submission status
+// New helper function extracted from EvaluateRunResults
+func DetermineOverallStatus(statusMap map[string]int, totalTestCases int) sql.SubmissionStatus {
+	if statusMap[string(sql.SubmissionStatusAccepted)] == totalTestCases {
+		return sql.SubmissionStatusAccepted
+	}
+
+	var errorStatuses []string
+	for status, count := range statusMap {
+		if status != string(sql.SubmissionStatusAccepted) && count > 0 {
+			errorStatuses = append(errorStatuses, status)
+		}
+	}
+	return sql.SubmissionStatus(strings.Join(errorStatuses, ","))
+}
+
+// ExecuteCodeRun processes a code run request end-to-end
+// Renamed from CreateRun to better describe what it does
+func (h *Handler) ExecuteCodeRun(r *http.Request, userId string, runRequest RunRequest) (*RunResultResponse, *apierror.APIError) {
 	// Get problem
-	problem, apiErr := h.handleProblem(r, userId, runRequest)
+	problem, apiErr := h.FetchAndValidateProblem(r, userId, runRequest)
 	if apiErr != nil {
 		return nil, apiErr
 	}
 
-	// Create submissions for judge0 for each test case
-	judge0Submissions, apiErr := h.handleJudge0Submissions(runRequest, runRequest.TestCases, problem)
+	// Create submissions for judge0
+	submissions, apiErr := h.PrepareJudge0Submissions(runRequest, runRequest.TestCases, problem)
 	if apiErr != nil {
 		return nil, apiErr
 	}
 
 	// Send submissions to judge0
-	judge0Responses, err := h.Judge0Client.CreateSubmissionBatchAndWait(judge0Submissions)
+	judge0Responses, err := h.Judge0Client.CreateSubmissionBatchAndWait(submissions)
 	if err != nil {
 		return nil, apierror.NewError(http.StatusInternalServerError, "Failed to create solution submission")
 	}
 
-	// Get submission results and test cases
-	runResult, apiErr := h.handleJudge0Responses(userId, runRequest, runRequest.TestCases, judge0Responses)
+	// Process results
+	runResult, apiErr := h.EvaluateRunResults(userId, runRequest, runRequest.TestCases, judge0Responses)
 	if apiErr != nil {
 		return nil, apiErr
 	}
 
-	// Create response
-	response := RunResultResponse{
-		Data: runResult,
-	}
-
-	return &response, nil
+	return &RunResultResponse{Data: runResult}, nil
 }
 
-// POST: /runs
 func (h *Handler) CreateRunRoute(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
 	userId, err := GetClientUserID(w, r)
@@ -285,19 +326,17 @@ func (h *Handler) CreateRunRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate request body
-	body, apiErr := RunRequestValidate(w, r)
+	body, apiErr := ValidateRunRequest(w, r)
 	if apiErr != nil {
 		apierror.SendError(w, apiErr.StatusCode(), apiErr.Message())
 		return
 	}
 
-	response, apiErr := h.CreateRun(r, userId, body)
+	response, apiErr := h.ExecuteCodeRun(r, userId, body)
 	if apiErr != nil {
 		apierror.SendError(w, apiErr.StatusCode(), apiErr.Message())
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(response)
+	SendJSONResponse(w, http.StatusCreated, response)
 }
