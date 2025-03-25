@@ -1,16 +1,16 @@
 services:
-  api:
-    build: .
-    ports:
-      - 80:80/tcp
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://127.0.0.1/health"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    env_file: 
-      - '.env'
-    restart: unless-stopped
+ # api:
+ #   build: .
+ #   ports:
+ #     - 80:80/tcp
+ #   healthcheck:
+ #     test: ["CMD", "curl", "-f", "http://127.0.0.1/health"]
+ #     interval: 5s
+ #     timeout: 5s
+ #     retries: 5
+ #   env_file: 
+ #     - '.env'
+ #   restart: unless-stopped
   doc:
     image: redocly/redoc
     ports:
@@ -18,7 +18,7 @@ services:
     environment:
       SPEC_URL: swagger.yaml
     volumes:
-      - ./openapi.yaml:/usr/share/nginx/html/swagger.yaml
+      - ./docs/openapi.yaml:/usr/share/nginx/html/swagger.yaml
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:80"]
       interval: 5s
@@ -32,9 +32,9 @@ services:
       - 5432:5432/tcp
     volumes:
       - postgres:/var/lib/postgresql/data
-      - ./src/sql/schemas:/docker-entrypoint-initdb.d/schemas
-      - ./src/sql/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
-      - ./src/sql/data:/docker-entrypoint-initdb.d/data
+      - ./database/schemas:/docker-entrypoint-initdb.d/schemas
+      - ./database/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
+      - ./database/data:/docker-entrypoint-initdb.d/data
     env_file:
       - '.env' 
     healthcheck:
