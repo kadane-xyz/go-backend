@@ -8,15 +8,15 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 
-	appConfig "kadane.xyz/go-backend/v2/src/config"
+	serverConfig "kadane.xyz/go-backend/v2/internal/config"
 )
 
-func NewAWSClient(appConfig *appConfig.Config) (*s3.Client, error) {
-	cfg, err := config.LoadDefaultConfig(context.TODO(),
-		config.WithRegion("us-east-2"),
+func NewAWSClient(cfg *serverConfig.Config) (*s3.Client, error) {
+	awsCfg, err := config.LoadDefaultConfig(context.TODO(),
+		config.WithRegion(cfg.AWS.Region),
 		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(
-			appConfig.AWSKey,
-			appConfig.AWSSecret,
+			cfg.AWS.Key,
+			cfg.AWS.Secret,
 			"",
 		)),
 	)
@@ -25,7 +25,7 @@ func NewAWSClient(appConfig *appConfig.Config) (*s3.Client, error) {
 		return nil, err
 	}
 
-	client := s3.NewFromConfig(cfg)
+	client := s3.NewFromConfig(awsCfg)
 	if client == nil {
 		log.Printf("error creating AWS client: %v\n", err)
 		return nil, err

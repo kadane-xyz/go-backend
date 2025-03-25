@@ -11,9 +11,9 @@ import (
 	"github.com/go-chi/cors"
 	"github.com/go-chi/httprate"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"kadane.xyz/go-backend/v2/internal/apierror"
 	"kadane.xyz/go-backend/v2/internal/config"
-	"kadane.xyz/go-backend/v2/internal/sql/sql"
+	"kadane.xyz/go-backend/v2/internal/database/sql"
+	"kadane.xyz/go-backend/v2/internal/errors"
 )
 
 type Handler struct {
@@ -45,7 +45,7 @@ func BlockConnectMethod(next http.Handler) http.Handler {
 				r.URL.Path,
 				r.RemoteAddr,
 			)
-			apierror.SendError(w, http.StatusMethodNotAllowed, "CONNECT method is not allowed")
+			errors.NewMethodNotAllowedError("CONNECT method is not allowed")
 			return
 		}
 		next.ServeHTTP(w, r)

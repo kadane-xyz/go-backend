@@ -69,10 +69,10 @@ var LoggerSinks = []LoggerSink{
 		Name: "Console",
 		Type: SinkTypeConsole,
 		Environments: []config.Environment{
-			config.EnvProduction,
-			config.EnvStaging,
-			config.EnvDevelopment,
-			config.EnvTest,
+			config.Production,
+			config.Staging,
+			config.Development,
+			config.Test,
 		},
 		LogTypes: []LogType{
 			LogTypeConsole,
@@ -221,8 +221,8 @@ func (m *LoggerSinkManager) InitializeLoggerSinks() error {
 			Name: "Debug",
 			Type: SinkTypeConsole,
 			Environments: []config.Environment{
-				config.EnvDevelopment,
-				config.EnvTest,
+				config.Development,
+				config.Test,
 			},
 			LogTypes: []LogType{
 				LogTypeConsole,
@@ -251,9 +251,9 @@ func getZapConfig(environment config.Environment) *zap.Config {
 	var zapConfig zap.Config
 
 	switch environment {
-	case config.EnvProduction, config.EnvStaging:
+	case config.Production, config.Staging:
 		zapConfig = zap.NewProductionConfig()
-	case config.EnvDevelopment, config.EnvTest:
+	case config.Development, config.Test:
 		zapConfig = zap.NewDevelopmentConfig()
 	default:
 		return nil
@@ -302,9 +302,9 @@ func getZapEncodingOutputPaths(sink LoggerSink) []string {
 	switch sink.Type {
 	case SinkTypeConsole:
 		return []string{"stdout"}
-	case SinkTypeGoogle:
+	case SinkTypeAWS:
 		return []string{"stdout"}
-	case SinkTypeSentry:
+	case SinkTypeDatadog:
 		return []string{"stdout"}
 	default:
 		return nil
@@ -458,19 +458,6 @@ func (m *LoggerSinkManager) Emergency(logType LogType, msg string, fields ...zap
 	m.processAndSendLog(LogLevelEmergency, logType, msg, fields...)
 }
 
-// Shorthand convenience methods for common log types
-func (m *LoggerSinkManager) ConsoleDebug(msg string, fields ...zap.Field) {
-	m.Debug(LogTypeConsole, msg, fields...)
-}
-
-func (m *LoggerSinkManager) RequestInfo(msg string, fields ...zap.Field) {
-	m.Info(LogTypeRequest, msg, fields...)
-}
-
-func (m *LoggerSinkManager) JobError(msg string, fields ...zap.Field) {
-	m.Error(LogTypeJobs, msg, fields...)
-}
-
 func formatLogMessage(logType LogType, fields ...zap.Field) []zap.Field {
 	// Add extra data to the fields
 	var extraFields []zap.Field
@@ -519,14 +506,6 @@ func (m *LoggerSinkManager) writeLogToSink(sink LoggerSink, level LogLevel, mess
 	case SinkTypeConsole:
 		if m.Clients.ConsoleLogger != nil {
 			writeLogWithLevel(m.Clients.ConsoleLogger[sink.Name], level, message, fields...)
-		}
-	case SinkTypeGoogle:
-		if m.Clients.GoogleLogger != nil {
-			writeLogWithLevel(m.Clients.GoogleLogger[sink.Name], level, message, fields...)
-		}
-	case SinkTypeSentry:
-		if m.Clients.SentryLogger != nil {
-			writeLogWithLevel(m.Clients.SentryLogger[sink.Name], level, message, fields...)
 		}
 	}
 }

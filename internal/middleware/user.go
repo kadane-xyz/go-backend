@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"kadane.xyz/go-backend/v2/src/apierror"
+	"kadane.xyz/go-backend/v2/internal/errors"
 )
 
 func (h *Handler) UserAuth() func(http.Handler) http.Handler {
@@ -13,12 +13,12 @@ func (h *Handler) UserAuth() func(http.Handler) http.Handler {
 			rawClaims := r.Context().Value(ClientTokenKey)
 			claims, ok := rawClaims.(ClientContext)
 			if !ok {
-				apierror.SendError(w, http.StatusUnauthorized, "Unauthorized")
+				errors.NewUnauthorizedError("Unauthorized")
 				return
 			}
 			accountPlan, err := h.PostgresQueries.GetAccountPlan(r.Context(), claims.UserID)
 			if err != nil {
-				apierror.SendError(w, http.StatusForbidden, "Forbidden")
+				errors.NewForbiddenError("Forbidden")
 				return
 			}
 

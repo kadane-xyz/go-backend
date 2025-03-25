@@ -14,12 +14,13 @@ import (
 // Internal server errors
 
 var (
-	ErrInvalidRequest = errors.New("invalid request")
-	ErrInternalServer = errors.New("internal server error")
-	ErrNotFound       = errors.New("not found")
-	ErrUnauthorized   = errors.New("unauthorized")
-	ErrForbidden      = errors.New("forbidden")
-	ErrConflict       = errors.New("conflict")
+	ErrInvalidRequest   = errors.New("invalid request")
+	ErrInternalServer   = errors.New("internal server error")
+	ErrNotFound         = errors.New("not found")
+	ErrUnauthorized     = errors.New("unauthorized")
+	ErrForbidden        = errors.New("forbidden")
+	ErrConflict         = errors.New("conflict")
+	ErrMethodNotAllowed = errors.New("method not allowed")
 )
 
 type Error struct {
@@ -135,6 +136,18 @@ func NewConflictError(message string) *ApiError {
 				Err:        ErrConflict,
 				Message:    message,
 				StatusCode: http.StatusConflict,
+			},
+		},
+	}
+}
+
+func NewMethodNotAllowedError(message string) *ApiError {
+	return &ApiError{
+		Data: ApiErrorData{
+			Error: Error{
+				Err:        ErrMethodNotAllowed,
+				Message:    message,
+				StatusCode: http.StatusMethodNotAllowed,
 			},
 		},
 	}

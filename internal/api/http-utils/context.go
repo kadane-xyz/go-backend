@@ -1,9 +1,9 @@
 package server
 
 import (
-	"errors"
 	"net/http"
 
+	"kadane.xyz/go-backend/v2/internal/errors"
 	"kadane.xyz/go-backend/v2/src/middleware"
 	"kadane.xyz/go-backend/v2/src/sql/sql"
 )
@@ -11,8 +11,7 @@ import (
 func GetClientUserID(w http.ResponseWriter, r *http.Request) (string, error) {
 	value := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).UserID
 	if value == "" {
-		SendError(w, http.StatusBadRequest, "Missing client user ID context")
-		return "", errors.New("missing client user ID context")
+		errors.NewNotFoundError("Missing client user ID context")
 	}
 	return value, nil
 }
@@ -20,8 +19,7 @@ func GetClientUserID(w http.ResponseWriter, r *http.Request) (string, error) {
 func GetClientPlan(w http.ResponseWriter, r *http.Request) (sql.AccountPlan, error) {
 	value := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).Plan
 	if value == "" {
-		SendError(w, http.StatusBadRequest, "Missing client plan context")
-		return "", errors.New("missing client plan context")
+		errors.NewNotFoundError("Missing client plan context")
 	}
 	return value, nil
 }
@@ -33,8 +31,7 @@ func GetClientAdmin(w http.ResponseWriter, r *http.Request) bool {
 func GetClientEmail(w http.ResponseWriter, r *http.Request) (string, error) {
 	value := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).Email
 	if value == "" {
-		SendError(w, http.StatusBadRequest, "Missing client email context")
-		return "", errors.New("missing client email context")
+		errors.NewNotFoundError("Missing client email context")
 	}
 	return value, nil
 }
@@ -42,8 +39,7 @@ func GetClientEmail(w http.ResponseWriter, r *http.Request) (string, error) {
 func GetClientName(w http.ResponseWriter, r *http.Request) (string, error) {
 	value := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext).Name
 	if value == "" {
-		SendError(w, http.StatusBadRequest, "Missing client name context")
-		return "", errors.New("missing client name context")
+		errors.NewNotFoundError("Missing client name context")
 	}
 	return value, nil
 }
@@ -51,8 +47,7 @@ func GetClientName(w http.ResponseWriter, r *http.Request) (string, error) {
 func GetClientFullContext(w http.ResponseWriter, r *http.Request) (middleware.ClientContext, error) {
 	value := r.Context().Value(middleware.ClientTokenKey).(middleware.ClientContext)
 	if value == (middleware.ClientContext{}) {
-		SendError(w, http.StatusBadRequest, "Missing full client context")
-		return middleware.ClientContext{}, errors.New("missing full client context")
+		errors.NewNotFoundError("Missing full client context")
 	}
 	return value, nil
 }

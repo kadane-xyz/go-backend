@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 	"strings"
+
+	"kadane.xyz/go-backend/v2/internal/errors"
 )
 
 // AdminAuth is a middleware that enforces admin authentication for routes that include /admin after the versioning prefix.
@@ -15,14 +17,14 @@ func (h *Handler) AdminAuth() func(http.Handler) http.Handler {
 
 			claims, ok := claimsRaw.(ClientContext)
 			if !ok {
-				api.SendError(w, http.StatusUnauthorized, "Unauthorized")
+				errors.NewUnauthorizedError("Unauthorized")
 				return
 			}
 
 			// Check user admin status
 			isAdmin, err := h.PostgresQueries.ValidateAdmin(r.Context(), claims.UserID)
 			if err != nil {
-				api.SendError(w, http.StatusForbidden, "Forbidden")
+				errors.NewForbiddenError("Forbidden")
 				return
 			}
 

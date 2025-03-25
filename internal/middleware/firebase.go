@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5/middleware"
-	"kadane.xyz/go-backend/v2/src/apierror"
+	"kadane.xyz/go-backend/v2/internal/errors"
 )
 
 func (h *Handler) FirebaseAuth() func(http.Handler) http.Handler {
@@ -22,14 +22,14 @@ func (h *Handler) FirebaseAuth() func(http.Handler) http.Handler {
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
 				log.Printf("Missing Authorization header: %s\n", r.URL.Path)
-				apierror.SendError(w, http.StatusUnauthorized, "Missing Authorization header")
+				errors.NewUnauthorizedError("Missing Authorization header")
 				return
 			}
 
 			const bearerPrefix = "Bearer "
 			if len(authHeader) <= len(bearerPrefix) || authHeader[:len(bearerPrefix)] != bearerPrefix {
 				log.Printf("Invalid Authorization header: %s\n", r.URL.Path)
-				apierror.SendError(w, http.StatusUnauthorized, "Invalid Authorization header")
+				errors.NewUnauthorizedError("Invalid Authorization header")
 				return
 			}
 
@@ -37,7 +37,7 @@ func (h *Handler) FirebaseAuth() func(http.Handler) http.Handler {
 			idToken := authHeader[len(bearerPrefix):]
 			if idToken == "" {
 				log.Printf("Missing ID token: %s\n", r.URL.Path)
-				apierror.SendError(w, http.StatusUnauthorized, "Missing ID token")
+				errors.NewUnauthorizedError("Missing ID token")
 				return
 			}
 
@@ -50,7 +50,7 @@ func (h *Handler) FirebaseAuth() func(http.Handler) http.Handler {
 			token, err := client.VerifyIDToken(r.Context(), idToken)
 			if err != nil {
 				log.Println("Error verifying ID token: ", err)
-				SendError(w, http.StatusUnauthorized, "Invalid Firebase ID token")
+				errors.NewUnauthorizedError("Invalid Firebase ID token")
 				return
 			}
 			claims := ClientContext{

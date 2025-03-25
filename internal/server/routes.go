@@ -35,7 +35,7 @@ func (s *Server) RegisterApiRoutes() {
 			})
 		})
 		//accounts
-		s.mux.Route("/accounts", func(s.mux chi.Router) {
+		s.mux.Route("/accounts", func(r chi.Router) {
 			r.Post("/", s.container.APIHandlers.CreateAccount)
 			r.Get("/", s.container.APIHandlers.GetAccounts)
 			r.Route("/avatar", func(r chi.Router) {
@@ -75,7 +75,7 @@ func (s *Server) RegisterApiRoutes() {
 			})
 		})
 		//problems
-		s.mux.Route("/problems", func(s.mux chi.Router) {
+		s.mux.Route("/problems", func(r chi.Router) {
 			r.Get("/", s.container.APIHandlers.GetProblemsRoute)
 			r.Route("/{problemId}", func(r chi.Router) {
 				r.Get("/", s.container.APIHandlers.GetProblem)
@@ -118,8 +118,8 @@ func (s *Server) RegisterApiRoutes() {
 				r.Put("/", s.container.APIHandlers.PutStarSubmission)
 			})
 		})
-		s.mux.Route("/admin", func(s.mux chi.Router) {
-			s.mux.Route("/problems", func(s.mux chi.Router) {
+		s.mux.Route("/admin", func(r chi.Router) {
+			r.Route("/problems", func(r chi.Router) {
 				r.Get("/", s.container.APIHandlers.GetAdminProblems)
 				r.Post("/", s.container.APIHandlers.CreateAdminProblem)
 				r.Post("/run", s.container.APIHandlers.CreateAdminProblemRun)
