@@ -147,8 +147,7 @@ func (h *Handler) GetAccounts(w http.ResponseWriter, r *http.Request) {
 			Attributes: account.Attributes,
 		})
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	SendJSONResponse(w, http.StatusOK, response)
 }
 
 type CreateAccountRequest struct {
@@ -245,9 +244,7 @@ func (h *Handler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 	}}
 
 	// Send response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(response)
+	SendJSONResponse(w, http.StatusCreated, response)
 }
 
 // POST: /accounts/avatar
@@ -322,9 +319,7 @@ func (h *Handler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 
 	response := AvatarResponse{Data: url}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(response)
+	SendJSONResponse(w, http.StatusCreated, response)
 }
 
 // validateImage checks image type and dimensions
@@ -383,9 +378,7 @@ func (h *Handler) GetAccount(w http.ResponseWriter, r *http.Request) {
 		Attributes: account.Attributes,
 	}}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	SendJSONResponse(w, http.StatusOK, response)
 }
 
 // PUT: /accounts/id
@@ -471,9 +464,7 @@ func (h *Handler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	}}
 
 	// Send response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	SendJSONResponse(w, http.StatusOK, response)
 }
 
 // AccountUpdates tracks which fields are being updated
@@ -666,7 +657,5 @@ func (h *Handler) GetAccountValidation(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	SendJSONResponse(w, http.StatusOK, response)
 }

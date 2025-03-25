@@ -147,9 +147,7 @@ func (h *Handler) GetComments(w http.ResponseWriter, r *http.Request) {
 		Data: topLevelComments,
 	}
 
-	// Set JSON response headers and encode the response directly
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	SendJSONResponse(w, http.StatusOK, response)
 }
 
 // POST: /comments
@@ -207,8 +205,7 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
+	SendJSONResponse(w, http.StatusCreated, nil)
 }
 
 // GET: /comments/{commentId}
@@ -264,9 +261,7 @@ func (h *Handler) GetComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(responseJSON)
+	SendJSONResponse(w, http.StatusOK, responseJSON)
 }
 
 // PUT: /comments/{commentId}
@@ -311,8 +306,7 @@ func (h *Handler) UpdateComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusNoContent)
+	SendJSONResponse(w, http.StatusNoContent, nil)
 }
 
 // DELETE: /comments/{commentId}
@@ -344,8 +338,7 @@ func (h *Handler) DeleteComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusNoContent)
+	SendJSONResponse(w, http.StatusNoContent, nil)
 }
 
 // PATCH: /{commentId}/vote
@@ -398,7 +391,5 @@ func (h *Handler) VoteComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Send the updated comment as the response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusNoContent)
+	SendJSONResponse(w, http.StatusNoContent, nil)
 }

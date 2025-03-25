@@ -135,7 +135,6 @@ func ValidateRunRequest(w http.ResponseWriter, r *http.Request) (RunRequest, *ap
 }
 
 // FetchAndValidateProblem gets problem details and validates against request
-// Renamed from handleProblem to be more specific about what it does
 func (h *Handler) FetchAndValidateProblem(r *http.Request, userId string, runRequest RunRequest) (sql.GetProblemRow, *apierror.APIError) {
 	// Get problem
 	problem, err := h.PostgresQueries.GetProblem(r.Context(), sql.GetProblemParams{
@@ -155,7 +154,6 @@ func (h *Handler) FetchAndValidateProblem(r *http.Request, userId string, runReq
 }
 
 // PrepareJudge0Submissions creates submissions for Judge0 from test cases
-// Renamed from createJudge0Submissions to be more descriptive
 func (h *Handler) PrepareJudge0Submissions(runRequest RunRequest, testCases []TestCase, problem sql.GetProblemRow) ([]judge0.Submission, *apierror.APIError) {
 	var judge0Submissions []judge0.Submission // submissions for judge0 to run
 
@@ -187,7 +185,6 @@ func (h *Handler) PrepareJudge0Submissions(runRequest RunRequest, testCases []Te
 }
 
 // ProcessTestCaseResults processes each test case result and determines overall status
-// Split from handleJudge0Responses to separate concerns
 func ProcessTestCaseResults(testCases []TestCase, judge0Responses []judge0.SubmissionResult) ([]RunTestCase, map[string]int, []string) {
 	testCaseResults := make([]RunTestCase, len(judge0Responses))
 	statusMap := make(map[string]int)
@@ -219,7 +216,6 @@ func ProcessTestCaseResults(testCases []TestCase, judge0Responses []judge0.Submi
 }
 
 // DetermineTestCaseStatus determines the status of a single test case
-// New helper function extracted from handleJudge0Responses
 func DetermineTestCaseStatus(response judge0.SubmissionResult, actualOutput, expectedOutput string) sql.SubmissionStatus {
 	if response.Status.Description != "Accepted" {
 		return sql.SubmissionStatus(response.Status.Description)
@@ -248,7 +244,6 @@ func NormalizeOutput(output string) string {
 }
 
 // EvaluateRunResults processes judge0 responses and creates final result
-// Renamed from handleJudge0Responses to better reflect its purpose
 func (h *Handler) EvaluateRunResults(userId string, runRequest RunRequest, testCases []TestCase, judge0Responses []judge0.SubmissionResult) (*RunResult, *apierror.APIError) {
 	// Process each test case
 	testCaseResults, statusMap, expectedOutput := ProcessTestCaseResults(testCases, judge0Responses)
@@ -273,7 +268,6 @@ func (h *Handler) EvaluateRunResults(userId string, runRequest RunRequest, testC
 }
 
 // DetermineOverallStatus calculates the overall submission status
-// New helper function extracted from EvaluateRunResults
 func DetermineOverallStatus(statusMap map[string]int, totalTestCases int) sql.SubmissionStatus {
 	if statusMap[string(sql.SubmissionStatusAccepted)] == totalTestCases {
 		return sql.SubmissionStatusAccepted
@@ -289,7 +283,6 @@ func DetermineOverallStatus(statusMap map[string]int, totalTestCases int) sql.Su
 }
 
 // ExecuteCodeRun processes a code run request end-to-end
-// Renamed from CreateRun to better describe what it does
 func (h *Handler) ExecuteCodeRun(r *http.Request, userId string, runRequest RunRequest) (*RunResultResponse, *apierror.APIError) {
 	// Get problem
 	problem, apiErr := h.FetchAndValidateProblem(r, userId, runRequest)

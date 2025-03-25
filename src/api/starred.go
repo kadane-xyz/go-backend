@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"net/http"
 	"time"
 
@@ -131,8 +130,7 @@ func (h *Handler) GetStarredProblems(w http.ResponseWriter, r *http.Request) {
 		Data: responseData,
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	SendJSONResponse(w, http.StatusOK, response)
 }
 
 // GET: /starred/solutions
@@ -172,8 +170,7 @@ func (h *Handler) GetStarredSolutions(w http.ResponseWriter, r *http.Request) {
 		Data: responseData,
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	SendJSONResponse(w, http.StatusOK, response)
 }
 
 // GET: /starred/submissions
@@ -219,8 +216,7 @@ func (h *Handler) GetStarredSubmissions(w http.ResponseWriter, r *http.Request) 
 		Data: responseData,
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	SendJSONResponse(w, http.StatusOK, response)
 }
 
 // PUT
@@ -257,8 +253,7 @@ func (h *Handler) PutStarProblem(w http.ResponseWriter, r *http.Request) {
 	response.Data.ID = problemRequest.ProblemID // Set ID to problem ID
 	response.Data.Starred = starred
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	SendJSONResponse(w, http.StatusOK, response)
 }
 
 // PUT: /starred/solutions
@@ -292,8 +287,7 @@ func (h *Handler) PutStarSolution(w http.ResponseWriter, r *http.Request) {
 	response.Data.ID = solutionRequest.SolutionID // Set ID to solution ID
 	response.Data.Starred = starred
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	SendJSONResponse(w, http.StatusOK, response)
 }
 
 // PUT: /starred/submissions
@@ -335,6 +329,5 @@ func (h *Handler) PutStarSubmission(w http.ResponseWriter, r *http.Request) {
 	response.Data.ID = submissionRequest.SubmissionID // Set ID to submission ID
 	response.Data.Starred = starred
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	SendJSONResponse(w, http.StatusOK, response)
 }

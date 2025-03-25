@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"net/http"
 	"strings"
 	"sync"
@@ -200,9 +199,7 @@ func (h *Handler) GetAdminValidation(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	SendJSONResponse(w, http.StatusOK, response)
 }
 
 type AdminProblem struct {
@@ -263,9 +260,7 @@ func (h *Handler) GetAdminProblems(w http.ResponseWriter, r *http.Request) {
 	var response AdminProblemsResponse
 	response.Data = adminProblems
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	SendJSONResponse(w, http.StatusOK, response)
 }
 
 // POST: /admin/problems
@@ -314,9 +309,7 @@ func (h *Handler) CreateAdminProblem(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(response)
+	SendJSONResponse(w, http.StatusCreated, response)
 }
 
 // POST: /admin/problems/run
@@ -342,6 +335,5 @@ func (h *Handler) CreateAdminProblemRun(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(responseData)
+	SendJSONResponse(w, http.StatusOK, responseData)
 }

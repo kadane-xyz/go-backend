@@ -161,7 +161,6 @@ func (h *Handler) PrepareSubmissions(request SubmissionRequest, testCases []Test
 }
 
 // EvaluateTestResults processes judge0 responses and finds any failures
-// New function extracted from CreateSubmission
 func EvaluateTestResults(testCases []TestCase, responses []judge0.SubmissionResult) (int32, RunTestCase, *Submission, int, float64) {
 	var totalMemory int
 	var totalTime float64
@@ -251,7 +250,6 @@ func CreateDatabaseSubmission(userId string, problem sql.GetProblemRow, request 
 }
 
 // ProcessSubmission handles the submission workflow
-// Renamed from CreateSubmission to better describe its purpose
 func (h *Handler) ProcessSubmission(ctx context.Context, request SubmissionRequest, userId string) (*SubmissionResponse, *apierror.APIError) {
 	// Fetch problem and test cases
 	problem, testCases, apiErr := h.FetchProblemAndTestCases(ctx, request.ProblemID, userId)
@@ -381,8 +379,7 @@ func (h *Handler) CreateSubmissionRoute(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	SendJSONResponse(w, http.StatusOK, response)
 }
 
 func (h *Handler) GetSubmission(w http.ResponseWriter, r *http.Request) {

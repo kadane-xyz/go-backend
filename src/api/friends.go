@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"net/http"
 	"time"
 
@@ -70,8 +69,7 @@ func (h *Handler) GetFriends(w http.ResponseWriter, r *http.Request) {
 		Data: friendsResponseData,
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(friendsResponse)
+	SendJSONResponse(w, http.StatusOK, friendsResponse)
 }
 
 // POST: /friends
@@ -132,7 +130,7 @@ func (h *Handler) CreateFriendRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
+	SendJSONResponse(w, http.StatusCreated, nil)
 }
 
 // GET: /friends/requests/sent
@@ -165,7 +163,7 @@ func (h *Handler) GetFriendRequestsSent(w http.ResponseWriter, r *http.Request) 
 		Data: friendRequestsResponseData,
 	}
 
-	json.NewEncoder(w).Encode(friendRequestsResponse)
+	SendJSONResponse(w, http.StatusOK, friendRequestsResponse)
 }
 
 // GET: /friends/requests/received
@@ -198,7 +196,7 @@ func (h *Handler) GetFriendRequestsReceived(w http.ResponseWriter, r *http.Reque
 		Data: friendRequestsResponseData,
 	}
 
-	json.NewEncoder(w).Encode(friendRequestsResponse)
+	SendJSONResponse(w, http.StatusOK, friendRequestsResponse)
 }
 
 // POST: /friends/requests/accept
@@ -223,6 +221,8 @@ func (h *Handler) AcceptFriendRequest(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error accepting friend request", http.StatusInternalServerError)
 		return
 	}
+
+	SendJSONResponse(w, http.StatusNoContent, nil)
 }
 
 // POST: /friends/requests/block
@@ -247,6 +247,8 @@ func (h *Handler) BlockFriendRequest(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error blocking friend request", http.StatusInternalServerError)
 		return
 	}
+
+	SendJSONResponse(w, http.StatusNoContent, nil)
 }
 
 // POST: /friends/requests/unblock
@@ -271,6 +273,8 @@ func (h *Handler) UnblockFriendRequest(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error unblocking friend request", http.StatusInternalServerError)
 		return
 	}
+
+	SendJSONResponse(w, http.StatusNoContent, nil)
 }
 
 // DELETE: /friends or /friends/requests/deny
@@ -296,7 +300,7 @@ func (h *Handler) DeleteFriend(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	SendJSONResponse(w, http.StatusNoContent, nil)
 }
 
 // GET: /friends/username/{username}
@@ -339,7 +343,7 @@ func (h *Handler) GetFriendsUsername(w http.ResponseWriter, r *http.Request) {
 		Data: responseData,
 	}
 
-	json.NewEncoder(w).Encode(response)
+	SendJSONResponse(w, http.StatusOK, response)
 }
 
 // DELETE: /friends/requests
@@ -365,5 +369,5 @@ func (h *Handler) DeleteFriendRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	SendJSONResponse(w, http.StatusNoContent, nil)
 }

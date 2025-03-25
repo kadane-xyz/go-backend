@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
@@ -201,9 +200,7 @@ func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Write solutionsJSON to response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	SendJSONResponse(w, http.StatusOK, response)
 }
 
 // POST: /
@@ -241,8 +238,7 @@ func (h *Handler) CreateSolution(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Write response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
+	SendJSONResponse(w, http.StatusCreated, nil)
 }
 
 // GET: /{solutionId}
@@ -299,9 +295,7 @@ func (h *Handler) GetSolution(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Write solutionsJSON to response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	SendJSONResponse(w, http.StatusOK, response)
 }
 
 // PUT: /{solutionId}
@@ -353,8 +347,7 @@ func (h *Handler) UpdateSolution(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Write solutionsJSON to response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusNoContent)
+	SendJSONResponse(w, http.StatusNoContent, nil)
 }
 
 // DELETE: /{solutionId}
@@ -390,8 +383,7 @@ func (h *Handler) DeleteSolution(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Write solutionsJSON to response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusNoContent)
+	SendJSONResponse(w, http.StatusNoContent, nil)
 }
 
 // PATCH: /{solutionId}/vote
@@ -444,7 +436,5 @@ func (h *Handler) VoteSolution(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Send the updated solution as the response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusNoContent)
+	SendJSONResponse(w, http.StatusNoContent, nil)
 }
