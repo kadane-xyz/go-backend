@@ -10,14 +10,14 @@ func (s *Server) RegisterApiRoutes() {
 	s.mux.Route("/v1", func(r chi.Router) {
 		// solutions
 		s.mux.Route("/solutions", func(r chi.Router) {
-			r.Get("/", s.container.APIHandlers.GetSolutions)
-			r.Post("/", s.container.APIHandlers.CreateSolution)
+			r.Get("/", s.container.APIHandlers.AccountHandler.GetSolutions)
+			r.Post("/", s.container.APIHandlers.AccountHandler.CreateSolution)
 			r.Route("/{solutionId}", func(r chi.Router) {
-				r.Get("/", s.container.APIHandlers.GetSolution)
-				r.Put("/", s.container.APIHandlers.UpdateSolution)
-				r.Delete("/", s.container.APIHandlers.DeleteSolution)
+				r.Get("/", s.container.APIHandlers.AccountHandler.GetSolution)
+				r.Put("/", s.container.APIHandlers.AccountHandler.UpdateSolution)
+				r.Delete("/", s.container.APIHandlers.AccountHandler.DeleteSolution)
 				r.Route("/vote", func(r chi.Router) {
-					r.Patch("/", s.container.APIHandlers.VoteSolution)
+					r.Patch("/", s.container.APIHandlers.AccountHandler.VoteSolution)
 				})
 			})
 		})

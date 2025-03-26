@@ -4,17 +4,18 @@ import (
 	"fmt"
 	"strings"
 
+	"kadane.xyz/go-backend/v2/internal/api/handlers"
 	"kadane.xyz/go-backend/v2/internal/judge0"
 )
 
 // Convert the test case inputs to a comma separated string
-func TemplateGoInputs(testCases TestCase) string {
+func TemplateGoInputs(testCases handlers.TestCase) string {
 	var inputs []string
 
 	for _, input := range testCases.Input {
 		inputValue := strings.Trim(input.Value, "[]")
 		switch input.Type {
-		case IntType:
+		case handlers.IntType:
 			inputs = append(inputs, inputValue)
 		case "float":
 			inputs = append(inputs, fmt.Sprintf("float32(%s)", inputValue))

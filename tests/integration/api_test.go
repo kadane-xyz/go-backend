@@ -1,4 +1,4 @@
-package server_test
+package integration_test
 
 import (
 	"bytes"
@@ -10,7 +10,8 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
-	"kadane.xyz/go-backend/v2/src/middleware"
+	"kadane.xyz/go-backend/v2/internal/errors"
+	"kadane.xyz/go-backend/v2/internal/middleware"
 )
 
 type TestingCase struct {
@@ -76,7 +77,7 @@ func executeTestRequest(t *testing.T, req *http.Request, expectedStatus int, han
 
 // extractErrorMessage tries to decode a JSON error or falls back to the raw body.
 func extractErrorMessage(body *bytes.Buffer) string {
-	var response APIError
+	var response errors.ApiError
 	err := json.NewDecoder(body).Decode(&response)
 	if err != nil {
 		return body.String()

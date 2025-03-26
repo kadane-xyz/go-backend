@@ -14,29 +14,31 @@ import (
 // Internal server errors
 
 var (
-	ErrInvalidRequest   = errors.New("invalid request")
-	ErrInternalServer   = errors.New("internal server error")
-	ErrNotFound         = errors.New("not found")
-	ErrUnauthorized     = errors.New("unauthorized")
-	ErrForbidden        = errors.New("forbidden")
-	ErrConflict         = errors.New("conflict")
-	ErrMethodNotAllowed = errors.New("method not allowed")
+	ErrInvalidRequest      = errors.New("invalid request")       // 400
+	ErrUnauthorized        = errors.New("unauthorized")          // 401
+	ErrForbidden           = errors.New("forbidden")             // 403
+	ErrNotFound            = errors.New("not found")             // 404
+	ErrMethodNotAllowed    = errors.New("method not allowed")    // 405
+	ErrConflict            = errors.New("conflict")              // 409
+	ErrUnprocessableEntity = errors.New("unprocessable entity")  // 422
+	ErrInternalServer      = errors.New("internal server error") // 500
 )
 
 type Error struct {
-	Err        error
+	Error      error
+	Message    string
+	StatusCode int
+}
+
+type ApiErrorData struct {
 	Message    string `json:"message"`
 	StatusCode int    `json:"statusCode"`
 }
 
-type ApiErrorData struct {
-	Error Error `json:"error"`
-}
-
 // ApiError is the error response for the API
-// { data: { error: { statusCode: 400, message: "Bad Request" } } }
+// { error: { statusCode: 400, message: "Bad Request" } } }
 type ApiError struct {
-	Data ApiErrorData `json:"data"`
+	Error ApiErrorData `json:"error"`
 }
 
 // NewError creates a new Error instance
@@ -51,12 +53,10 @@ func NewError(err error, statusCode int, message string) *Error {
 // SendError sends an error response using the APIError structure
 func SendError(w http.ResponseWriter, err error, statusCode int, message string) {
 	error := ApiError{
-		Data: ApiErrorData{
-			Error: Error{
-				Err:        err,
-				Message:    message,
-				StatusCode: statusCode,
-			},
+		Err: Error{
+			Err:        err,
+			Message:    message,
+			StatusCode: statusCode,
 		},
 	}
 
@@ -66,89 +66,103 @@ func SendError(w http.ResponseWriter, err error, statusCode int, message string)
 }
 
 func (e *ApiError) Send(w http.ResponseWriter) {
-	SendError(w, e.Data.Error.Err, e.Data.Error.StatusCode, e.Data.Error.Message)
+	SendError(w, e.Err.Err, e.Err.StatusCode, e.Err.Message)
 }
 
 func NewApiError(err error, statusCode int, message string) *ApiError {
 	return &ApiError{
-		Data: ApiErrorData{
-			Error: Error{
-				Err:        err,
-				Message:    message,
-				StatusCode: statusCode,
-			},
+		Err: Error{
+			Err:        err,
+			Message:    message,
+			StatusCode: statusCode,
 		},
 	}
 }
 
-func NewInternalServerError(message string) *ApiError {
+// 400 Bad Request
+func NewBadRequestError(message string) *ApiError {
 	return &ApiError{
-		Data: ApiErrorData{
-			Error: Error{
-				Err:        ErrInternalServer,
-				Message:    message,
-				StatusCode: http.StatusInternalServerError,
-			},
+		Err: Error{
+			Err:        ErrInvalidRequest,
+			Message:    message,
+			StatusCode: http.StatusBadRequest,
 		},
 	}
 }
 
-func NewNotFoundError(message string) *ApiError {
-	return &ApiError{
-		Data: ApiErrorData{
-			Error: Error{
-				Err:        ErrNotFound,
-				Message:    message,
-				StatusCode: http.StatusNotFound,
-			},
-		},
-	}
-}
-
+// 401 Unauthorized
 func NewUnauthorizedError(message string) *ApiError {
 	return &ApiError{
-		Data: ApiErrorData{
-			Error: Error{
-				Err:        ErrUnauthorized,
-				Message:    message,
-				StatusCode: http.StatusUnauthorized,
-			},
+		Err: Error{
+			Err:        ErrUnauthorized,
+			Message:    message,
+			StatusCode: http.StatusUnauthorized,
 		},
 	}
 }
 
+// 403 Forbidden
 func NewForbiddenError(message string) *ApiError {
 	return &ApiError{
-		Data: ApiErrorData{
-			Error: Error{
-				Err:        ErrForbidden,
-				Message:    message,
-				StatusCode: http.StatusForbidden,
-			},
+		Err: Error{
+			Err:        ErrForbidden,
+			Message:    message,
+			StatusCode: http.StatusForbidden,
 		},
 	}
 }
 
-func NewConflictError(message string) *ApiError {
+// 404 Not Found
+func NewNotFoundError(message string) *ApiError {
 	return &ApiError{
-		Data: ApiErrorData{
-			Error: Error{
-				Err:        ErrConflict,
-				Message:    message,
-				StatusCode: http.StatusConflict,
-			},
+		Err: Error{
+			Err:        ErrNotFound,
+			Message:    message,
+			StatusCode: http.StatusNotFound,
 		},
 	}
 }
 
+// 405 Method Not Allowed
 func NewMethodNotAllowedError(message string) *ApiError {
 	return &ApiError{
-		Data: ApiErrorData{
-			Error: Error{
-				Err:        ErrMethodNotAllowed,
-				Message:    message,
-				StatusCode: http.StatusMethodNotAllowed,
-			},
+		Err: Error{
+			Err:        ErrMethodNotAllowed,
+			Message:    message,
+			StatusCode: http.StatusMethodNotAllowed,
+		},
+	}
+}
+
+// 409 Conflict
+func NewConflictError(message string) *ApiError {
+	return &ApiError{
+		Err: Error{
+			Err:        ErrConflict,
+			Message:    message,
+			StatusCode: http.StatusConflict,
+		},
+	}
+}
+
+// 422 Unprocessable Entity
+func NewUnprocessableEntityError(message string) *ApiError {
+	return &ApiError{
+		Err: Error{
+			Err:        ErrUnprocessableEntity,
+			Message:    message,
+			StatusCode: http.StatusUnprocessableEntity,
+		},
+	}
+}
+
+// 500 Internal Server Error
+func NewInternalServerError(message string) *ApiError {
+	return &ApiError{
+		Err: Error{
+			Err:        ErrInternalServer,
+			Message:    message,
+			StatusCode: http.StatusInternalServerError,
 		},
 	}
 }

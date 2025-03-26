@@ -1,4 +1,4 @@
-package server
+package handlers
 
 import (
 	"net/http"
@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"kadane.xyz/go-backend/v2/src/judge0"
-	"kadane.xyz/go-backend/v2/src/sql/sql"
+	"kadane.xyz/go-backend/v2/internal/database/sql"
+	"kadane.xyz/go-backend/v2/internal/judge0"
 )
 
 type AdminValidation struct {

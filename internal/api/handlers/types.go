@@ -1,6 +1,6 @@
-package api
+package handlers
 
-import "kadane.xyz/go-backend/v2/src/sql/sql"
+import "kadane.xyz/go-backend/v2/internal/database/sql"
 
 type Pagination struct {
 	Page      int32 `json:"page"`

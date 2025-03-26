@@ -1,4 +1,4 @@
-package server
+package handlers
 
 import (
 	"bytes"
@@ -16,7 +16,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"kadane.xyz/go-backend/v2/src/sql/sql"
+	"kadane.xyz/go-backend/v2/internal/api/httputils"
+	"kadane.xyz/go-backend/v2/internal/database/dbaccessors"
+	"kadane.xyz/go-backend/v2/internal/database/sql"
+	"kadane.xyz/go-backend/v2/internal/errors"
 )
 
 const (
@@ -24,6 +27,14 @@ const (
 	maxDimension = 3000
 	minDimension = 500
 )
+
+type AccountHandler struct {
+	accountsAccessor *dbaccessors.AccountAccessor
+}
+
+func NewAccountHandler(accountsAccessor *dbaccessors.AccountAccessor) *AccountHandler {
+	return &AccountHandler{accountsAccessor: accountsAccessor}
+}
 
 type AccountUpdateRequest struct {
 	Bio          *string `json:"bio,omitempty"`
@@ -70,28 +81,11 @@ type Account struct {
 	Attributes   interface{}      `json:"attributes"`
 }
 
-type AccountResponse struct {
-	Data Account `json:"data"`
-}
-
-type AccountsResponse struct {
-	Data []Account `json:"data"`
-}
-
-type AvatarResponse struct {
-	Data string `json:"data"`
-}
-
 type AccountValidation struct {
 	Plan sql.AccountPlan `json:"plan"`
 }
 
-type AccountValidationResponse struct {
-	Data AccountValidation `json:"data"`
-}
-
-// GET: /accounts
-func (h *Handler) GetAccounts(w http.ResponseWriter, r *http.Request) {
+func ValidateGetAccountsFiltered(r *http.Request) (sql.GetAccountsParams, error) {
 	usernames := r.URL.Query().Get("usernames")
 	var usernamesFilter []string
 	if usernames != "" {
@@ -116,25 +110,38 @@ func (h *Handler) GetAccounts(w http.ResponseWriter, r *http.Request) {
 		order = "DESC"
 	}
 
-	accounts, err := h.PostgresQueries.GetAccounts(r.Context(), sql.GetAccountsParams{
+	return sql.GetAccountsParams{
 		UsernamesFilter:   usernamesFilter,
 		LocationsFilter:   locationsFilter,
 		Sort:              sort,
 		SortDirection:     order,
 		IncludeAttributes: true,
-	})
+	}, nil
+}
+
+// GET: /accounts
+// Get all accounts with filtering
+func (h *AccountHandler) GetAccountsFiltered(w http.ResponseWriter, r *http.Request) {
+	params, err := ValidateGetAccountsFiltered(r)
 	if err != nil {
-		EmptyDataArrayResponse(w)
+		errors.SendError(w, err, http.StatusBadRequest, "Failed to validate get accounts filtered")
 		return
 	}
 
-	response := AccountsResponse{Data: []Account{}}
+	accounts, err := h.accountsAccessor.ListAccountsFiltered(r.Context(), params)
+	if err != nil {
+		errors.SendError(w, err, http.StatusInternalServerError, "Failed to get accounts filtered")
+		return
+	}
+
+	// accounts response
+	response := []Account{}
 	for _, account := range accounts {
 		if account.Attributes == nil {
 			account.Attributes = AccountAttributes{}
 		}
 
-		response.Data = append(response.Data, Account{
+		response = append(response, Account{
 			ID:         account.ID,
 			Username:   account.Username,
 			Email:      account.Email,
@@ -146,7 +153,8 @@ func (h *Handler) GetAccounts(w http.ResponseWriter, r *http.Request) {
 			Attributes: account.Attributes,
 		})
 	}
-	SendJSONResponse(w, http.StatusOK, response)
+
+	httputils.SendJSONDataResponse(w, http.StatusOK, response)
 }
 
 type CreateAccountRequest struct {

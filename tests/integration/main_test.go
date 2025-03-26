@@ -1,13 +1,12 @@
-// main_test.go
-package server_test
+package integration_test
 
 import (
 	"os"
 	"testing"
 
-	"kadane.xyz/go-backend/v2/src/db"
-	"kadane.xyz/go-backend/v2/src/middleware"
-	"kadane.xyz/go-backend/v2/src/sql/sql"
+	"kadane.xyz/go-backend/v2/internal/database"
+	"kadane.xyz/go-backend/v2/internal/database/sql"
+	"kadane.xyz/go-backend/v2/internal/middleware"
 )
 
 var clientToken middleware.ClientContext = middleware.ClientContext{
@@ -18,25 +17,19 @@ var clientToken middleware.ClientContext = middleware.ClientContext{
 	Admin:  true,               // Set the admin flag
 }
 
-var handler Handler
-
 // TestMain runs once for the entire package.
 // It sets up the container, runs all tests, and tears down afterward.
 func TestMain(m *testing.M) {
 	// Create init.sql file
 
-	if err := db.SetupTestContainer(); err != nil {
+	if err := database.SetupTestContainer(); err != nil {
 		// If setup fails, exit immediately.
 		panic(err)
 	}
 
 	// Setup the handler
-	db := db.DBPool
-	queries := sql.New(db)
-	handler = Handler{
-		PostgresClient:  db,
-		PostgresQueries: queries,
-	}
+	db := database.DBPool
+	//queries := sql.New(db)
 
 	// Run all tests in the package.
 	exitCode := m.Run()

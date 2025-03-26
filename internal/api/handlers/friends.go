@@ -1,12 +1,11 @@
-package api
+package handlers
 
 import (
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"kadane.xyz/go-backend/v2/src/apierror"
-	"kadane.xyz/go-backend/v2/src/sql/sql"
+	"kadane.xyz/go-backend/v2/internal/database/sql"
 )
 
 type Friend struct {

@@ -7,14 +7,14 @@ import (
 
 	firebase "firebase.google.com/go/v4"
 	"google.golang.org/api/option"
-	"kadane.xyz/go-backend/v2/internal/server/config"
+	"kadane.xyz/go-backend/v2/internal/config"
 )
 
 func NewFirebaseApp(config *config.Config) (*firebase.App, error) {
 	ctx := context.Background()
 	// Load Firebase credentials from environment variable
 	// decode the JSON data from base64
-	cred, err := base64.StdEncoding.DecodeString(config.FirebaseCred)
+	cred, err := base64.StdEncoding.DecodeString(config.Firebase.Cred)
 	if err != nil {
 		log.Printf("error decoding base64 encoded FIREBASE_CRED: %v\n", err)
 		return nil, err

@@ -5,13 +5,16 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"kadane.xyz/go-backend/v2/internal/api/handlers"
 	"kadane.xyz/go-backend/v2/internal/config"
 	"kadane.xyz/go-backend/v2/internal/database"
+	"kadane.xyz/go-backend/v2/internal/database/dbaccessors"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
 )
 
 // APIHandlers is an inner container holding all API handlers
 type APIHandlers struct {
+	AccountHandler *handlers.AccountHandler
 }
 
 // Container is a service locator holding all application dependencies
@@ -36,12 +39,14 @@ func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
 		return nil, fmt.Errorf("failed to create the database connection pool: %w", err)
 	}
 
-	// Create the queries client
+	// Create queries client
 	queries := sql.New(dbPool)
 
-	// Create the database repositories
+	// Create database accessors
+	accountsAccessor := dbaccessors.NewSQLAccountsAccessor(queries)
 
-	// Create the API handlers
+	// Create api handlers
+	apiHandlers := handlers.NewAccountHandler(accountsAccessor)
 
 	return &Container{
 		Config:      cfg,

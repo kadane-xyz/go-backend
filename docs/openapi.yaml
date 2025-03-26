@@ -34,9 +34,8 @@ paths:
     get:
       tags:
         - Accounts
-      summary: Get all accounts
-      description: Retrieve a list of all user accounts.
-      operationId: getAccounts
+      summary: List all accounts with attributes and filters  
+      operationId: ListAccountsWithAttributesFiltered 
       parameters:
         - in: query
           name: usernames
@@ -60,6 +59,7 @@ paths:
           schema:
             type: string
             enum: [level]
+            nullable: true
           description: Sort by level
         - in: query
           name: order
@@ -1438,6 +1438,143 @@ components:
       scheme: bearer
       bearerFormat: jwt 
   schemas:
+    # Status codes
+    StatusCode:
+      type: string
+      enum: [200, 201, 202, 204, 400, 401, 403, 404, 422, 500]
+    
+    # Responses
+    # APIResponse is a generic response that can be used for any response
+    # { "data": { any } }
+    APIResponse:
+      type: object
+      properties:
+        data:
+          type: any 
+
+    EmptyDataResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          additionalProperties:
+            type: string
+            example: { data: {} }
+    
+    EmptyDataArrayResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            maxItems: 0
+            example: { data: [] }
+
+    # Errors
+    Error:
+      type: object
+      properties:
+        err: 
+          type: string 
+        message:
+          type: string
+        code:
+          type: string
+          anyOf:
+            - $ref: '#/components/schemas/StatusCode'
+
+    APIErrorData:
+      type: object
+      properties:
+        message:
+          type: string
+        code:
+          type: string
+          anyOf:
+            - $ref: '#/components/schemas/StatusCode'
+
+    APIError:
+      allOf:
+        - $ref: '#/components/schemas/APIErrorData'
+        - type: object
+          properties:
+            error:
+              type: object
+              $ref: '#/components/schemas/APIErrorData'
+
+    BadRequestError:
+      allOf:
+        - $ref: '#/components/schemas/APIError'
+        - type: object
+          properties:
+            code:
+              type: string
+              enum: [400]
+
+    UnauthorizedError:
+      allOf:
+        - $ref: '#/components/schemas/APIError'
+        - type: object
+          properties:
+            code:
+              type: string
+              enum: [401]
+
+    ForbiddenError:
+      allOf:
+        - $ref: '#/components/schemas/APIError'
+        - type: object
+          properties:
+            code:
+              type: string
+              enum: [403]
+
+    NotFoundError:
+      allOf:
+        - $ref: '#/components/schemas/APIError'
+        - type: object
+          properties:
+            code:
+              type: string
+              enum: [404]
+
+    MethodNotAllowedError:
+      allOf:
+        - $ref: '#/components/schemas/APIError'
+        - type: object
+          properties:
+            code:
+              type: string
+              enum: [405]
+    
+    ConflictError:
+      allOf:
+        - $ref: '#/components/schemas/APIError'
+        - type: object
+          properties:
+            code:
+              type: string
+              enum: [409]
+
+    UnprocessableEntityError:
+      allOf:
+        - $ref: '#/components/schemas/APIError'
+        - type: object
+          properties:
+            code:
+              type: string
+              enum: [422]
+
+    InternalServerError:
+      allOf:
+        - $ref: '#/components/schemas/APIError'
+        - type: object
+          properties:
+            code:
+              type: string
+              enum: [500]
+
     # Accounts
     Account:
       allOf:
@@ -2228,28 +2365,58 @@ components:
               example: true
 
   responses:
-    BadRequest:
-      description: Bad request
+    InvalidRequest:
+      description: Invalid request
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: '#/components/schemas/InvalidRequest'
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Unauthorized'
+
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Forbidden'
+
     NotFound:
-      description: Resource not found
+      description: Not found
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: '#/components/schemas/NotFound'
+
+    MethodNotAllowed:
+      description: Method not allowed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MethodNotAllowed'
+
+    Conflict:
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Conflict'
+
+    UnprocessableEntity:
+      description: Unprocessable entity
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/UnprocessableEntity'
+
     InternalServerError:
       description: Internal server error
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
-    Error:
-      description: Error response
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
-
+            $ref: '#/components/schemas/InternalServerError'

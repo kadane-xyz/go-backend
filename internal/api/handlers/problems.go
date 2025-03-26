@@ -1,4 +1,4 @@
-package server
+package handlers
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
-	"kadane.xyz/go-backend/v2/src/sql/sql"
+	"kadane.xyz/go-backend/v2/internal/database/sql"
 )
 
 type ProblemHint struct {

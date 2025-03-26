@@ -1,10 +1,10 @@
-package server_test
+package integration_test
 
 import (
 	"net/http"
 	"testing"
 
-	"kadane.xyz/go-backend/v2/src/sql/sql"
+	"kadane.xyz/go-backend/v2/internal/database/sql"
 )
 
 func TestGetComment(t *testing.T) {

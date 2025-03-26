@@ -1,11 +1,11 @@
-package server
+package httputils
 
 import (
 	"net/http"
 
+	"kadane.xyz/go-backend/v2/internal/database/sql"
 	"kadane.xyz/go-backend/v2/internal/errors"
-	"kadane.xyz/go-backend/v2/src/middleware"
-	"kadane.xyz/go-backend/v2/src/sql/sql"
+	"kadane.xyz/go-backend/v2/internal/middleware"
 )
 
 func GetClientUserID(w http.ResponseWriter, r *http.Request) (string, error) {
