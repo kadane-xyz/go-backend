@@ -36,21 +36,21 @@ func (s *Server) RegisterApiRoutes() {
 		})
 		//accounts
 		s.mux.Route("/accounts", func(r chi.Router) {
-			r.Post("/", s.container.APIHandlers.CreateAccount)
-			r.Get("/", s.container.APIHandlers.GetAccounts)
+			r.Post("/", s.container.APIHandlers.AccountHandler.CreateAccount)
+			r.Get("/", s.container.APIHandlers.AccountHandler.GetAccounts)
 			r.Route("/avatar", func(r chi.Router) {
-				r.Post("/", s.container.APIHandlers.UploadAvatar)
+				r.Post("/", s.container.APIHandlers.AccountHandler.UploadAvatar)
 			})
 			r.Route("/{id}", func(r chi.Router) {
-				r.Get("/", s.container.APIHandlers.GetAccount)
-				r.Put("/", s.container.APIHandlers.UpdateAccount)
-				r.Delete("/", s.container.APIHandlers.DeleteAccount)
+				r.Get("/", s.container.APIHandlers.AccountHandler.GetAccount)
+				r.Put("/", s.container.APIHandlers.AccountHandler.UpdateAccount)
+				r.Delete("/", s.container.APIHandlers.AccountHandler.DeleteAccount)
 			})
 			r.Route("/username/{username}", func(r chi.Router) {
-				r.Get("/", s.container.APIHandlers.GetAccountByUsername)
+				r.Get("/", s.container.APIHandlers.AccountHandler.GetAccountByUsername)
 			})
 			r.Route("/validate", func(r chi.Router) {
-				r.Get("/", s.container.APIHandlers.GetAccountValidation)
+				r.Get("/", s.container.APIHandlers.AccountHandler.GetAccountValidation)
 			})
 		})
 		s.mux.Route("/friends", func(r chi.Router) {

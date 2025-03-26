@@ -48,7 +48,7 @@ SELECT
         (CASE WHEN @sort = 'level' AND @sort_direction = 'DESC' THEN a.level END) DESC
     LIMIT 1;
 
--- name: GetAccounts :many
+-- name: ListAccountsWithAttributesFiltered :many
 SELECT 
     a.*,
     CASE 

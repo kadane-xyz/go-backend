@@ -29,11 +29,11 @@ const (
 )
 
 type AccountHandler struct {
-	accountsAccessor *dbaccessors.AccountAccessor
+	accessor dbaccessors.AccountAccessor
 }
 
-func NewAccountHandler(accountsAccessor *dbaccessors.AccountAccessor) *AccountHandler {
-	return &AccountHandler{accountsAccessor: accountsAccessor}
+func NewAccountHandler(accessor dbaccessors.AccountAccessor) *AccountHandler {
+	return &AccountHandler{accessor: accessor}
 }
 
 type AccountUpdateRequest struct {
@@ -85,7 +85,7 @@ type AccountValidation struct {
 	Plan sql.AccountPlan `json:"plan"`
 }
 
-func ValidateGetAccountsFiltered(r *http.Request) (sql.GetAccountsParams, error) {
+func ValidateGetAccountsFiltered(r *http.Request) (sql.ListAccountsWithAttributesFilteredParams, error) {
 	usernames := r.URL.Query().Get("usernames")
 	var usernamesFilter []string
 	if usernames != "" {
@@ -110,7 +110,7 @@ func ValidateGetAccountsFiltered(r *http.Request) (sql.GetAccountsParams, error)
 		order = "DESC"
 	}
 
-	return sql.GetAccountsParams{
+	return sql.ListAccountsWithAttributesFilteredParams{
 		UsernamesFilter:   usernamesFilter,
 		LocationsFilter:   locationsFilter,
 		Sort:              sort,
@@ -121,14 +121,14 @@ func ValidateGetAccountsFiltered(r *http.Request) (sql.GetAccountsParams, error)
 
 // GET: /accounts
 // Get all accounts with filtering
-func (h *AccountHandler) GetAccountsFiltered(w http.ResponseWriter, r *http.Request) {
+func (h *AccountHandler) GetAccounts(w http.ResponseWriter, r *http.Request) {
 	params, err := ValidateGetAccountsFiltered(r)
 	if err != nil {
 		errors.SendError(w, err, http.StatusBadRequest, "Failed to validate get accounts filtered")
 		return
 	}
 
-	accounts, err := h.accountsAccessor.ListAccountsFiltered(r.Context(), params)
+	accounts, err := h.accessor.ListAccountsWithAttributesFiltered(r.Context(), params)
 	if err != nil {
 		errors.SendError(w, err, http.StatusInternalServerError, "Failed to get accounts filtered")
 		return
@@ -163,53 +163,58 @@ type CreateAccountRequest struct {
 	Email    string `json:"email"`
 }
 
-// POST: /accounts
-func (h *Handler) CreateAccount(w http.ResponseWriter, r *http.Request) {
-	admin := GetClientAdmin(w, r)
-	if !admin {
-		SendError(w, http.StatusForbidden, "You are not authorized to create accounts")
-		return
-	}
-
-	createAccountRequest, apiErr := DecodeJSONRequest[CreateAccountRequest](r)
+func ValidateCreateAccount(r *http.Request) (*sql.CreateAccountParams, *errors.ApiError) {
+	createAccountRequest, apiErr := httputils.DecodeJSONRequest[CreateAccountRequest](r)
 	if apiErr != nil {
-		SendError(w, apiErr.StatusCode(), apiErr.Message())
-		return
+		return nil, errors.NewUnprocessableEntityError("Invalid request body")
 	}
 
 	// Validate input fields
 	if createAccountRequest.ID == "" {
-		SendError(w, http.StatusBadRequest, "Account ID cannot be empty")
-		return
+		return nil, errors.NewBadRequestError("Missing account id")
 	}
 	if createAccountRequest.Username == "" {
-		SendError(w, http.StatusBadRequest, "Username cannot be empty")
-		return
+		return nil, errors.NewBadRequestError("Missing username")
 	}
 	if createAccountRequest.Email == "" {
-		SendError(w, http.StatusBadRequest, "Email cannot be empty")
-		return
+		return nil, errors.NewBadRequestError("Missing email")
 	}
 
 	// Validate email format
 	if !isValidEmail(createAccountRequest.Email) {
-		SendError(w, http.StatusBadRequest, "Invalid email format")
+		return nil, errors.NewBadRequestError("Invalid email format")
+	}
+	return &sql.CreateAccountParams{
+		ID:       createAccountRequest.ID,
+		Username: createAccountRequest.Username,
+		Email:    createAccountRequest.Email,
+	}, nil
+}
+
+// POST: /accounts
+func (h *AccountHandler) CreateAccount(w http.ResponseWriter, r *http.Request) {
+	admin := httputils.GetClientAdmin(w, r)
+	if !admin {
+		errors.SendError(w, nil, http.StatusForbidden, "You are not authorized to create accounts")
+		return
+	}
+
+	// Validate request body
+	createAccountRequest, apiErr := ValidateCreateAccount(r)
+	if apiErr != nil {
+		apiErr.Send(w)
 		return
 	}
 
 	// Create account in the database
-	err := h.PostgresQueries.CreateAccount(r.Context(), sql.CreateAccountParams{
-		ID:       createAccountRequest.ID,
-		Username: createAccountRequest.Username,
-		Email:    createAccountRequest.Email,
-	})
+	err := h.accessor.CreateAccount(r.Context(), *createAccountRequest)
 	if err != nil {
-		SendError(w, http.StatusInternalServerError, "Failed to create account")
+		apiErr.Send(w)
 		return
 	}
 
 	// Create account attributes in the database
-	_, err = h.PostgresQueries.CreateAccountAttributes(r.Context(), sql.CreateAccountAttributesParams{
+	_, err = h.accessor.CreateAccountAttributes(r.Context(), sql.CreateAccountAttributesParams{
 		ID:           createAccountRequest.ID,
 		Bio:          pgtype.Text{String: "", Valid: true},
 		ContactEmail: pgtype.Text{String: "", Valid: true},
@@ -224,39 +229,26 @@ func (h *Handler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 		WebsiteUrl:   pgtype.Text{String: "", Valid: true},
 	})
 	if err != nil {
-		SendError(w, http.StatusInternalServerError, "Error creating account attributes")
+		apiErr.Send(w)
 		return
 	}
 
-	account, err := h.PostgresQueries.GetAccount(r.Context(), sql.GetAccountParams{
+	account, err := h.accessor.GetAccount(r.Context(), sql.GetAccountParams{
 		ID:                createAccountRequest.ID,
 		IncludeAttributes: true,
 	})
 	if err != nil {
-		SendError(w, http.StatusInternalServerError, "Error getting account")
+		apiErr.Send(w)
 		return
 	}
 
-	// Prepare response
-	response := AccountResponse{Data: Account{
-		ID:         account.ID,
-		Username:   account.Username,
-		Email:      account.Email,
-		CreatedAt:  account.CreatedAt.Time,
-		AvatarUrl:  account.AvatarUrl.String,
-		Level:      account.Level,
-		Plan:       account.Plan,
-		IsAdmin:    account.Admin,
-		Attributes: account.Attributes,
-	}}
-
 	// Send response
-	SendJSONResponse(w, http.StatusCreated, response)
+	httputils.SendJSONDataResponse(w, http.StatusCreated, account)
 }
 
 // POST: /accounts/avatar
 // Uploads an avatar image to S3 bucket and stores the URL in the accounts table
-func (h *Handler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
+func (h *AccountHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
 	userId, err := GetClientUserID(w, r)
 	if err != nil {
@@ -264,7 +256,7 @@ func (h *Handler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
-		SendError(w, http.StatusBadRequest, "Invalid content type")
+		errors.SendError(w, errors.NewBadRequestError("Invalid content type"), http.StatusBadRequest, "Invalid content type")
 		return
 	}
 
@@ -272,31 +264,31 @@ func (h *Handler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxFileSize)
 
 	if err := r.ParseMultipartForm(maxFileSize); err != nil {
-		SendError(w, http.StatusBadRequest, "File too large. Maximum size is 1MB")
+		errors.SendError(w, errors.NewBadRequestError("File too large. Maximum size is 1MB"), http.StatusBadRequest, "File too large. Maximum size is 1MB")
 		return
 	}
 	defer r.MultipartForm.RemoveAll()
 
 	file, fileHeader, err := r.FormFile("image")
 	if err != nil {
-		SendError(w, http.StatusBadRequest, "Error getting image file")
+		errors.SendError(w, errors.NewBadRequestError("Error getting image file"), http.StatusBadRequest, "Error getting image file")
 		return
 	}
 	defer file.Close()
 
 	if fileHeader.Size > maxFileSize {
-		SendError(w, http.StatusBadRequest, "File too large. Maximum size is 1MB")
+		errors.SendError(w, errors.NewBadRequestError("File too large. Maximum size is 1MB"), http.StatusBadRequest, "File too large. Maximum size is 1MB")
 		return
 	}
 
 	imageData, err := io.ReadAll(file)
 	if err != nil {
-		SendError(w, http.StatusInternalServerError, "Error reading image file")
+		errors.SendError(w, errors.NewInternalServerError("Error reading image file"), http.StatusInternalServerError, "Error reading image file")
 		return
 	}
 
 	if err := validateImage(imageData); err != nil {
-		SendError(w, http.StatusBadRequest, err.Error())
+		errors.SendError(w, errors.NewBadRequestError(err.Error()), http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -307,7 +299,7 @@ func (h *Handler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 		Body:   bytes.NewReader(imageData),
 	})
 	if err != nil {
-		SendError(w, http.StatusInternalServerError, "Error uploading avatar")
+		errors.SendError(w, errors.NewInternalServerError("Error uploading avatar"), http.StatusInternalServerError, "Error uploading avatar")
 		return
 	}
 
@@ -320,13 +312,13 @@ func (h *Handler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 		AvatarUrl: pgtype.Text{String: url, Valid: true},
 	})
 	if err != nil {
-		SendError(w, http.StatusInternalServerError, "Error updating avatar url")
+		errors.SendError(w, errors.NewInternalServerError("Error updating avatar url"), http.StatusInternalServerError, "Error updating avatar url")
 		return
 	}
 
 	response := AvatarResponse{Data: url}
 
-	SendJSONResponse(w, http.StatusCreated, response)
+	httputils.SendJSONDataResponse(w, http.StatusCreated, response)
 }
 
 // validateImage checks image type and dimensions
@@ -352,10 +344,10 @@ func validateImage(imageData []byte) error {
 }
 
 // GET: /accounts/id
-func (h *Handler) GetAccount(w http.ResponseWriter, r *http.Request) {
+func (h *AccountHandler) GetAccount(w http.ResponseWriter, r *http.Request) {
 	accountId := chi.URLParam(r, "id")
 	if accountId == "" {
-		SendError(w, http.StatusBadRequest, "Missing account id")
+		errors.SendError(w, errors.NewBadRequestError("Missing account id"), http.StatusBadRequest, "Missing account id")
 		return
 	}
 
@@ -369,7 +361,7 @@ func (h *Handler) GetAccount(w http.ResponseWriter, r *http.Request) {
 		IncludeAttributes: attributes == "true",
 	})
 	if err != nil {
-		EmptyDataResponse(w)
+		httputils.EmptyDataResponse(w)
 		return
 	}
 
@@ -385,29 +377,29 @@ func (h *Handler) GetAccount(w http.ResponseWriter, r *http.Request) {
 		Attributes: account.Attributes,
 	}}
 
-	SendJSONResponse(w, http.StatusOK, response)
+	httputils.SendJSONDataResponse(w, http.StatusOK, response)
 }
 
 // PUT: /accounts/id
-func (h *Handler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
+func (h *AccountHandler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	// Get account ID from URL parameters
 	accountID := chi.URLParam(r, "id")
 	if accountID == "" {
-		SendError(w, http.StatusBadRequest, "Missing account ID")
+		errors.SendError(w, errors.NewBadRequestError("Missing account ID"), http.StatusBadRequest, "Missing account ID")
 		return
 	}
 
 	// Decode request body
 	var requestAttrs AccountUpdateRequest
 	if err := json.NewDecoder(r.Body).Decode(&requestAttrs); err != nil {
-		SendError(w, http.StatusBadRequest, "Invalid JSON format in request body")
+		errors.SendError(w, errors.NewBadRequestError("Invalid JSON format in request body"), http.StatusBadRequest, "Invalid JSON format in request body")
 		return
 	}
 	defer r.Body.Close()
 
 	// Validate input fields
 	if err := validateAccountAttributes(requestAttrs); err != nil {
-		SendError(w, http.StatusBadRequest, err.Error())
+		errors.SendError(w, errors.NewBadRequestError(err.Error()), http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -436,14 +428,14 @@ func (h *Handler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	// Build update parameters
 	updateParams := buildUpdateParams(requestAttrs, newCurrentAttrs)
 	if !updateParams.HasChanges {
-		SendError(w, http.StatusBadRequest, "No changes detected")
+		errors.SendError(w, errors.NewBadRequestError("No changes detected"), http.StatusBadRequest, "No changes detected")
 		return
 	}
 
 	// Update account in database
 	_, err = h.PostgresQueries.UpdateAccountAttributes(r.Context(), updateParams.Params)
 	if err != nil {
-		SendError(w, http.StatusInternalServerError, "Failed to update account")
+		errors.SendError(w, errors.NewInternalServerError("Failed to update account"), http.StatusInternalServerError, "Failed to update account")
 		return
 	}
 
@@ -453,7 +445,7 @@ func (h *Handler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 		IncludeAttributes: true,
 	})
 	if err != nil {
-		SendError(w, http.StatusInternalServerError, "Error getting account")
+		errors.SendError(w, errors.NewInternalServerError("Error getting account"), http.StatusInternalServerError, "Error getting account")
 		return
 	}
 
@@ -471,7 +463,7 @@ func (h *Handler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	}}
 
 	// Send response
-	SendJSONResponse(w, http.StatusOK, response)
+	httputils.SendJSONDataResponse(w, http.StatusOK, response)
 }
 
 // AccountUpdates tracks which fields are being updated
@@ -588,16 +580,16 @@ func isValidEmail(email string) bool {
 }
 
 // DELETE: /accounts/id
-func (h *Handler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
+func (h *AccountHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 	accountId := chi.URLParam(r, "id")
 	if accountId == "" {
-		SendError(w, http.StatusBadRequest, "Missing account ID")
+		errors.SendError(w, errors.NewBadRequestError("Missing account ID"), http.StatusBadRequest, "Missing account ID")
 		return
 	}
 
 	err := h.PostgresQueries.DeleteAccount(r.Context(), accountId)
 	if err != nil {
-		SendError(w, http.StatusInternalServerError, "Error deleting account")
+		errors.SendError(w, errors.NewInternalServerError("Error deleting account"), http.StatusInternalServerError, "Error deleting account")
 		return
 	}
 
@@ -605,7 +597,7 @@ func (h *Handler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 }
 
 // GET: /accounts/username
-func (h *Handler) GetAccountByUsername(w http.ResponseWriter, r *http.Request) {
+func (h *AccountHandler) GetAccountByUsername(w http.ResponseWriter, r *http.Request) {
 	userID, err := GetClientUserID(w, r)
 	if err != nil {
 		return
@@ -613,7 +605,7 @@ func (h *Handler) GetAccountByUsername(w http.ResponseWriter, r *http.Request) {
 
 	username := chi.URLParam(r, "username")
 	if username == "" {
-		SendError(w, http.StatusBadRequest, "Missing username")
+		errors.SendError(w, errors.NewBadRequestError("Missing username"), http.StatusBadRequest, "Missing username")
 		return
 	}
 
@@ -629,7 +621,7 @@ func (h *Handler) GetAccountByUsername(w http.ResponseWriter, r *http.Request) {
 		IncludeAttributes: attributes == "true",
 	})
 	if err != nil {
-		EmptyDataResponse(w)
+		httputils.EmptyDataResponse(w)
 		return
 	}
 
@@ -652,7 +644,7 @@ func (h *Handler) GetAccountByUsername(w http.ResponseWriter, r *http.Request) {
 }
 
 // GET: /accounts/validate
-func (h *Handler) GetAccountValidation(w http.ResponseWriter, r *http.Request) {
+func (h *AccountHandler) GetAccountValidation(w http.ResponseWriter, r *http.Request) {
 	accountPlan, err := GetClientPlan(w, r)
 	if err != nil {
 		return
@@ -664,5 +656,5 @@ func (h *Handler) GetAccountValidation(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	SendJSONResponse(w, http.StatusOK, response)
+	httputils.SendJSONDataResponse(w, http.StatusOK, response)
 }
