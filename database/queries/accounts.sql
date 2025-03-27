@@ -19,7 +19,10 @@ SELECT
                 'websiteUrl', COALESCE(aa.website_url, ''),
                 'friends', COALESCE(f.count, 0),
                 'blockedUsers', COALESCE(f2.count, 0),
-                'friendRequests', COALESCE(f3.count, 0)
+                'friendRequests', COALESCE(f3.count, 0),
+                'friendCount', COUNT(DISTINCT CASE WHEN f.status = 'accepted' THEN f.user_id_1 END),
+                'blockedCount', COUNT(DISTINCT CASE WHEN f2.status = 'blocked' THEN f2.user_id_1 END),
+                'friendRequestCount', COUNT(DISTINCT CASE WHEN f3.status = 'pending' THEN f3.user_id_1 END)
             )
         ELSE
             NULL
@@ -114,11 +117,6 @@ SELECT level from account WHERE id = $1;
 -- name: GetAccountAttributes :one
 SELECT * FROM account_attribute WHERE id = $1;
 
--- name: GetAccountAttributesWithAccount :one
-SELECT * FROM account_attribute
-JOIN account ON account_attribute.id = account.id
-WHERE account.id = $1;
-
 -- name: GetAccountByUsername :one
 SELECT 
     a.*,
@@ -170,6 +168,25 @@ SELECT
 -- name: GetAccountPlan :one
 SELECT plan FROM account WHERE id = $1;
 
+-- PUT --
+
+-- name: UpdateAccountAttributes :one
+UPDATE account_attribute
+SET 
+    bio = @bio::text,
+    contact_email = @contact_email::text,
+    location = @location::text,
+    real_name = @real_name::text,
+    github_url = @github_url::text,
+    linkedin_url = @linkedin_url::text,
+    facebook_url = @facebook_url::text,
+    instagram_url = @instagram_url::text,
+    twitter_url = @twitter_url::text,
+    school = @school::text,
+    website_url = @website_url::text
+WHERE id = @id::text
+RETURNING *;
+
 -- POST --
 
 -- name: CreateAccount :exec
@@ -219,15 +236,10 @@ RETURNING
 
 -- PUT --
 
--- name: UpdateAvatar :exec
+-- name: UpdateAccountAvatar :exec
 UPDATE account
 SET avatar_url = $1
 WHERE id = $2;
-
--- name: UpdateAccountAttributes :one
-UPDATE account_attribute
-SET bio = $1, contact_email = $2, location = $3, real_name = $4, github_url = $5, linkedin_url = $6, facebook_url = $7, instagram_url = $8, twitter_url = $9, school = $10, website_url = $11
-WHERE id = $12 RETURNING *;
 
 -- DELETE --
 
