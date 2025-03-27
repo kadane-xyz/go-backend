@@ -39,7 +39,7 @@ func (s *Server) RegisterApiRoutes() {
 			r.Post("/", s.container.APIHandlers.AccountHandler.CreateAccount)
 			r.Get("/", s.container.APIHandlers.AccountHandler.GetAccounts)
 			r.Route("/avatar", func(r chi.Router) {
-				r.Post("/", s.container.APIHandlers.AccountHandler.UploadAvatar)
+				r.Post("/", s.container.APIHandlers.AccountHandler.UploadAccountAvatar)
 			})
 			r.Route("/{id}", func(r chi.Router) {
 				r.Get("/", s.container.APIHandlers.AccountHandler.GetAccount)
@@ -120,11 +120,11 @@ func (s *Server) RegisterApiRoutes() {
 		})
 		s.mux.Route("/admin", func(r chi.Router) {
 			r.Route("/problems", func(r chi.Router) {
-				r.Get("/", s.container.APIHandlers.GetAdminProblems)
-				r.Post("/", s.container.APIHandlers.CreateAdminProblem)
-				r.Post("/run", s.container.APIHandlers.CreateAdminProblemRun)
+				r.Get("/", s.container.APIHandlers.AdminHandler.GetAdminProblems)
+				r.Post("/", s.container.APIHandlers.AdminHandler.CreateAdminProblem)
+				r.Post("/run", s.container.APIHandlers.AdminHandler.CreateAdminProblemRun)
 			})
-			s.mux.Get("/validate", s.container.APIHandlers.GetAdminValidation)
+			s.mux.Get("/validate", s.container.APIHandlers.AdminHandler.GetAdminValidation)
 		})
 	})
 	//generate a route to catch anything not defined and error/block spam

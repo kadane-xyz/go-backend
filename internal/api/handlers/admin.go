@@ -6,9 +6,18 @@ import (
 	"sync"
 	"time"
 
+	"kadane.xyz/go-backend/v2/internal/api/httputils"
+	"kadane.xyz/go-backend/v2/internal/database/dbaccessors"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
+	"kadane.xyz/go-backend/v2/internal/errors"
 	"kadane.xyz/go-backend/v2/internal/judge0"
+	"kadane.xyz/go-backend/v2/internal/judge0tmpl"
 )
+
+type AdminHandler struct {
+	accessor dbaccessors.AdminAccessor
+	judge0   *judge0.Judge0Client
+}
 
 type AdminValidation struct {
 	IsAdmin bool `json:"isAdmin"`
@@ -36,25 +45,21 @@ type AdminProblemData struct {
 	CompletedAt time.Time                        `json:"completedAt"`
 }
 
-type AdminProblemResponse struct {
-	Data AdminProblemData `json:"data"`
-}
-
 type CreateAdminProblemData struct {
 	ProblemID string `json:"problemId"`
 }
 
-type CreateAdminProblemResponse struct {
-	Data CreateAdminProblemData `json:"data"`
+func NewAdminHandler(accessor dbaccessors.AdminAccessor, judge0 *judge0.Judge0Client) *AdminHandler {
+	return &AdminHandler{accessor: accessor, judge0: judge0}
 }
 
-func (h *Handler) ProblemRun(runRequest AdminProblemRunRequest) (AdminProblemResponse, *APIError) {
+func (h *AdminHandler) ProblemRun(runRequest AdminProblemRunRequest) (AdminProblemData, *errors.ApiError) {
 	solutionRuns := make(map[string][]judge0.Submission) // Store all judge0 submission inputs for each language
 
 	// Create judge0 submission inputs by combining test case handling and template creation.
 	for language, sourceCode := range runRequest.Solutions {
 		// Create the submission for this test case and language
-		solutionRun := TemplateCreate(TemplateInput{
+		solutionRun := judge0tmpl.TemplateCreate(judge0tmpl.TemplateInput{
 			Language:     language,
 			SourceCode:   sourceCode,
 			FunctionName: runRequest.FunctionName,
@@ -65,14 +70,12 @@ func (h *Handler) ProblemRun(runRequest AdminProblemRunRequest) (AdminProblemRes
 
 	// Validate submissions before sending
 	if len(solutionRuns) == 0 {
-		return AdminProblemResponse{}, NewError(http.StatusBadRequest, "Failed to create runs")
+		return AdminProblemData{}, errors.NewApiError(nil, http.StatusBadRequest, "Failed to create runs")
 	}
 
 	// Initialize response data
-	var responseData AdminProblemResponse
-	responseData.Data = AdminProblemData{
-		Runs: make(map[string]AdminProblemRunResult),
-	}
+	var responseData AdminProblemData
+	responseData.Runs = make(map[string]AdminProblemRunResult)
 
 	var wg sync.WaitGroup
 	var mu sync.Mutex
@@ -82,7 +85,7 @@ func (h *Handler) ProblemRun(runRequest AdminProblemRunRequest) (AdminProblemRes
 		wg.Add(1)
 		go func(language string, submissions []judge0.Submission) {
 			defer wg.Done()
-			runResponses, _ := h.Judge0Client.CreateSubmissionBatchAndWait(submissions)
+			runResponses, _ := h.judge0.CreateSubmissionBatchAndWait(submissions)
 			/*if err != nil {
 				SendError(w, http.StatusInternalServerError, "Failed to create solution submission for language: "+language)
 				continue
@@ -136,7 +139,7 @@ func (h *Handler) ProblemRun(runRequest AdminProblemRunRequest) (AdminProblemRes
 
 			// Protect map access with the mutex during write
 			mu.Lock()
-			responseData.Data.Runs[language] = result
+			responseData.Runs[language] = result
 			mu.Unlock()
 		}(language, solutionRuns[language])
 	}
@@ -145,7 +148,7 @@ func (h *Handler) ProblemRun(runRequest AdminProblemRunRequest) (AdminProblemRes
 
 	// Determine the overall status of all runs
 	var status string
-	for _, run := range responseData.Data.Runs {
+	for _, run := range responseData.Runs {
 		if run.Status == "Wrong Answer" {
 			status = "Wrong Answer"
 			break
@@ -155,33 +158,33 @@ func (h *Handler) ProblemRun(runRequest AdminProblemRunRequest) (AdminProblemRes
 	}
 
 	// Set response values
-	responseData.Data.Status = sql.SubmissionStatus(status)
-	responseData.Data.CompletedAt = time.Now()
+	responseData.Status = sql.SubmissionStatus(status)
+	responseData.CompletedAt = time.Now()
 
 	return responseData, nil
 }
 
-func ProblemRunRequestValidate(runRequest AdminProblemRunRequest) *APIError {
+func ProblemRunRequestValidate(runRequest AdminProblemRunRequest) *errors.ApiError {
 	if runRequest.FunctionName == "" {
-		return NewError(http.StatusBadRequest, "Missing function name")
+		return errors.NewApiError(nil, http.StatusBadRequest, "Missing function name")
 	}
 
 	// check map for missing values
 	for language, sourceCode := range runRequest.Solutions {
 		// Check if source code is missing
 		if sourceCode == "" {
-			return NewError(http.StatusBadRequest, "Missing source code")
+			return errors.NewApiError(nil, http.StatusBadRequest, "Missing source code")
 		}
 
 		// Check if language is valid
 		lang := string(sql.ProblemLanguage(language))
 		if language == "" || language != lang {
-			return NewError(http.StatusBadRequest, "Invalid language: "+language)
+			return errors.NewApiError(nil, http.StatusBadRequest, "Invalid language: "+language)
 		}
 
 		// Check if function name is valid
 		if !strings.Contains(sourceCode, runRequest.FunctionName) {
-			return NewError(http.StatusBadRequest, "Correct function name: "+runRequest.FunctionName+" not found in "+language+" source code")
+			return errors.NewApiError(nil, http.StatusBadRequest, "Correct function name: "+runRequest.FunctionName+" not found in "+language+" source code")
 		}
 	}
 
@@ -189,8 +192,8 @@ func ProblemRunRequestValidate(runRequest AdminProblemRunRequest) *APIError {
 }
 
 // GET: /admin/validate
-func (h *Handler) GetAdminValidation(w http.ResponseWriter, r *http.Request) {
-	admin := GetClientAdmin(w, r)
+func (h *AdminHandler) GetAdminValidation(w http.ResponseWriter, r *http.Request) {
+	admin := httputils.GetClientAdmin(w, r)
 
 	response := AdminValidationResponse{
 		Data: AdminValidation{
@@ -198,7 +201,7 @@ func (h *Handler) GetAdminValidation(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	SendJSONResponse(w, http.StatusOK, response)
+	httputils.SendJSONResponse(w, http.StatusOK, response)
 }
 
 type AdminProblem struct {
@@ -211,10 +214,10 @@ type AdminProblemsResponse struct {
 }
 
 // GET: /admin/problems
-func (h *Handler) GetAdminProblems(w http.ResponseWriter, r *http.Request) {
-	problems, apiErr := h.PostgresQueries.GetAdminProblems(r.Context())
+func (h *AdminHandler) GetAdminProblems(w http.ResponseWriter, r *http.Request) {
+	problems, apiErr := h.accessor.GetAdminProblems(r.Context())
 	if apiErr != nil {
-		SendError(w, http.StatusInternalServerError, apiErr.Error())
+		errors.SendError(w, http.StatusInternalServerError, apiErr.Error())
 		return
 	}
 
@@ -225,20 +228,24 @@ func (h *Handler) GetAdminProblems(w http.ResponseWriter, r *http.Request) {
 		solutionMap := make(map[string]string)
 
 		// Handle the solutions data which is already unmarshaled as []interface{}
-		if problem.Solutions != nil {
-			// Check if it's already a slice of interfaces
-			if solutionsArray, ok := problem.Solutions.([]interface{}); ok {
-				for _, solutionItem := range solutionsArray {
-					// Each solution item should be a map[string]interface{}
-					if solutionMap_, ok := solutionItem.(map[string]interface{}); ok {
-						language, languageOk := solutionMap_["language"].(string)
-						code, codeOk := solutionMap_["code"].(string)
+		if problem.Solutions == nil {
+			continue
+		}
 
-						if languageOk && codeOk {
-							solutionMap[language] = code
-						}
-					}
-				}
+		// Check if it's already a slice of interfaces
+		solutionsArray := problem.Solutions.([]interface{})
+		for _, solutionItem := range solutionsArray {
+			// Each solution item should be a map[string]interface{}
+			solutionMap_, ok := solutionItem.(map[string]interface{})
+			if !ok {
+				continue
+			}
+
+			language, languageOk := solutionMap_["language"].(string)
+			code, codeOk := solutionMap_["code"].(string)
+
+			if languageOk && codeOk {
+				solutionMap[language] = code
 			}
 		}
 
@@ -256,23 +263,20 @@ func (h *Handler) GetAdminProblems(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	var response AdminProblemsResponse
-	response.Data = adminProblems
-
-	SendJSONResponse(w, http.StatusOK, response)
+	httputils.SendJSONResponse(w, http.StatusOK, adminProblems)
 }
 
 // POST: /admin/problems
-func (h *Handler) CreateAdminProblem(w http.ResponseWriter, r *http.Request) {
-	request, apiErr := DecodeJSONRequest[ProblemRequest](r)
+func (h *AdminHandler) CreateAdminProblem(w http.ResponseWriter, r *http.Request) {
+	request, apiErr := httputils.DecodeJSONRequest[ProblemRequest](r)
 	if apiErr != nil {
-		SendError(w, apiErr.StatusCode(), apiErr.Message())
+		errors.SendError(w, apiErr.Error.StatusCode, apiErr.Error.Message)
 		return
 	}
 
 	apiErr = CreateProblemRequestValidate(request)
 	if apiErr != nil {
-		SendError(w, apiErr.StatusCode(), apiErr.Message())
+		errors.SendError(w, apiErr.Error.StatusCode, apiErr.Error.Message)
 		return
 	}
 
@@ -284,55 +288,53 @@ func (h *Handler) CreateAdminProblem(w http.ResponseWriter, r *http.Request) {
 			TestCase:     testCase,
 		})
 		if apiErr != nil {
-			SendError(w, apiErr.StatusCode(), apiErr.Message())
+			errors.SendError(w, apiErr.Error.StatusCode, apiErr.Error.Message)
 			return
 		}
 
 		// Check if any test cases fail
-		if responseData.Data.Status != "Accepted" {
-			SendError(w, http.StatusBadRequest, "Wrong answer for test case: "+testCase.Input[i].Name)
+		if responseData.Status != "Accepted" {
+			errors.SendError(w, http.StatusBadRequest, "Wrong answer for test case: "+testCase.Input[i].Name)
 			return
 		}
 	}
 
 	// Create problem in database if all test cases pass
-	problemID, apiErr := h.CreateProblem(request)
+	problemID, apiErr := h.accessor.CreateProblem(request)
 	if apiErr != nil {
-		SendError(w, apiErr.StatusCode(), apiErr.Message())
+		errors.SendError(w, apiErr.Error.StatusCode, apiErr.Error.Message)
 		return
 	}
 
-	response := CreateAdminProblemResponse{
-		Data: CreateAdminProblemData{
-			ProblemID: problemID.Data.ProblemID,
-		},
+	response := CreateAdminProblemData{
+		ProblemID: problemID.Data.ProblemID,
 	}
 
-	SendJSONResponse(w, http.StatusCreated, response)
+	httputils.SendJSONResponse(w, http.StatusCreated, response)
 }
 
 // POST: /admin/problems/run
 // Make sure to check test cases for each language
-func (h *Handler) CreateAdminProblemRun(w http.ResponseWriter, r *http.Request) {
-	runRequest, apiErr := DecodeJSONRequest[AdminProblemRunRequest](r)
+func (h *AdminHandler) CreateAdminProblemRun(w http.ResponseWriter, r *http.Request) {
+	runRequest, apiErr := httputils.DecodeJSONRequest[AdminProblemRunRequest](r)
 	if apiErr != nil {
-		SendError(w, apiErr.StatusCode(), apiErr.Message())
+		errors.SendError(w, apiErr.Error.StatusCode, apiErr.Error.Message)
 		return
 	}
 
 	// Validate request
 	apiErr = ProblemRunRequestValidate(runRequest)
 	if apiErr != nil {
-		SendError(w, apiErr.StatusCode(), apiErr.Message())
+		errors.SendError(w, apiErr.Error.StatusCode, apiErr.Error.Message)
 		return
 	}
 
 	// Run problems against judge0
 	responseData, apiErr := h.ProblemRun(runRequest)
 	if apiErr != nil {
-		SendError(w, apiErr.StatusCode(), apiErr.Message())
+		errors.SendError(w, apiErr.Error.StatusCode, apiErr.Error.Message)
 		return
 	}
 
-	SendJSONResponse(w, http.StatusOK, responseData)
+	httputils.SendJSONResponse(w, http.StatusOK, responseData)
 }

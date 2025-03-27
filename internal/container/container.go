@@ -4,23 +4,29 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"kadane.xyz/go-backend/v2/internal/api/handlers"
+	"kadane.xyz/go-backend/v2/internal/aws"
 	"kadane.xyz/go-backend/v2/internal/config"
 	"kadane.xyz/go-backend/v2/internal/database"
 	"kadane.xyz/go-backend/v2/internal/database/dbaccessors"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
+	"kadane.xyz/go-backend/v2/internal/judge0"
 )
 
 // APIHandlers is an inner container holding all API handlers
 type APIHandlers struct {
 	AccountHandler *handlers.AccountHandler
+	AdminHandler   *handlers.AdminHandler
 }
 
 // Container is a service locator holding all application dependencies
 type Container struct {
 	Config      *config.Config
 	DB          *pgxpool.Pool
+	AWSClient   *s3.Client
+	Judge0      *judge0.Judge0Client
 	SqlQueries  *sql.Queries
 	APIHandlers *APIHandlers
 }
@@ -39,20 +45,36 @@ func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
 		return nil, fmt.Errorf("failed to create the database connection pool: %w", err)
 	}
 
+	// Create the AWS client
+	awsClient, err := aws.NewAWSClient(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create the S3 client: %w", err)
+	}
+
+	// Create the Judge0 client
+	judge0Client := judge0.NewJudge0Client(cfg)
+
 	// Create queries client
 	queries := sql.New(dbPool)
 
 	// Create database accessors
 	accountsAccessor := dbaccessors.NewSQLAccountsAccessor(queries)
+	adminAccessor := dbaccessors.NewSQLAdminAccessor(queries)
 
-	// Create api handlers
-	apiHandlers := handlers.NewAccountHandler(accountsAccessor)
+	// Create API handlers
+	apiHandlers := handlers.NewAccountHandler(accountsAccessor, awsClient, cfg)
+	adminHandler := handlers.NewAdminHandler(adminAccessor, judge0Client)
 
 	return &Container{
-		Config:      cfg,
-		DB:          dbPool,
-		SqlQueries:  queries,
-		APIHandlers: &APIHandlers{},
+		Config:     cfg,
+		DB:         dbPool,
+		SqlQueries: queries,
+		AWSClient:  awsClient,
+		Judge0:     judge0Client,
+		APIHandlers: &APIHandlers{
+			AccountHandler: apiHandlers,
+			AdminHandler:   adminHandler,
+		},
 	}, nil
 }
 
