@@ -2,20 +2,10 @@ package handlers
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
 )
-
-type Friend struct {
-	Id         string    `json:"id"`
-	Username   string    `json:"username"`
-	AvatarUrl  string    `json:"avatarUrl"`
-	Location   string    `json:"location"`
-	Level      int32     `json:"level"`
-	AcceptedAt time.Time `json:"acceptedAt"`
-}
 
 type FriendRequestRequest struct {
 	FriendName string `json:"friendName"`
@@ -23,15 +13,6 @@ type FriendRequestRequest struct {
 
 type FriendsResponse struct {
 	Data []Friend `json:"data"`
-}
-
-type FriendRequest struct {
-	FriendId   string    `json:"friendId"`
-	FriendName string    `json:"friendName"`
-	AvatarUrl  string    `json:"avatarUrl"`
-	Level      int32     `json:"level"`
-	CreatedAt  time.Time `json:"createdAt"`
-	Location   string    `json:"location"`
 }
 
 type FriendRequestsResponse struct {

@@ -10,17 +10,6 @@ import (
 	"kadane.xyz/go-backend/v2/internal/database/sql"
 )
 
-type Solutions struct {
-	Id        int64    `json:"id"`
-	Username  string   `json:"username"`
-	Title     string   `json:"title"`
-	Date      string   `json:"date"`
-	Tags      []string `json:"tags"`
-	Body      string   `json:"body"`
-	Votes     int      `json:"votes"`
-	ProblemId int64    `json:"problemId"`
-}
-
 type CreateSolutionRequest struct {
 	ProblemId int64    `json:"problemId"`
 	Title     string   `json:"title"`

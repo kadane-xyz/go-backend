@@ -24,16 +24,6 @@ type AdminValidation struct {
 	IsAdmin bool `json:"isAdmin"`
 }
 
-type AdminValidationResponse struct {
-	Data AdminValidation `json:"data"`
-}
-
-type AdminProblemRunRequest struct {
-	FunctionName string            `json:"functionName"`
-	Solutions    map[string]string `json:"solutions"` // ["language": "sourceCode"]
-	TestCase     TestCase          `json:"testCase"`
-}
-
 type AdminProblemRunResult struct {
 	TestCase  RunTestCase          `json:"testCase"`
 	Status    sql.SubmissionStatus `json:"status"` // Accepted, Wrong Answer, etc

@@ -2,97 +2,12 @@ package handlers
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
 	"kadane.xyz/go-backend/v2/internal/judge0"
 )
-
-type Starred struct {
-	ID      interface{} `json:"id"` // can be int32 or string
-	Starred bool        `json:"starred"`
-}
-
-type StarredResponse struct {
-	Data Starred `json:"data"`
-}
-
-type StarredsResponse struct {
-	Data []Starred `json:"data"`
-}
-
-// starred problems
-type StarProblemRequest struct {
-	ProblemID int32 `json:"problemId"`
-}
-
-type StarredProblem struct {
-	ID          int      `json:"id"`
-	Title       string   `json:"title"`
-	Description string   `json:"description"`
-	Tags        []string `json:"tags"`
-	Difficulty  string   `json:"difficulty"`
-	Points      int      `json:"points"`
-	Starred     bool     `json:"starred"`
-}
-
-type StarredProblemsResponse struct {
-	Data []StarredProblem `json:"data"`
-}
-
-// starred solutions
-type StarSolutionRequest struct {
-	SolutionID int32 `json:"solutionId"`
-}
-
-type StarredSolution struct {
-	Id        int64            `json:"id"`
-	Username  string           `json:"username"`
-	Title     string           `json:"title"`
-	Date      pgtype.Timestamp `json:"date"`
-	Tags      []string         `json:"tags"`
-	Body      string           `json:"body"`
-	Votes     int32            `json:"votes"`
-	ProblemId int64            `json:"problemId"`
-	Starred   bool             `json:"starred"`
-}
-
-type StarredSolutionsResponse struct {
-	Data []StarredSolution `json:"data"`
-}
-
-// starred submissions
-type StarSubmissionRequest struct {
-	SubmissionID string `json:"submissionId"`
-}
-
-type StarredSubmission struct {
-	Id            pgtype.UUID          `json:"id"`
-	Token         string               `json:"token"`
-	Stdout        string               `json:"stdout"`
-	Time          string               `json:"time"`
-	Memory        int32                `json:"memory"`
-	Stderr        string               `json:"stderr"`
-	CompileOutput string               `json:"compileOutput"`
-	Message       string               `json:"message"`
-	Status        sql.SubmissionStatus `json:"status"`
-	Language      string               `json:"language"`
-	// custom fields
-	AccountID      string    `json:"accountId"`
-	SubmittedCode  string    `json:"submittedCode"`
-	SubmittedStdin string    `json:"submittedStdin"`
-	ProblemID      int32     `json:"problemId"`
-	CreatedAt      time.Time `json:"createdAt"`
-	Starred        bool      `json:"starred"`
-}
-
-type StarredSubmissionsResponse struct {
-	Data []StarredSubmission `json:"data"`
-}
-
-// GET
 
 // GET: /starred/problems
 func (h *Handler) GetStarredProblems(w http.ResponseWriter, r *http.Request) {
