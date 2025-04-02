@@ -7,8 +7,15 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"kadane.xyz/go-backend/v2/internal/api/httputils"
+	"kadane.xyz/go-backend/v2/internal/database/dbaccessors"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
+	"kadane.xyz/go-backend/v2/internal/errors"
 )
+
+type ProblemHandler struct {
+	accessor dbaccessors.ProblemsAccessor
+}
 
 type ProblemHint struct {
 	Description string `json:"description"`
@@ -40,24 +47,6 @@ type ProblemRequest struct {
 	TestCases    []TestCase           `json:"testCases"`
 }
 
-type Problem struct {
-	ID            int32                 `json:"id"`
-	Title         string                `json:"title"`
-	Description   string                `json:"description"`
-	FunctionName  string                `json:"functionName"`
-	Tags          []string              `json:"tags"`
-	Difficulty    sql.ProblemDifficulty `json:"difficulty"`
-	Code          interface{}           `json:"code"`
-	Hints         interface{}           `json:"hints"`
-	Points        int32                 `json:"points"`
-	Solution      interface{}           `json:"solution,omitempty"`
-	TestCases     interface{}           `json:"testCases"`
-	Starred       bool                  `json:"starred"`
-	Solved        bool                  `json:"solved"`
-	TotalAttempts int32                 `json:"totalAttempts"`
-	TotalCorrect  int32                 `json:"totalCorrect"`
-}
-
 type ProblemResponse struct {
 	Data Problem `json:"data"`
 }
@@ -75,24 +64,24 @@ type CreateProblemData struct {
 	ProblemID string `json:"problemId"`
 }
 
-type CreateProblemResponse struct {
-	Data CreateProblemData `json:"data"`
+func NewProblemHandler(accessor dbaccessors.ProblemsAccessor) *ProblemHandler {
+	return &ProblemHandler{accessor: accessor}
 }
 
-func (h *Handler) GetProblemsValidateRequest(w http.ResponseWriter, r *http.Request) (sql.GetProblemsFilteredPaginatedParams, *APIError) {
+func (h *ProblemHandler) GetProblemsValidateRequest(w http.ResponseWriter, r *http.Request) (sql.GetProblemsFilteredPaginatedParams, *errors.ApiError) {
 	titleSearch := strings.TrimSpace(r.URL.Query().Get("titleSearch"))
 	sortType := strings.TrimSpace(r.URL.Query().Get("sort"))
 	if sortType == "" {
 		sortType = string(sql.ProblemSortIndex)
 	} else if sortType != string(sql.ProblemSortAlpha) && sortType != string(sql.ProblemSortIndex) {
-		return sql.GetProblemsFilteredPaginatedParams{}, NewError(http.StatusBadRequest, "Invalid sort")
+		return sql.GetProblemsFilteredPaginatedParams{}, errors.NewApiError(nil, http.StatusBadRequest, "Invalid sort")
 	}
 
 	order := strings.TrimSpace(r.URL.Query().Get("order"))
 	if order == "" {
 		order = string(sql.SortDirectionAsc)
 	} else if order != string(sql.SortDirectionAsc) && order != string(sql.SortDirectionDesc) {
-		return sql.GetProblemsFilteredPaginatedParams{}, NewError(http.StatusBadRequest, "Invalid order")
+		return sql.GetProblemsFilteredPaginatedParams{}, errors.NewApiError(nil, http.StatusBadRequest, "Invalid order")
 	}
 
 	var page int32
@@ -133,19 +122,19 @@ func (h *Handler) GetProblemsValidateRequest(w http.ResponseWriter, r *http.Requ
 	}, nil
 }
 
-func (h *Handler) GetProblems(ctx context.Context, w http.ResponseWriter, params sql.GetProblemsFilteredPaginatedParams) (ProblemPaginationResponse, *APIError) {
-	problems, err := h.PostgresQueries.GetProblemsFilteredPaginated(ctx, params)
+func (h *ProblemHandler) GetProblems(ctx context.Context, w http.ResponseWriter, params sql.GetProblemsFilteredPaginatedParams) (ProblemPaginationResponse, *errors.ApiError) {
+	problems, err := h.accessor.GetProblemsFilteredPaginated(ctx, params)
 	if err != nil {
-		return ProblemPaginationResponse{}, NewError(http.StatusInternalServerError, "Failed to get problems")
+		return ProblemPaginationResponse{}, errors.NewApiError(err, http.StatusInternalServerError, "Failed to get problems")
 	}
 
 	if len(problems) == 0 {
-		return ProblemPaginationResponse{}, NewError(http.StatusNotFound, "No problems found")
+		return ProblemPaginationResponse{}, errors.NewApiError(nil, http.StatusNotFound, "No problems found")
 	}
 
 	totalCount := problems[0].TotalCount
 	if totalCount == 0 {
-		return ProblemPaginationResponse{}, NewError(http.StatusNotFound, "No problems found")
+		return ProblemPaginationResponse{}, errors.NewApiError(nil, http.StatusNotFound, "No problems found")
 	}
 
 	lastPage := (totalCount + params.PerPage - 1) / params.PerPage
@@ -156,7 +145,7 @@ func (h *Handler) GetProblems(ctx context.Context, w http.ResponseWriter, params
 
 	// check if page is out of bounds
 	if params.Page < 1 || params.Page > lastPage {
-		return ProblemPaginationResponse{}, NewError(http.StatusBadRequest, "Page out of bounds")
+		return ProblemPaginationResponse{}, errors.NewApiError(nil, http.StatusBadRequest, "Page out of bounds")
 	}
 
 	responseData := []Problem{}
@@ -195,174 +184,209 @@ func (h *Handler) GetProblems(ctx context.Context, w http.ResponseWriter, params
 }
 
 // GET: /problems
-func (h *Handler) GetProblemsRoute(w http.ResponseWriter, r *http.Request) {
+func (h *ProblemHandler) GetProblemsRoute(w http.ResponseWriter, r *http.Request) {
 	params, apiErr := h.GetProblemsValidateRequest(w, r)
 	if apiErr != nil {
-		SendError(w, apiErr.StatusCode(), apiErr.Message())
+		apiErr.Send(w)
 		return
 	}
 
 	response, apiErr := h.GetProblems(r.Context(), w, params)
 	if apiErr != nil {
-		SendError(w, apiErr.StatusCode(), apiErr.Message())
+		apiErr.Send(w)
 		return
 	}
 
-	SendJSONResponse(w, http.StatusOK, response)
+	httputils.SendJSONResponse(w, http.StatusOK, response)
 }
 
-func CreateProblemRequestValidate(request ProblemRequest) *APIError {
+func CreateProblemRequestValidate(request ProblemRequest) *errors.ApiError {
 	// Check problem fields
 	if request.Title == "" || request.Description == "" || request.FunctionName == "" || len(request.Solutions) == 0 {
-		return NewError(http.StatusBadRequest, "Title, description, function name, and solution are required")
+		return errors.NewApiError(nil, http.StatusBadRequest, "Title, description, function name, and solution are required")
 	}
 
 	if len(request.Code) == 0 {
-		return NewError(http.StatusBadRequest, "At least one code is required")
+		return errors.NewApiError(nil, http.StatusBadRequest, "At least one code is required")
 	}
 
 	if request.Points < 0 {
-		return NewError(http.StatusBadRequest, "Points must be greater than 0")
+		return errors.NewApiError(nil, http.StatusBadRequest, "Points must be greater than 0")
 	}
 
 	if len(request.Solutions) == 0 {
-		return NewError(http.StatusBadRequest, "Solution is required")
+		return errors.NewApiError(nil, http.StatusBadRequest, "Solution is required")
 	}
 
 	return nil
 }
 
-func (h *Handler) CreateProblem(request ProblemRequest) (*CreateProblemResponse, *APIError) {
-	problemID, err := h.PostgresQueries.CreateProblem(context.Background(), sql.CreateProblemParams{
-		Title:        request.Title,
-		Description:  request.Description,
-		FunctionName: request.FunctionName,
-		Points:       request.Points,
-		Tags:         request.Tags,
-		Difficulty:   sql.ProblemDifficulty(request.Difficulty),
-	})
-	if err != nil {
-		return nil, NewError(http.StatusInternalServerError, "Failed to create problem")
+func (h *ProblemHandler) CreateProblem(request ProblemRequest) (*CreateProblemData, *errors.ApiError) {
+	testCaseDescriptions := []string{}
+	testCaseVisibilities := []sql.Visibility{}
+	testCaseOutputIndices := []int32{}
+	testCaseOutputValues := []string{}
+	testCaseInputIndices := []int32{}
+	testCaseInputNames := []string{}
+	testCaseInputValues := []string{}
+	testCaseInputTypes := []sql.ProblemTestCaseType{}
+	for i, testCase := range request.TestCases {
+		testCaseDescriptions = append(testCaseDescriptions, testCase.Description)
+		testCaseVisibilities = append(testCaseVisibilities, sql.Visibility(testCase.Visibility))
+		for _, input := range testCase.Input {
+			if input.Name == "" || input.Value == "" || input.Type == "" {
+				return nil, errors.NewApiError(nil, http.StatusBadRequest, "Input name, value, and type are required")
+			}
+			testCaseInputNames = append(testCaseInputNames, input.Name)
+			testCaseInputValues = append(testCaseInputValues, input.Value)
+			testCaseInputTypes = append(testCaseInputTypes, sql.ProblemTestCaseType(input.Type))
+			testCaseInputIndices = append(testCaseInputIndices, int32(i))
+		}
+		testCaseOutputValues = append(testCaseOutputValues, testCase.Output)
+		testCaseOutputIndices = append(testCaseOutputIndices, int32(i))
 	}
 
-	for _, hint := range request.Hints {
-		err = h.PostgresQueries.CreateProblemHint(context.Background(), sql.CreateProblemHintParams{
+	problemID, err := h.accessor.CreateProblem(context.Background(), sql.CreateProblemParams{
+		Title:                 request.Title,
+		Description:           request.Description,
+		FunctionName:          request.FunctionName,
+		Points:                request.Points,
+		Tags:                  request.Tags,
+		Difficulty:            sql.ProblemDifficulty(request.Difficulty),
+		TestCaseDescriptions:  testCaseDescriptions,
+		TestCaseVisibilities:  testCaseVisibilities,
+		TestCaseOutputIndices: testCaseOutputIndices,
+		TestCaseOutputValues:  testCaseOutputValues,
+		TestCaseInputIndices:  testCaseInputIndices,
+		TestCaseInputNames:    testCaseInputNames,
+		TestCaseInputValues:   testCaseInputValues,
+		TestCaseInputTypes:    testCaseInputTypes,
+	})
+	if err != nil {
+		return nil, errors.NewApiError(err, http.StatusInternalServerError, "Failed to create problem")
+	}
+
+	/*for _, hint := range request.Hints {
+		err = h.accessor.CreateProblemHint(context.Background(), sql.CreateProblemHintParams{
 			ProblemID:   problemID,
 			Description: hint.Description,
 			Answer:      hint.Answer,
 		})
 		if err != nil {
-			return nil, NewError(http.StatusInternalServerError, "Failed to create hint")
+			return nil, errors.NewApiError(err, http.StatusInternalServerError, "Failed to create hint")
 		}
 	}
 
 	for language, code := range request.Code {
-		err = h.PostgresQueries.CreateProblemCode(context.Background(), sql.CreateProblemCodeParams{
+		err = h.accessor.CreateProblemCode(context.Background(), sql.CreateProblemCodeParams{
 			ProblemID: problemID,
 			Language:  sql.ProblemLanguage(language),
 			Code:      code,
 		})
 		if err != nil {
-			return nil, NewError(http.StatusInternalServerError, "Failed to create code")
+			return nil, errors.NewApiError(err, http.StatusInternalServerError, "Failed to create code")
 		}
 	}
 
 	for _, testCase := range request.TestCases {
-		testCaseID, err := h.PostgresQueries.CreateProblemTestCase(context.Background(), sql.CreateProblemTestCaseParams{
+		testCaseID, err := h.accessor.CreateProblemTestCase(context.Background(), sql.CreateProblemTestCaseParams{
 			Description: testCase.Description,
 			ProblemID:   problemID,
 			Visibility:  sql.Visibility(testCase.Visibility),
 		})
 		if err != nil {
-			return nil, NewError(http.StatusInternalServerError, "Failed to create test case")
+			return nil, errors.NewApiError(err, http.StatusInternalServerError, "Failed to create test case")
 		}
 
 		for _, input := range testCase.Input {
-			_, err = h.PostgresQueries.CreateProblemTestCaseInput(context.Background(), sql.CreateProblemTestCaseInputParams{
+			_, err = h.accessor.CreateProblemTestCaseInput(context.Background(), sql.CreateProblemTestCaseInputParams{
 				ProblemTestCaseID: testCaseID.ID,
 				Value:             input.Value,
 				Type:              sql.ProblemTestCaseType(input.Type),
 				Name:              input.Name,
 			})
 			if err != nil {
-				return nil, NewError(http.StatusInternalServerError, "Failed to create test case input")
+				return nil, errors.NewApiError(err, http.StatusInternalServerError, "Failed to create test case input")
 			}
 		}
 
-		_, err = h.PostgresQueries.CreateProblemTestCaseOutput(context.Background(), sql.CreateProblemTestCaseOutputParams{
+		_, err = h.accessor.CreateProblemTestCaseOutput(context.Background(), sql.CreateProblemTestCaseOutputParams{
 			ProblemTestCaseID: testCaseID.ID,
 			Value:             testCase.Output,
 		})
 		if err != nil {
-			return nil, NewError(http.StatusInternalServerError, "Failed to create test case output")
+			return nil, errors.NewApiError(err, http.StatusInternalServerError, "Failed to create test case output")
 		}
 	}
 
 	for language, code := range request.Solutions {
-		_, err = h.PostgresQueries.CreateProblemSolution(context.Background(), sql.CreateProblemSolutionParams{
+		_, err = h.accessor.CreateProblemSolution(context.Background(), sql.CreateProblemSolutionParams{
 			ProblemID: problemID,
 			Language:  sql.ProblemLanguage(language),
 			Code:      code,
 		})
 		if err != nil {
-			return nil, NewError(http.StatusInternalServerError, "Failed to create solution")
+			return nil, errors.NewApiError(err, http.StatusInternalServerError, "Failed to create solution")
 		}
+	}*/
+
+	return &CreateProblemData{
+		ProblemID: problemID,
+	}, nil
+}
+
+func ValidateGetProblem(r *http.Request) (sql.GetProblemParams, *errors.ApiError) {
+	userId, err := httputils.GetClientUserID(w, r)
+	if err != nil {
+		return sql.GetProblemParams{}, errors.NewApiError(err, http.StatusInternalServerError, "Failed to get user ID")
 	}
 
-	return &CreateProblemResponse{
-		Data: CreateProblemData{
-			ProblemID: strconv.Itoa(int(problemID)),
-		},
+	problemId := chi.URLParam(r, "problemId")
+	problemIdInt, err := strconv.ParseInt(problemId, 10, 32)
+	if err != nil {
+		return sql.GetProblemParams{}, errors.NewApiError(err, http.StatusBadRequest, "Invalid problem ID")
+	}
+
+	return sql.GetProblemParams{
+		UserID:    userId,
+		ProblemID: int32(problemIdInt),
 	}, nil
 }
 
 // GET: /problems/{problemId}
-func (h *Handler) GetProblem(w http.ResponseWriter, r *http.Request) {
-	userId, err := GetClientUserID(w, r)
-	if err != nil {
+func (h *ProblemHandler) GetProblem(w http.ResponseWriter, r *http.Request) {
+	params, apiErr := ValidateGetProblem(r)
+	if apiErr != nil {
+		apiErr.Send(w)
 		return
 	}
 
-	var id int32
-	idStr := chi.URLParam(r, "problemId")
-	idInt, err := strconv.ParseInt(idStr, 10, 32)
+	problem, err := h.accessor.GetProblem(context.Background(), params)
 	if err != nil {
-		SendError(w, http.StatusBadRequest, "Invalid problem ID")
-		return
-	}
-	id = int32(idInt)
-
-	problem, err := h.PostgresQueries.GetProblem(context.Background(), sql.GetProblemParams{
-		ProblemID: id,
-		UserID:    userId,
-	})
-	if err != nil {
-		SendError(w, http.StatusInternalServerError, "Failed to get problem")
+		errors.SendError(w, http.StatusInternalServerError, "Failed to get problem")
 		return
 	}
 
 	// test cases should not contain visibility on response
 	codeMap := InterfaceToMap(problem.Code)
-	response := ProblemResponse{
-		Data: Problem{
-			ID:            problem.ID,
-			Title:         problem.Title,
-			FunctionName:  problem.FunctionName,
-			Description:   problem.Description.String,
-			Tags:          problem.Tags,
-			Difficulty:    sql.ProblemDifficulty(problem.Difficulty),
-			Code:          codeMap,
-			Hints:         problem.Hints,
-			Points:        problem.Points,
-			TestCases:     problem.TestCases,
-			Starred:       problem.Starred,
-			Solved:        problem.Solved,
-			TotalAttempts: problem.TotalAttempts,
-			TotalCorrect:  problem.TotalCorrect,
-		},
+	response := Problem{
+		ID:            problem.ID,
+		Title:         problem.Title,
+		FunctionName:  problem.FunctionName,
+		Description:   problem.Description.String,
+		Tags:          problem.Tags,
+		Difficulty:    problem.Difficulty,
+		Code:          codeMap,
+		Hints:         problem.Hints,
+		Points:        problem.Points,
+		TestCases:     problem.TestCases,
+		Starred:       problem.Starred,
+		Solved:        problem.Solved,
+		TotalAttempts: problem.TotalAttempts,
+		TotalCorrect:  problem.TotalCorrect,
 	}
 
-	SendJSONResponse(w, http.StatusOK, response)
+	httputils.SendJSONResponse(w, http.StatusOK, response)
 }
 
 func InterfaceToMap(object interface{}) map[string]string {

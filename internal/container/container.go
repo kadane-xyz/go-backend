@@ -19,6 +19,7 @@ import (
 type APIHandlers struct {
 	AccountHandler *handlers.AccountHandler
 	AdminHandler   *handlers.AdminHandler
+	ProblemHandler *handlers.ProblemHandler
 }
 
 // Container is a service locator holding all application dependencies
@@ -60,10 +61,12 @@ func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
 	// Create database accessors
 	accountsAccessor := dbaccessors.NewSQLAccountsAccessor(queries)
 	adminAccessor := dbaccessors.NewSQLAdminAccessor(queries)
+	problemsAccessor := dbaccessors.NewSQLProblemsAccessor(queries)
 
 	// Create API handlers
 	apiHandlers := handlers.NewAccountHandler(accountsAccessor, awsClient, cfg)
-	adminHandler := handlers.NewAdminHandler(adminAccessor, judge0Client)
+	adminHandler := handlers.NewAdminHandler(adminAccessor, problemsAccessor, judge0Client)
+	problemHandler := handlers.NewProblemHandler(problemsAccessor)
 
 	return &Container{
 		Config:     cfg,
@@ -74,6 +77,7 @@ func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
 		APIHandlers: &APIHandlers{
 			AccountHandler: apiHandlers,
 			AdminHandler:   adminHandler,
+			ProblemHandler: problemHandler,
 		},
 	}, nil
 }

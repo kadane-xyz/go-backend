@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/mail"
 	"strings"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/go-chi/chi/v5"
@@ -37,55 +36,6 @@ type AccountHandler struct {
 
 func NewAccountHandler(accessor dbaccessors.AccountAccessor, awsClient *s3.Client, config *config.Config) *AccountHandler {
 	return &AccountHandler{accessor: accessor, awsClient: awsClient, config: config}
-}
-
-type AccountUpdateRequest struct {
-	Bio          *string `json:"bio,omitempty"`
-	ContactEmail *string `json:"contactEmail,omitempty"`
-	Location     *string `json:"location,omitempty"`
-	RealName     *string `json:"realName,omitempty"`
-	GithubUrl    *string `json:"githubUrl,omitempty"`
-	LinkedinUrl  *string `json:"linkedinUrl,omitempty"`
-	FacebookUrl  *string `json:"facebookUrl,omitempty"`
-	InstagramUrl *string `json:"instagramUrl,omitempty"`
-	TwitterUrl   *string `json:"twitterUrl,omitempty"`
-	School       *string `json:"school,omitempty"`
-	WebsiteUrl   *string `json:"websiteUrl,omitempty"`
-}
-
-type AccountAttributes struct {
-	ID                 string `json:"id,omitempty"`
-	Bio                string `json:"bio,omitempty"`
-	ContactEmail       string `json:"contactEmail,omitempty"`
-	Location           string `json:"location,omitempty"`
-	RealName           string `json:"realName,omitempty"`
-	GithubUrl          string `json:"githubUrl,omitempty"`
-	LinkedinUrl        string `json:"linkedinUrl,omitempty"`
-	FacebookUrl        string `json:"facebookUrl,omitempty"`
-	InstagramUrl       string `json:"instagramUrl,omitempty"`
-	TwitterUrl         string `json:"twitterUrl,omitempty"`
-	School             string `json:"school,omitempty"`
-	WebsiteUrl         string `json:"websiteUrl,omitempty"`
-	FriendCount        int64  `json:"friends,omitempty"`
-	BlockedCount       int64  `json:"blockedUsers,omitempty"`
-	FriendRequestCount int64  `json:"friendRequests,omitempty"`
-}
-
-type Account struct {
-	ID           string           `json:"id"`
-	Username     string           `json:"username"`
-	Email        string           `json:"email"`
-	AvatarUrl    string           `json:"avatarUrl,omitempty"`
-	Level        int32            `json:"level"`
-	CreatedAt    time.Time        `json:"createdAt"`
-	FriendStatus FriendshipStatus `json:"friendStatus,omitempty"`
-	Plan         sql.AccountPlan  `json:"plan"`
-	IsAdmin      bool             `json:"isAdmin"`
-	Attributes   interface{}      `json:"attributes"`
-}
-
-type AccountValidation struct {
-	Plan sql.AccountPlan `json:"plan"`
 }
 
 func ValidateGetAccountsFiltered(r *http.Request) (sql.ListAccountsWithAttributesFilteredParams, error) {
@@ -158,12 +108,6 @@ func (h *AccountHandler) GetAccounts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httputils.SendJSONDataResponse(w, http.StatusOK, response)
-}
-
-type CreateAccountRequest struct {
-	ID       string `json:"id"`
-	Username string `json:"username"`
-	Email    string `json:"email"`
 }
 
 func ValidateCreateAccount(r *http.Request) (*sql.CreateAccountParams, *errors.ApiError) {

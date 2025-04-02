@@ -1,12 +1,3 @@
--- name: CreateProblem :one
-INSERT INTO problem (title, description, function_name, points, tags, difficulty) VALUES (@title, @description::text, @function_name, @points, @tags, @difficulty) RETURNING id;
-
--- name: CreateProblemCode :exec
-INSERT INTO problem_code (problem_id, language, code) VALUES (@problem_id::int, @language::problem_language, @code::text);
-
--- name: CreateProblemHint :exec
-INSERT INTO problem_hint (problem_id, description, answer) VALUES (@problem_id::int, @description::text, @answer::text);
-
 -- name: GetProblemsById :many
 SELECT * FROM problem WHERE id = ANY(@ids::int[]);
 
@@ -302,17 +293,90 @@ SELECT * FROM problem WHERE title = @title::text;
 -- name: GetProblemByDifficulty :many
 SELECT * FROM problem WHERE difficulty = @difficulty::problem_difficulty ORDER BY RANDOM() LIMIT @per_page::int OFFSET ((@page::int) - 1) * @per_page::int;
 
--- name: CreateProblemTestCase :one
-INSERT INTO problem_test_case (problem_id, description, visibility) VALUES (@problem_id::int, @description::text, @visibility::visibility) RETURNING *;
-
--- name: CreateProblemTestCaseInput :one
-INSERT INTO problem_test_case_input (problem_test_case_id, name, value, type) VALUES (@problem_test_case_id::int, @name::text, @value::text, @type::problem_test_case_type) RETURNING *;
-
--- name: CreateProblemTestCaseOutput :one
-INSERT INTO problem_test_case_output (problem_test_case_id, value) VALUES (@problem_test_case_id::int, @value::text) RETURNING *;
-
--- name: CreateProblemSolution :one
-INSERT INTO problem_solution (problem_id, language, code) VALUES (@problem_id::int, @language::problem_language, @code::text) RETURNING *;
+-- name: CreateProblem :one
+WITH inserted_problem AS (
+  INSERT INTO problem (title, description, function_name, points, tags, difficulty)
+  VALUES (
+    @title,
+    @description::text,
+    @function_name,
+    @points,
+    @tags,
+    @difficulty
+  )
+  RETURNING id
+),
+inserted_problem_hints AS (
+  INSERT INTO problem_hint (problem_id, description, answer)
+  SELECT 
+    (SELECT id FROM inserted_problem),
+    d.description,
+    a.answer
+  FROM 
+    unnest(@hint_descriptions::text[]) WITH ORDINALITY AS d(description, idx)
+    JOIN unnest(@hint_answers::text[]) WITH ORDINALITY AS a(answer, idx) USING (idx)
+  RETURNING *
+),
+inserted_problem_codes AS (
+  INSERT INTO problem_code (problem_id, language, code)
+  SELECT 
+    (SELECT id FROM inserted_problem),
+    l.language,
+    c.code  
+  FROM 
+    unnest(@code_languages::problem_language[]) WITH ORDINALITY AS l(language, idx)
+    JOIN unnest(@code_bodies::text[]) WITH ORDINALITY AS c(code, idx) USING (idx)
+  RETURNING *
+),
+inserted_problem_solutions AS (
+  INSERT INTO problem_solution (problem_id, language, code)
+  SELECT 
+    (SELECT id FROM inserted_problem),
+    l.language,
+    c.code
+  FROM 
+    unnest(@solution_languages::problem_language[]) WITH ORDINALITY AS l(language, idx)
+    JOIN unnest(@solution_codes::text[]) WITH ORDINALITY AS c(code, idx) USING (idx)
+  RETURNING *
+),
+inserted_test_case AS (
+  INSERT INTO problem_test_case (problem_id, description, visibility)
+  VALUES (
+    (SELECT id FROM inserted_problem),
+    @test_case_description::text,
+    @test_case_visibility::visibility
+  )
+  RETURNING id
+),
+inserted_test_case_inputs AS (
+  INSERT INTO problem_test_case_input (problem_test_case_id, name, value, type)
+  SELECT 
+    (SELECT id FROM inserted_test_case),
+    n.name,
+    v.value,
+    t.type
+  FROM 
+    unnest(@test_case_input_names::text[]) WITH ORDINALITY AS n(name, idx)
+    JOIN unnest(@test_case_input_values::text[]) WITH ORDINALITY AS v(value, idx) USING (idx)
+    JOIN unnest(@test_case_input_types::problem_test_case_type[]) WITH ORDINALITY AS t(type, idx) USING (idx)
+  RETURNING *
+),
+inserted_test_case_output AS (
+  INSERT INTO problem_test_case_output (problem_test_case_id, value)
+  VALUES (
+    (SELECT id FROM inserted_test_case),
+    @test_case_output::text
+  )
+  RETURNING *
+)
+SELECT
+  (SELECT id FROM inserted_problem) AS problem_id,
+  (SELECT COALESCE(json_agg(row_to_json(iphs)), '[]'::json) FROM inserted_problem_hints iphs) AS hints,
+  (SELECT COALESCE(json_agg(row_to_json(ipcs)), '[]'::json) FROM inserted_problem_codes ipcs) AS codes,
+  (SELECT COALESCE(json_agg(row_to_json(ipss)), '[]'::json) FROM inserted_problem_solutions ipss) AS solutions,
+  (SELECT row_to_json(itc) FROM inserted_test_case itc) AS test_case,
+  (SELECT COALESCE(json_agg(row_to_json(itcis)), '[]'::json) FROM inserted_test_case_inputs itcis) AS test_case_inputs,
+  (SELECT row_to_json(itco) FROM inserted_test_case_output itco) AS test_case_output;
 
 -- name: GetProblemTestCases :many
 SELECT ptc.*,

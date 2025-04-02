@@ -1,4 +1,4 @@
-package handlers
+package domain
 
 import "kadane.xyz/go-backend/v2/internal/database/sql"
 

@@ -1,17 +1,17 @@
 package judge0tmpl
 
 import (
-	"kadane.xyz/go-backend/v2/internal/api/handlers"
+	"kadane.xyz/go-backend/v2/internal/domain"
 	"kadane.xyz/go-backend/v2/internal/judge0"
 )
 
 type TemplateInput struct {
-	Language       string            `json:"language"`
-	FunctionName   string            `json:"functionName"`
-	SourceCode     string            `json:"sourceCode"`
-	ExpectedOutput string            `json:"expectedOutput"`
-	Problem        handlers.Problem  `json:"problem"`
-	TestCase       handlers.TestCase `json:"testCase"`
+	Language       string          `json:"language"`
+	FunctionName   string          `json:"functionName"`
+	SourceCode     string          `json:"sourceCode"`
+	ExpectedOutput string          `json:"expectedOutput"`
+	Problem        domain.Problem  `json:"problem"`
+	TestCase       domain.TestCase `json:"testCase"`
 }
 
 func TemplateCreate(templateInput TemplateInput) judge0.Submission {

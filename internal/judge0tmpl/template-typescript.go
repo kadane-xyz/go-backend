@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"strings"
 
-	"kadane.xyz/go-backend/v2/internal/api/handlers"
+	"kadane.xyz/go-backend/v2/internal/domain"
 	"kadane.xyz/go-backend/v2/internal/judge0"
 )
 
 // Convert the test case inputs to a comma separated string
-func TemplateTypescriptInputs(testCases handlers.TestCase) string {
+func TemplateTypescriptInputs(testCases domain.TestCase) string {
 	var inputs []string
 
 	for _, input := range testCases.Input {

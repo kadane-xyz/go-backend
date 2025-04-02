@@ -15,8 +15,9 @@ import (
 )
 
 type AdminHandler struct {
-	accessor dbaccessors.AdminAccessor
-	judge0   *judge0.Judge0Client
+	accessor         dbaccessors.AdminAccessor
+	problemsAccessor dbaccessors.ProblemsAccessor
+	judge0           *judge0.Judge0Client
 }
 
 type AdminValidation struct {
@@ -46,11 +47,11 @@ type AdminProblemData struct {
 }
 
 type CreateAdminProblemData struct {
-	ProblemID string `json:"problemId"`
+	ProblemID int32 `json:"problemId"`
 }
 
-func NewAdminHandler(accessor dbaccessors.AdminAccessor, judge0 *judge0.Judge0Client) *AdminHandler {
-	return &AdminHandler{accessor: accessor, judge0: judge0}
+func NewAdminHandler(accessor dbaccessors.AdminAccessor, problemsAccessor dbaccessors.ProblemsAccessor, judge0 *judge0.Judge0Client) *AdminHandler {
+	return &AdminHandler{accessor: accessor, problemsAccessor: problemsAccessor, judge0: judge0}
 }
 
 func (h *AdminHandler) ProblemRun(runRequest AdminProblemRunRequest) (AdminProblemData, *errors.ApiError) {
@@ -300,14 +301,14 @@ func (h *AdminHandler) CreateAdminProblem(w http.ResponseWriter, r *http.Request
 	}
 
 	// Create problem in database if all test cases pass
-	problemID, apiErr := h.accessor.CreateProblem(request)
-	if apiErr != nil {
-		errors.SendError(w, apiErr.Error.StatusCode, apiErr.Error.Message)
+	problemID, dbErr := h.problemsAccessor.CreateProblem(r.Context(), request)
+	if dbErr != nil {
+		errors.NewApiError(dbErr, http.StatusInternalServerError, "Failed to create problem")
 		return
 	}
 
 	response := CreateAdminProblemData{
-		ProblemID: problemID.Data.ProblemID,
+		ProblemID: problemID,
 	}
 
 	httputils.SendJSONResponse(w, http.StatusCreated, response)
