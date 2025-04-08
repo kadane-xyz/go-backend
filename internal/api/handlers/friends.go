@@ -7,18 +7,6 @@ import (
 	"kadane.xyz/go-backend/v2/internal/database/sql"
 )
 
-type FriendRequestRequest struct {
-	FriendName string `json:"friendName"`
-}
-
-type FriendsResponse struct {
-	Data []Friend `json:"data"`
-}
-
-type FriendRequestsResponse struct {
-	Data []FriendRequest `json:"data"`
-}
-
 // GET: /friends
 // GetFriends gets all friends
 func (h *Handler) GetFriends(w http.ResponseWriter, r *http.Request) {

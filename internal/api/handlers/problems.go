@@ -8,51 +8,17 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"kadane.xyz/go-backend/v2/internal/api/httputils"
-	"kadane.xyz/go-backend/v2/internal/database/dbaccessors"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
 	"kadane.xyz/go-backend/v2/internal/errors"
+	"kadane.xyz/go-backend/v2/internal/services"
 )
 
 type ProblemHandler struct {
-	accessor dbaccessors.ProblemsAccessor
+	service services.ProblemService
 }
 
-type ProblemHint struct {
-	Description string `json:"description"`
-	Answer      string `json:"answer"`
-}
-
-type ProblemCode struct {
-	Language string `json:"language"`
-	Code     string `json:"code"`
-}
-
-type ProblemRequestHint struct {
-	Description string `json:"description"`
-	Answer      string `json:"answer"`
-}
-
-type ProblemRequestCode map[string]string
-
-type ProblemResponse struct {
-	Data Problem `json:"data"`
-}
-
-type ProblemsResponse struct {
-	Data []Problem `json:"data"`
-}
-
-type ProblemPaginationResponse struct {
-	Data       []Problem  `json:"data"`
-	Pagination Pagination `json:"pagination"`
-}
-
-type CreateProblemData struct {
-	ProblemID string `json:"problemId"`
-}
-
-func NewProblemHandler(accessor dbaccessors.ProblemsAccessor) *ProblemHandler {
-	return &ProblemHandler{accessor: accessor}
+func NewProblemHandler(service services.ProblemService) *ProblemHandler {
+	return &ProblemHandler{service: service}
 }
 
 func (h *ProblemHandler) GetProblemsValidateRequest(w http.ResponseWriter, r *http.Request) (sql.GetProblemsFilteredPaginatedParams, *errors.ApiError) {

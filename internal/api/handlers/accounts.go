@@ -17,9 +17,10 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"kadane.xyz/go-backend/v2/internal/api/httputils"
 	"kadane.xyz/go-backend/v2/internal/config"
-	"kadane.xyz/go-backend/v2/internal/database/dbaccessors"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
+	"kadane.xyz/go-backend/v2/internal/domain"
 	"kadane.xyz/go-backend/v2/internal/errors"
+	"kadane.xyz/go-backend/v2/internal/services"
 )
 
 const (
@@ -29,13 +30,13 @@ const (
 )
 
 type AccountHandler struct {
-	accessor  dbaccessors.AccountAccessor
+	service   services.AccountService
 	awsClient *s3.Client
 	config    *config.Config
 }
 
-func NewAccountHandler(accessor dbaccessors.AccountAccessor, awsClient *s3.Client, config *config.Config) *AccountHandler {
-	return &AccountHandler{accessor: accessor, awsClient: awsClient, config: config}
+func NewAccountHandler(service services.AccountService, awsClient *s3.Client, config *config.Config) *AccountHandler {
+	return &AccountHandler{service: service, awsClient: awsClient, config: config}
 }
 
 func ValidateGetAccountsFiltered(r *http.Request) (sql.ListAccountsWithAttributesFilteredParams, error) {
@@ -81,37 +82,17 @@ func (h *AccountHandler) GetAccounts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	accounts, err := h.accessor.ListAccountsWithAttributesFiltered(r.Context(), params)
+	accounts, err := h.accountService.ListAccounts(r.Context(), params)
 	if err != nil {
 		errors.SendError(w, http.StatusInternalServerError, "Failed to get accounts filtered")
 		return
 	}
 
-	// accounts response
-	response := []Account{}
-	for _, account := range accounts {
-		if account.Attributes == nil {
-			account.Attributes = AccountAttributes{}
-		}
-
-		response = append(response, Account{
-			ID:         account.ID,
-			Username:   account.Username,
-			Email:      account.Email,
-			CreatedAt:  account.CreatedAt.Time,
-			AvatarUrl:  account.AvatarUrl.String,
-			Level:      account.Level,
-			Plan:       account.Plan,
-			IsAdmin:    account.Admin,
-			Attributes: account.Attributes,
-		})
-	}
-
-	httputils.SendJSONDataResponse(w, http.StatusOK, response)
+	httputils.SendJSONDataResponse(w, http.StatusOK, accounts)
 }
 
 func ValidateCreateAccount(r *http.Request) (*sql.CreateAccountParams, *errors.ApiError) {
-	createAccountRequest, apiErr := httputils.DecodeJSONRequest[CreateAccountRequest](r)
+	createAccountRequest, apiErr := httputils.DecodeJSONRequest[domain.CreateAccountRequest](r)
 	if apiErr != nil {
 		return nil, errors.NewUnprocessableEntityError("Invalid request body")
 	}
@@ -330,7 +311,7 @@ func ValidateUpdateAccount(r *http.Request) (sql.UpdateAccountAttributesParams, 
 	}
 
 	// Decode request body
-	var requestAttrs AccountUpdateRequest
+	var requestAttrs domain.AccountUpdateRequest
 	if err := json.NewDecoder(r.Body).Decode(&requestAttrs); err != nil {
 		return sql.UpdateAccountAttributesParams{}, errors.NewBadRequestError("Invalid JSON format in request body")
 	}
@@ -492,7 +473,7 @@ type UpdateParamsResult struct {
 
 // buildUpdateParams compares request attributes with current attributes
 // and returns an UpdateParamsResult with all provided fields, including empty strings
-func buildUpdateParams(req AccountUpdateRequest, current AccountAttributes) UpdateParamsResult {
+func buildUpdateParams(req domain.AccountUpdateRequest, current domain.AccountAttributes) UpdateParamsResult {
 	result := UpdateParamsResult{
 		Params: sql.UpdateAccountAttributesParams{
 			ID: current.ID,
@@ -527,7 +508,7 @@ func buildUpdateParams(req AccountUpdateRequest, current AccountAttributes) Upda
 }
 
 // validateAccountAttributes performs validation on account attributes
-func validateAccountAttributes(attrs AccountUpdateRequest) error {
+func validateAccountAttributes(attrs domain.AccountUpdateRequest) error {
 	// Only validate non-empty email addresses
 	if attrs.ContactEmail != nil && *attrs.ContactEmail != "" {
 		if !isValidEmail(*attrs.ContactEmail) {
@@ -634,7 +615,7 @@ func (h *AccountHandler) GetAccountValidation(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	response := AccountValidation{
+	response := domain.AccountValidation{
 		Plan: accountPlan,
 	}
 

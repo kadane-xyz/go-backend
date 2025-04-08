@@ -12,31 +12,32 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
+	"kadane.xyz/go-backend/v2/internal/errors"
 	"kadane.xyz/go-backend/v2/internal/judge0"
 )
 
 // ValidateSubmissionRequest validates a submission request
-func ValidateSubmissionRequest(request SubmissionRequest) *APIError {
+func ValidateSubmissionRequest(request SubmissionRequest) *errors.ApiError {
 	problemId := request.ProblemID
 	if problemId == 0 {
-		return NewError(http.StatusBadRequest, "Missing problem ID")
+		return errors.NewApiError(http.StatusBadRequest, "Missing problem ID")
 	}
 
 	// Check if language is valid
 	lang := string(sql.ProblemLanguage(request.Language))
 	if request.Language == "" || request.Language != lang {
-		return NewError(http.StatusBadRequest, "Invalid language: "+request.Language)
+		return errors.NewApiError(http.StatusBadRequest, "Invalid language: "+request.Language)
 	}
 
 	if request.SourceCode == "" {
-		return NewError(http.StatusBadRequest, "Missing source code")
+		return errors.NewApiError(http.StatusBadRequest, "Missing source code")
 	}
 
 	return nil
 }
 
 // FetchProblemAndTestCases retrieves problem details and test cases
-func (h *Handler) FetchProblemAndTestCases(ctx context.Context, problemID int32, userID string) (sql.GetProblemRow, []TestCase, *APIError) {
+func (h *Handler) FetchProblemAndTestCases(ctx context.Context, problemID int32, userID string) (sql.GetProblemRow, []TestCase, *errors.ApiError) {
 	// Get problem details
 	problem, err := h.PostgresQueries.GetProblem(ctx, sql.GetProblemParams{
 		ProblemID: problemID,

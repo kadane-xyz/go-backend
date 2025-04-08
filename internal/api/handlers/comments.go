@@ -4,43 +4,14 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
 )
 
-type CommentCreateRequest struct {
-	SolutionId int64  `json:"solutionId"`
-	Body       string `json:"body"`
-	ParentId   *int64 `json:"parentId,omitempty"`
-}
-
-type CommentUpdateRequest struct {
-	Body string `json:"body"`
-}
-
-type CommentResponse struct {
-	Data CommentsData `json:"data"`
-}
-
-type CommentsData struct {
-	ID              int64           `json:"id"`
-	SolutionId      int64           `json:"solutionId"`
-	Username        string          `json:"username"`
-	AvatarUrl       string          `json:"avatarUrl,omitempty"`
-	Level           int32           `json:"level"`
-	Body            string          `json:"body"`
-	CreatedAt       time.Time       `json:"createdAt"`
-	Votes           int32           `json:"votes"`
-	ParentId        *int64          `json:"parentId,omitempty"`
-	Children        []*CommentsData `json:"children"` // For nested child comments
-	CurrentUserVote sql.VoteType    `json:"currentUserVote"`
-}
-
-type CommentsResponse struct {
-	Data []*CommentsData `json:"data"`
+type CommentHandler struct {
+	accessor dbaccessors.CommentAccessor
 }
 
 // GET: /comments

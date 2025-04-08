@@ -13,6 +13,7 @@ import (
 	"kadane.xyz/go-backend/v2/internal/database/dbaccessors"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
 	"kadane.xyz/go-backend/v2/internal/judge0"
+	"kadane.xyz/go-backend/v2/internal/services"
 )
 
 // APIHandlers is an inner container holding all API handlers
@@ -30,6 +31,7 @@ type Container struct {
 	Judge0      *judge0.Judge0Client
 	SqlQueries  *sql.Queries
 	APIHandlers *APIHandlers
+	Services    services.ServiceAccessor
 }
 
 // NewContainer creates the application's container
@@ -63,10 +65,17 @@ func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
 	adminAccessor := dbaccessors.NewSQLAdminAccessor(queries)
 	problemsAccessor := dbaccessors.NewSQLProblemsAccessor(queries)
 
+	// Create services1
+	accountService := services.NewAccountService(accountsAccessor)
+	adminService := services.NewAdminService(adminAccessor)
+	problemService := services.NewProblemService(problemsAccessor)
+
 	// Create API handlers
-	apiHandlers := handlers.NewAccountHandler(accountsAccessor, awsClient, cfg)
-	adminHandler := handlers.NewAdminHandler(adminAccessor, problemsAccessor, judge0Client)
-	problemHandler := handlers.NewProblemHandler(problemsAccessor)
+	apiHandlers := handlers.NewAccountHandler(accountService, awsClient, cfg)
+	adminHandler := handlers.NewAdminHandler(adminService, problemService, judge0Client)
+	problemHandler := handlers.NewProblemHandler(problemService)
+
+	services := services.NewServiceAccessor(accountsAccessor)
 
 	return &Container{
 		Config:     cfg,
@@ -79,6 +88,7 @@ func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
 			AdminHandler:   adminHandler,
 			ProblemHandler: problemHandler,
 		},
+		Services: services,
 	}, nil
 }
 

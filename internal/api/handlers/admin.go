@@ -7,44 +7,24 @@ import (
 	"time"
 
 	"kadane.xyz/go-backend/v2/internal/api/httputils"
-	"kadane.xyz/go-backend/v2/internal/database/dbaccessors"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
+	"kadane.xyz/go-backend/v2/internal/domain"
 	"kadane.xyz/go-backend/v2/internal/errors"
 	"kadane.xyz/go-backend/v2/internal/judge0"
 	"kadane.xyz/go-backend/v2/internal/judge0tmpl"
+	"kadane.xyz/go-backend/v2/internal/services"
 )
 
 type AdminHandler struct {
-	accessor         dbaccessors.AdminAccessor
-	problemsAccessor dbaccessors.ProblemsAccessor
-	judge0           *judge0.Judge0Client
+	service services.AdminService
+	judge0  *judge0.Judge0Client
 }
 
-type AdminValidation struct {
-	IsAdmin bool `json:"isAdmin"`
+func NewAdminHandler(service services.AdminService, judge0 *judge0.Judge0Client) *AdminHandler {
+	return &AdminHandler{service: service, judge0: judge0}
 }
 
-type AdminProblemRunResult struct {
-	TestCase  RunTestCase          `json:"testCase"`
-	Status    sql.SubmissionStatus `json:"status"` // Accepted, Wrong Answer, etc
-	CreatedAt time.Time            `json:"createdAt"`
-}
-
-type AdminProblemData struct {
-	Runs        map[string]AdminProblemRunResult `json:"runs"`
-	Status      sql.SubmissionStatus             `json:"status"`
-	CompletedAt time.Time                        `json:"completedAt"`
-}
-
-type CreateAdminProblemData struct {
-	ProblemID int32 `json:"problemId"`
-}
-
-func NewAdminHandler(accessor dbaccessors.AdminAccessor, problemsAccessor dbaccessors.ProblemsAccessor, judge0 *judge0.Judge0Client) *AdminHandler {
-	return &AdminHandler{accessor: accessor, problemsAccessor: problemsAccessor, judge0: judge0}
-}
-
-func (h *AdminHandler) ProblemRun(runRequest AdminProblemRunRequest) (AdminProblemData, *errors.ApiError) {
+func (h *AdminHandler) ProblemRun(runRequest domain.AdminProblemRunRequest) (domain.AdminProblemData, *errors.ApiError) {
 	solutionRuns := make(map[string][]judge0.Submission) // Store all judge0 submission inputs for each language
 
 	// Create judge0 submission inputs by combining test case handling and template creation.
@@ -82,11 +62,11 @@ func (h *AdminHandler) ProblemRun(runRequest AdminProblemRunRequest) (AdminProbl
 				continue
 			}*/
 
-			var localTestCase RunTestCase
+			var localTestCase domain.RunTestCase
 
 			// Compare outputs for each test case
 			for _, solutionResp := range runResponses {
-				testCase := RunTestCase{
+				testCase := domain.RunTestCase{
 					Time:           solutionResp.Time,
 					Memory:         int(solutionResp.Memory),
 					Status:         sql.SubmissionStatus(solutionResp.Status.Description),
@@ -122,7 +102,7 @@ func (h *AdminHandler) ProblemRun(runRequest AdminProblemRunRequest) (AdminProbl
 			}
 
 			// Package the results in a local variable
-			result := AdminProblemRunResult{
+			result := domain.AdminProblemRunResult{
 				TestCase:  localTestCase,
 				Status:    sql.SubmissionStatus(responseState),
 				CreatedAt: time.Now(),
@@ -155,7 +135,7 @@ func (h *AdminHandler) ProblemRun(runRequest AdminProblemRunRequest) (AdminProbl
 	return responseData, nil
 }
 
-func ProblemRunRequestValidate(runRequest AdminProblemRunRequest) *errors.ApiError {
+func ProblemRunRequestValidate(runRequest domain.AdminProblemRunRequest) *errors.ApiError {
 	if runRequest.FunctionName == "" {
 		return errors.NewApiError(nil, http.StatusBadRequest, "Missing function name")
 	}
@@ -186,22 +166,13 @@ func ProblemRunRequestValidate(runRequest AdminProblemRunRequest) *errors.ApiErr
 func (h *AdminHandler) GetAdminValidation(w http.ResponseWriter, r *http.Request) {
 	admin := httputils.GetClientAdmin(w, r)
 
-	response := AdminValidationResponse{
-		Data: AdminValidation{
+	response := domain.AdminValidationResponse{
+		Data: domain.AdminValidation{
 			IsAdmin: admin,
 		},
 	}
 
 	httputils.SendJSONResponse(w, http.StatusOK, response)
-}
-
-type AdminProblem struct {
-	Problem  Problem           `json:"problem"`
-	Solution map[string]string `json:"solution,omitempty"` // ["language": "sourceCode"]
-}
-
-type AdminProblemsResponse struct {
-	Data []AdminProblem `json:"data"`
 }
 
 // GET: /admin/problems
@@ -273,7 +244,7 @@ func (h *AdminHandler) CreateAdminProblem(w http.ResponseWriter, r *http.Request
 
 	// Test problem test cases against solutions in each language
 	for i, testCase := range request.TestCases {
-		responseData, apiErr := h.ProblemRun(AdminProblemRunRequest{
+		responseData, apiErr := h.ProblemRun(domain.AdminProblemRunRequest{
 			FunctionName: request.FunctionName,
 			Solutions:    request.Solutions,
 			TestCase:     testCase,
@@ -291,7 +262,7 @@ func (h *AdminHandler) CreateAdminProblem(w http.ResponseWriter, r *http.Request
 	}
 
 	// Create problem in database if all test cases pass
-	problemID, dbErr := h.problemsAccessor.CreateProblem(r.Context(), request)
+	problemID, dbErr := h.service.CreateProblem(r.Context(), request)
 	if dbErr != nil {
 		errors.NewApiError(dbErr, http.StatusInternalServerError, "Failed to create problem")
 		return

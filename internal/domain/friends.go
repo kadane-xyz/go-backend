@@ -10,3 +10,15 @@ type Friend struct {
 	Level      int32     `json:"level"`
 	AcceptedAt time.Time `json:"acceptedAt"`
 }
+
+type FriendRequestRequest struct {
+	FriendName string `json:"friendName"`
+}
+
+type FriendsResponse struct {
+	Data []Friend `json:"data"`
+}
+
+type FriendRequestsResponse struct {
+	Data []FriendRequest `json:"data"`
+}

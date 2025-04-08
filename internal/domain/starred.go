@@ -3,7 +3,7 @@ package domain
 import (
 	"time"
 
-	"github.com/jackc/pgx/pgtype"
+	"github.com/jackc/pgx/v5/pgtype"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
 )
 
