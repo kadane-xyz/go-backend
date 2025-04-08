@@ -12,15 +12,15 @@ type AccountService interface {
 	ListAccounts(ctx context.Context, params sql.ListAccountsWithAttributesFilteredParams) ([]domain.Account, error)
 }
 
-type AccountServiceAccesssor struct {
+type AccountServiceAccessor struct {
 	dbaccessor dbaccessors.AccountAccessor
 }
 
 func NewAccountService(dbaccessor dbaccessors.AccountAccessor) AccountService {
-	return &AccountServiceAccesssor{dbaccessor: dbaccessor}
+	return &AccountServiceAccessor{dbaccessor: dbaccessor}
 }
 
-func (s *AccountServiceAccesssor) ListAccounts(ctx context.Context, params sql.ListAccountsWithAttributesFilteredParams) ([]domain.Account, error) {
+func (s *AccountServiceAccessor) ListAccounts(ctx context.Context, params sql.ListAccountsWithAttributesFilteredParams) ([]domain.Account, error) {
 	accounts, err := s.dbaccessor.ListAccountsWithAttributesFiltered(ctx, params)
 	if err != nil {
 		return nil, err

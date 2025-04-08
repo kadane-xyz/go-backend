@@ -509,17 +509,38 @@ func ExtractSubmissionQueryParams(r *http.Request) (SubmissionQueryParams, *APIE
 	} else if order == "desc" {
 		result.order = "DESC"
 	} else {
-		result.order = "DESC" // Default
-	}
-
-	// Process sort
+		result.order = "DESC" // Defaulttype ProblemRequest struct {
+			Title        string               `json:"title"`
+			Description  string               `json:"description"`
+			FunctionName string               `json:"functionName"`
+			Tags         []string             `json:"tags"`
+			Difficulty   string               `json:"difficulty"`
+			Code         ProblemRequestCode   `json:"code"`
+			Hints        []ProblemRequestHint `json:"hints"`
+			Points       int32                `json:"points"`
+			Solutions    map[string]string    `json:"solutions"` // ["language": "sourceCode"]
+			TestCases    []TestCase           `json:"testCases"`
+		}
+		
 	sort := r.URL.Query().Get("sort")
 	if sort == "runtime" {
 		result.sort = "time"
 	} else if sort == "memory" {
 		result.sort = "memory"
 	} else if sort == "created" {
-		result.sort = "created_at"
+		result.sort = "created_attype ProblemRequest struct {
+	Title        string               `json:"title"`
+	Description  string               `json:"description"`
+	FunctionName string               `json:"functionName"`
+	Tags         []string             `json:"tags"`
+	Difficulty   string               `json:"difficulty"`
+	Code         ProblemRequestCode   `json:"code"`
+	Hints        []ProblemRequestHint `json:"hints"`
+	Points       int32                `json:"points"`
+	Solutions    map[string]string    `json:"solutions"` // ["language": "sourceCode"]
+	TestCases    []TestCase           `json:"testCases"`
+}
+"
 	} else {
 		result.sort = "created_at" // Default to sorting by creation time
 	}
