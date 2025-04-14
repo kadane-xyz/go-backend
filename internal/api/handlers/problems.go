@@ -8,17 +8,17 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"kadane.xyz/go-backend/v2/internal/api/httputils"
+	"kadane.xyz/go-backend/v2/internal/database/repository"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
 	"kadane.xyz/go-backend/v2/internal/errors"
-	"kadane.xyz/go-backend/v2/internal/services"
 )
 
 type ProblemHandler struct {
-	service services.ProblemService
+	repo *repository.ProblemsRepository
 }
 
-func NewProblemHandler(service services.ProblemService) *ProblemHandler {
-	return &ProblemHandler{service: service}
+func NewProblemHandler(repo *repository.ProblemsRepository) *ProblemHandler {
+	return &ProblemHandler{repo: repo}
 }
 
 func (h *ProblemHandler) GetProblemsValidateRequest(w http.ResponseWriter, r *http.Request) (sql.GetProblemsFilteredPaginatedParams, *errors.ApiError) {

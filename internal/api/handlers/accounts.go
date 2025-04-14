@@ -17,10 +17,10 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"kadane.xyz/go-backend/v2/internal/api/httputils"
 	"kadane.xyz/go-backend/v2/internal/config"
+	"kadane.xyz/go-backend/v2/internal/database/repository"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
 	"kadane.xyz/go-backend/v2/internal/domain"
 	"kadane.xyz/go-backend/v2/internal/errors"
-	"kadane.xyz/go-backend/v2/internal/services"
 )
 
 const (
@@ -30,16 +30,16 @@ const (
 )
 
 type AccountHandler struct {
-	service   services.AccountService
+	repo      repository.AccountRepository
 	awsClient *s3.Client
 	config    *config.Config
 }
 
-func NewAccountHandler(service services.AccountService, awsClient *s3.Client, config *config.Config) *AccountHandler {
-	return &AccountHandler{service: service, awsClient: awsClient, config: config}
+func NewAccountHandler(repo repository.AccountRepository, awsClient *s3.Client, config *config.Config) *AccountHandler {
+	return &AccountHandler{repo: repo, awsClient: awsClient, config: config}
 }
 
-func ValidateGetAccountsFiltered(r *http.Request) (sql.ListAccountsWithAttributesFilteredParams, error) {
+func ValidateGetAccountsFiltered(r *http.Request) (sql.ListAccountsParams, error) {
 	usernames := r.URL.Query().Get("usernames")
 	var usernamesFilter []string
 	if usernames != "" {
@@ -64,7 +64,7 @@ func ValidateGetAccountsFiltered(r *http.Request) (sql.ListAccountsWithAttribute
 		order = "DESC"
 	}
 
-	return sql.ListAccountsWithAttributesFilteredParams{
+	return sql.ListAccountsParams{
 		UsernamesFilter:   usernamesFilter,
 		LocationsFilter:   locationsFilter,
 		Sort:              sort,
@@ -82,7 +82,7 @@ func (h *AccountHandler) GetAccounts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	accounts, err := h.accountService.ListAccounts(r.Context(), params)
+	accounts, err := h.repo.ListAccounts(r.Context(), params)
 	if err != nil {
 		errors.SendError(w, http.StatusInternalServerError, "Failed to get accounts filtered")
 		return
@@ -135,14 +135,14 @@ func (h *AccountHandler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create account in the database
-	err := h.accessor.CreateAccount(r.Context(), *createAccountRequest)
+	err := h.repo.CreateAccount(r.Context(), *createAccountRequest)
 	if err != nil {
 		apiErr.Send(w)
 		return
 	}
 
 	// Create account attributes in the database
-	_, err = h.accessor.CreateAccountAttributes(r.Context(), sql.CreateAccountAttributesParams{
+	_, err = h.repo.CreateAccountAttributes(r.Context(), sql.CreateAccountAttributesParams{
 		ID:           createAccountRequest.ID,
 		Bio:          pgtype.Text{String: "", Valid: true},
 		ContactEmail: pgtype.Text{String: "", Valid: true},
@@ -161,7 +161,7 @@ func (h *AccountHandler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	account, err := h.accessor.GetAccount(r.Context(), sql.GetAccountParams{
+	account, err := h.repo.GetAccount(r.Context(), sql.GetAccountParams{
 		ID:                createAccountRequest.ID,
 		IncludeAttributes: true,
 	})
@@ -257,7 +257,7 @@ func (h *AccountHandler) UploadAccountAvatar(w http.ResponseWriter, r *http.Requ
 	url := h.config.AWS.CloudFrontURL + "/" + userId
 
 	// store image url in accounts table
-	err = h.accessor.UploadAccountAvatar(r.Context(), sql.UpdateAccountAvatarParams{
+	err = h.repo.UploadAccountAvatar(r.Context(), sql.UpdateAccountAvatarParams{
 		ID:        userId,
 		AvatarUrl: pgtype.Text{String: url, Valid: true},
 	})
@@ -294,7 +294,7 @@ func (h *AccountHandler) GetAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	account, dbErr := h.accessor.GetAccount(r.Context(), params)
+	account, dbErr := h.repo.GetAccount(r.Context(), params)
 	if dbErr != nil {
 		httputils.EmptyDataResponse(w)
 		return
@@ -413,7 +413,7 @@ func (h *AccountHandler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	existingAttribute, err := h.accessor.GetAccountAttributes(r.Context(), params.ID)
+	existingAttribute, err := h.repo.GetAccountAttributes(r.Context(), params.ID)
 	if err != nil {
 		errors.SendError(w, http.StatusInternalServerError, "Error getting account attributes")
 		return
@@ -423,7 +423,7 @@ func (h *AccountHandler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	updateAttributes, needsUpdate := prepareUpdateAccount(existingAttribute, params)
 	if needsUpdate {
 		// Update account in database
-		account, err := h.accessor.UpdateAccountAttributes(r.Context(), *updateAttributes)
+		account, err := h.repo.UpdateAccountAttributes(r.Context(), *updateAttributes)
 		if err != nil {
 			errors.SendError(w, http.StatusInternalServerError, "Failed to update account")
 			return
@@ -433,7 +433,7 @@ func (h *AccountHandler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get updated account attributes
-	account, err := h.accessor.GetAccount(r.Context(), sql.GetAccountParams{
+	account, err := h.repo.GetAccount(r.Context(), sql.GetAccountParams{
 		ID:                params.ID,
 		IncludeAttributes: true,
 	})
@@ -567,7 +567,7 @@ func (h *AccountHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.accessor.DeleteAccount(r.Context(), accountId)
+	err := h.repo.DeleteAccount(r.Context(), accountId)
 	if err != nil {
 		errors.SendError(w, http.StatusInternalServerError, "Error deleting account")
 		return
@@ -595,7 +595,7 @@ func (h *AccountHandler) GetAccountByUsername(w http.ResponseWriter, r *http.Req
 	}
 
 	// check if account exists
-	account, err := h.accessor.GetAccountByUsername(r.Context(), sql.GetAccountByUsernameParams{
+	account, err := h.repo.GetAccountByUsername(r.Context(), sql.GetAccountByUsernameParams{
 		Username:          username,
 		UserID:            userID,
 		IncludeAttributes: attributes == "true",

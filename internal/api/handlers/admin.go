@@ -7,21 +7,22 @@ import (
 	"time"
 
 	"kadane.xyz/go-backend/v2/internal/api/httputils"
+	"kadane.xyz/go-backend/v2/internal/database/repository"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
 	"kadane.xyz/go-backend/v2/internal/domain"
 	"kadane.xyz/go-backend/v2/internal/errors"
 	"kadane.xyz/go-backend/v2/internal/judge0"
 	"kadane.xyz/go-backend/v2/internal/judge0tmpl"
-	"kadane.xyz/go-backend/v2/internal/services"
 )
 
 type AdminHandler struct {
-	service services.AdminService
-	judge0  *judge0.Judge0Client
+	repo           *repository.AdminRepository
+	judge0         *judge0.Judge0Client
+	problemHandler *ProblemHandler
 }
 
-func NewAdminHandler(service services.AdminService, judge0 *judge0.Judge0Client) *AdminHandler {
-	return &AdminHandler{service: service, judge0: judge0}
+func NewAdminHandler(repo *repository.AdminRepository, judge0 *judge0.Judge0Client, problemHandler *ProblemHandler) *AdminHandler {
+	return &AdminHandler{repo: repo, judge0: judge0, problemHandler: problemHandler}
 }
 
 func (h *AdminHandler) ProblemRun(runRequest domain.AdminProblemRunRequest) (domain.AdminProblemData, *errors.ApiError) {
@@ -41,12 +42,12 @@ func (h *AdminHandler) ProblemRun(runRequest domain.AdminProblemRunRequest) (dom
 
 	// Validate submissions before sending
 	if len(solutionRuns) == 0 {
-		return AdminProblemData{}, errors.NewApiError(nil, http.StatusBadRequest, "Failed to create runs")
+		return domain.AdminProblemData{}, errors.NewApiError(nil, http.StatusBadRequest, "Failed to create runs")
 	}
 
 	// Initialize response data
-	var responseData AdminProblemData
-	responseData.Runs = make(map[string]AdminProblemRunResult)
+	var responseData domain.AdminProblemData
+	responseData.Runs = make(map[string]domain.AdminProblemRunResult)
 
 	var wg sync.WaitGroup
 	var mu sync.Mutex
@@ -166,10 +167,8 @@ func ProblemRunRequestValidate(runRequest domain.AdminProblemRunRequest) *errors
 func (h *AdminHandler) GetAdminValidation(w http.ResponseWriter, r *http.Request) {
 	admin := httputils.GetClientAdmin(w, r)
 
-	response := domain.AdminValidationResponse{
-		Data: domain.AdminValidation{
-			IsAdmin: admin,
-		},
+	response := domain.AdminValidation{
+		IsAdmin: admin,
 	}
 
 	httputils.SendJSONResponse(w, http.StatusOK, response)
@@ -177,13 +176,13 @@ func (h *AdminHandler) GetAdminValidation(w http.ResponseWriter, r *http.Request
 
 // GET: /admin/problems
 func (h *AdminHandler) GetAdminProblems(w http.ResponseWriter, r *http.Request) {
-	problems, apiErr := h.accessor.GetAdminProblems(r.Context())
+	problems, apiErr := h.repo.GetAdminProblems(r.Context())
 	if apiErr != nil {
 		errors.SendError(w, http.StatusInternalServerError, apiErr.Error())
 		return
 	}
 
-	var adminProblems []AdminProblem
+	var adminProblems []domain.AdminProblem
 
 	for _, problem := range problems {
 		// Create a map to store language->code mapping
@@ -211,8 +210,8 @@ func (h *AdminHandler) GetAdminProblems(w http.ResponseWriter, r *http.Request) 
 			}
 		}
 
-		adminProblems = append(adminProblems, AdminProblem{
-			Problem: Problem{
+		adminProblems = append(adminProblems, domain.AdminProblem{
+			Problem: domain.Problem{
 				ID:           problem.ID,
 				Title:        problem.Title,
 				Description:  problem.Description.String,
@@ -230,7 +229,7 @@ func (h *AdminHandler) GetAdminProblems(w http.ResponseWriter, r *http.Request) 
 
 // POST: /admin/problems
 func (h *AdminHandler) CreateAdminProblem(w http.ResponseWriter, r *http.Request) {
-	request, apiErr := httputils.DecodeJSONRequest[ProblemRequest](r)
+	request, apiErr := httputils.DecodeJSONRequest[domain.ProblemRequest](r)
 	if apiErr != nil {
 		errors.SendError(w, apiErr.Error.StatusCode, apiErr.Error.Message)
 		return
@@ -262,13 +261,13 @@ func (h *AdminHandler) CreateAdminProblem(w http.ResponseWriter, r *http.Request
 	}
 
 	// Create problem in database if all test cases pass
-	problemID, dbErr := h.service.CreateProblem(r.Context(), request)
+	problemID, dbErr := h.problemHandler.CreateProblem(r.Context(), request)
 	if dbErr != nil {
-		errors.NewApiError(dbErr, http.StatusInternalServerError, "Failed to create problem")
+		errors.SendError(w, http.StatusInternalServerError, "Failed to create problem")
 		return
 	}
 
-	response := CreateAdminProblemData{
+	response := domain.CreateAdminProblemData{
 		ProblemID: problemID,
 	}
 
@@ -278,7 +277,7 @@ func (h *AdminHandler) CreateAdminProblem(w http.ResponseWriter, r *http.Request
 // POST: /admin/problems/run
 // Make sure to check test cases for each language
 func (h *AdminHandler) CreateAdminProblemRun(w http.ResponseWriter, r *http.Request) {
-	runRequest, apiErr := httputils.DecodeJSONRequest[AdminProblemRunRequest](r)
+	runRequest, apiErr := httputils.DecodeJSONRequest[domain.AdminProblemRunRequest](r)
 	if apiErr != nil {
 		errors.SendError(w, apiErr.Error.StatusCode, apiErr.Error.Message)
 		return

@@ -60,3 +60,34 @@ type AccountUpdateRequest struct {
 	School       *string `json:"school,omitempty"`
 	WebsiteUrl   *string `json:"websiteUrl,omitempty"`
 }
+
+func FromSQLAccountRow(row sql.GetAccountRow) Account {
+	return Account{
+		ID:         row.ID,
+		Username:   row.Username,
+		Email:      row.Email,
+		AvatarUrl:  row.AvatarUrl.String,
+		Level:      row.Level,
+		CreatedAt:  row.CreatedAt.Time,
+		Plan:       row.Plan,
+		Attributes: row.Attributes.(AccountAttributes),
+	}
+}
+
+func FromSQLListAccountsRow(rows []sql.ListAccountsRow) []Account {
+	accounts := make([]Account, len(rows))
+	for i, row := range rows {
+		accounts[i] = Account{
+			ID:         row.ID,
+			Username:   row.Username,
+			Email:      row.Email,
+			AvatarUrl:  row.AvatarUrl.String,
+			Level:      row.Level,
+			CreatedAt:  row.CreatedAt.Time,
+			Plan:       row.Plan,
+			Attributes: row.Attributes.(AccountAttributes),
+		}
+
+	}
+	return accounts
+}

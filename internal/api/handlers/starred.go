@@ -5,9 +5,18 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"kadane.xyz/go-backend/v2/internal/database/repository"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
 	"kadane.xyz/go-backend/v2/internal/judge0"
 )
+
+type StarredHandler struct {
+	starredRepo repository.StarredRepository
+}
+
+func NewStarredHandler(starredRepo repository.StarredRepository) *StarredHandler {
+	return &StarredHandler{starredRepo: starredRepo}
+}
 
 // GET: /starred/problems
 func (h *Handler) GetStarredProblems(w http.ResponseWriter, r *http.Request) {

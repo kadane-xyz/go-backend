@@ -34,3 +34,9 @@ type AdminProblem struct {
 type AdminProblemsResponse struct {
 	Data []AdminProblem `json:"data"`
 }
+
+type AdminProblemRunRequest struct {
+	FunctionName string            `json:"functionName"`
+	Solutions    map[string]string `json:"solutions"`
+	TestCase     TestCase          `json:"testCase"`
+}

@@ -4,18 +4,27 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"kadane.xyz/go-backend/v2/internal/database/repository"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
 )
 
+type FriendHandler struct {
+	repo repository.FriendRepository
+}
+
+func NewFriendHandler(repo repository.FriendRepository) *FriendHandler {
+	return &FriendHandler{repo: repo}
+}
+
 // GET: /friends
 // GetFriends gets all friends
-func (h *Handler) GetFriends(w http.ResponseWriter, r *http.Request) {
+func (h *FriendHandler) GetFriends(w http.ResponseWriter, r *http.Request) {
 	userId, err := GetClientUserID(w, r)
 	if err != nil {
 		return
 	}
 
-	friends, err := h.PostgresQueries.GetFriends(r.Context(), userId)
+	friends, err := h.repo.GetFriends(r.Context(), userId)
 	if err != nil {
 		EmptyDataArrayResponse(w)
 		return

@@ -7,8 +7,17 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"kadane.xyz/go-backend/v2/internal/database/repository"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
 )
+
+type SolutionsHandler struct {
+	solutionsRepo repository.SolutionsRepository
+}
+
+func NewSolutionsHandler(solutionsRepo repository.SolutionsRepository) *SolutionsHandler {
+	return &SolutionsHandler{solutionsRepo: solutionsRepo}
+}
 
 // GET: /solutions
 func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {

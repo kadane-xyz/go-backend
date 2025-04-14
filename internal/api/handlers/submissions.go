@@ -16,6 +16,14 @@ import (
 	"kadane.xyz/go-backend/v2/internal/judge0"
 )
 
+type SubmissionHandler struct {
+	submissionsRepo repository.SubmissionsRepository
+}
+
+func NewSubmissionHandler(submissionsRepo repository.SubmissionsRepository) *SubmissionHandler {
+	return &SubmissionHandler{submissionsRepo: submissionsRepo}
+}
+
 // ValidateSubmissionRequest validates a submission request
 func ValidateSubmissionRequest(request SubmissionRequest) *errors.ApiError {
 	problemId := request.ProblemID

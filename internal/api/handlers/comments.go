@@ -1,23 +1,30 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"kadane.xyz/go-backend/v2/internal/api/httputils"
+	"kadane.xyz/go-backend/v2/internal/database/repository"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
+	"kadane.xyz/go-backend/v2/internal/domain"
+	"kadane.xyz/go-backend/v2/internal/errors"
 )
 
 type CommentHandler struct {
-	accessor dbaccessors.CommentAccessor
+	repo *repository.CommentsRepository
+}
+
+func NewCommentHandler(repo *repository.CommentsRepository) *CommentHandler {
+	return &CommentHandler{repo: repo}
 }
 
 // GET: /comments
-func (h *Handler) GetComments(w http.ResponseWriter, r *http.Request) {
+func (h *CommentHandler) GetComments(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
-	userId, err := GetClientUserID(w, r)
+	userId, err := httputils.GetClientUserID(w, r)
 	if err != nil {
 		return
 	}
@@ -25,14 +32,14 @@ func (h *Handler) GetComments(w http.ResponseWriter, r *http.Request) {
 	// Get the solutionId from the query parameters
 	solutionId := r.URL.Query().Get("solutionId")
 	if solutionId == "" {
-		SendError(w, http.StatusBadRequest, "Missing solutionId for comment retrieval")
+		errors.SendError(w, http.StatusBadRequest, "Missing solutionId for comment retrieval")
 		return
 	}
 
 	// Convert solutionId to int64
 	id, err := strconv.ParseInt(solutionId, 10, 64)
 	if err != nil {
-		SendError(w, http.StatusBadRequest, "Invalid solutionId format for comment retrieval")
+		errors.SendError(w, http.StatusBadRequest, "Invalid solutionId format for comment retrieval")
 		return
 	}
 
@@ -55,26 +62,26 @@ func (h *Handler) GetComments(w http.ResponseWriter, r *http.Request) {
 		order = "DESC"
 	}
 
-	dbComments, err := h.PostgresQueries.GetCommentsSorted(r.Context(), sql.GetCommentsSortedParams{
+	dbComments, err := h.repo.GetCommentsSorted(r.Context(), sql.GetCommentsSortedParams{
 		SolutionID:    id,
 		UserID:        userId,
 		Sort:          sort,
 		SortDirection: order,
 	})
 	if err != nil {
-		EmptyDataArrayResponse(w)
+		httputils.EmptyDataArrayResponse(w)
 		return
 	}
 
 	// Create a map to hold all comments by ID
-	commentMap := make(map[int64]*CommentsData, len(dbComments))
+	commentMap := make(map[int64]*domain.Comment, len(dbComments))
 
 	// Create a slice to maintain the order of top-level comments
-	var topLevelComments []*CommentsData
+	var topLevelComments []*domain.Comment
 
 	// First pass: Create CommentsData objects
 	for _, dbComment := range dbComments {
-		comment := &CommentsData{
+		comment := &domain.Comment{
 			ID:              dbComment.ID,
 			SolutionId:      dbComment.SolutionID,
 			Username:        dbComment.UserUsername,
@@ -83,7 +90,7 @@ func (h *Handler) GetComments(w http.ResponseWriter, r *http.Request) {
 			Body:            dbComment.Body,
 			CreatedAt:       dbComment.CreatedAt.Time,
 			Votes:           int32(dbComment.VotesCount),
-			Children:        []*CommentsData{},
+			Children:        []*domain.Comment{},
 			CurrentUserVote: dbComment.UserVote,
 		}
 		commentMap[comment.ID] = comment
@@ -197,7 +204,7 @@ func (h *Handler) GetComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	commentData := CommentsData{
+	commentData := domain.Comment{
 		ID:              comment.ID,
 		SolutionId:      comment.SolutionID,
 		Username:        comment.UserUsername,
@@ -207,21 +214,11 @@ func (h *Handler) GetComment(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:       comment.CreatedAt.Time,
 		Votes:           comment.Votes.Int32,
 		ParentId:        &comment.ParentID.Int64,
-		Children:        []*CommentsData{},
+		Children:        []*domain.Comment{},
 		CurrentUserVote: comment.UserVote,
 	}
 
-	response := CommentResponse{
-		Data: commentData,
-	}
-
-	responseJSON, err := json.Marshal(response)
-	if err != nil {
-		SendError(w, http.StatusInternalServerError, "Failed to marshal comment response")
-		return
-	}
-
-	SendJSONResponse(w, http.StatusOK, responseJSON)
+	httputils.SendJSONResponse(w, http.StatusOK, commentData)
 }
 
 // PUT: /comments/{commentId}
