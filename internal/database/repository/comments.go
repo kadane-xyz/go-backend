@@ -18,7 +18,7 @@ type SQLCommentsRepository struct {
 	queries *sql.Queries
 }
 
-func NewSQLCommentsRepository(queries *sql.Queries) CommentsRepository {
+func NewSQLCommentsRepository(queries *sql.Queries) *SQLCommentsRepository {
 	return &SQLCommentsRepository{queries: queries}
 }
 

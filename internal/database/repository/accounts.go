@@ -23,7 +23,7 @@ type SQLAccountsRepository struct {
 	queries *sql.Queries
 }
 
-func NewSQLAccountsRepository(queries *sql.Queries) AccountRepository {
+func NewSQLAccountsRepository(queries *sql.Queries) *SQLAccountsRepository {
 	return &SQLAccountsRepository{queries: queries}
 }
 
@@ -89,7 +89,7 @@ func (r *SQLAccountsRepository) GetAccountByUsername(ctx context.Context, params
 	if err != nil {
 		return domain.Account{}, err
 	}
-	return domain.FromSQLAccountRow(q), nil
+	return domain.FromSQLAccountByUsernameRow(q), nil
 }
 
 func (r *SQLAccountsRepository) UpdateAccountAttributes(ctx context.Context, params sql.UpdateAccountAttributesParams) (sql.AccountAttribute, error) {

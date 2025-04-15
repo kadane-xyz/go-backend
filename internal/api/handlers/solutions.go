@@ -9,32 +9,34 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"kadane.xyz/go-backend/v2/internal/database/repository"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
+	"kadane.xyz/go-backend/v2/internal/utils/errors"
+	"kadane.xyz/go-backend/v2/internal/utils/httputils"
 )
 
 type SolutionsHandler struct {
-	solutionsRepo repository.SolutionsRepository
+	solutionsRepo *repository.SolutionsRepository
 }
 
-func NewSolutionsHandler(solutionsRepo repository.SolutionsRepository) *SolutionsHandler {
+func NewSolutionsHandler(solutionsRepo *repository.SolutionsRepository) *SolutionsHandler {
 	return &SolutionsHandler{solutionsRepo: solutionsRepo}
 }
 
 // GET: /solutions
-func (h *Handler) GetSolutions(w http.ResponseWriter, r *http.Request) {
-	userId, err := GetClientUserID(w, r)
+func (h *SolutionsHandler) GetSolutions(w http.ResponseWriter, r *http.Request) {
+	userId, err := httputils.GetClientUserID(w, r)
 	if err != nil {
 		return
 	}
 
 	problemId := r.URL.Query().Get("problemId")
 	if problemId == "" {
-		SendError(w, http.StatusBadRequest, "Missing problemId for solutions retrieval")
+		errors.SendError(w, http.StatusBadRequest, "Missing problemId for solutions retrieval")
 		return
 	}
 
 	id, err := strconv.ParseInt(problemId, 10, 64)
 	if err != nil {
-		SendError(w, http.StatusBadRequest, "Invalid problemId format for solutions retrieval")
+		errors.SendError(w, http.StatusBadRequest, "Invalid problemId format for solutions retrieval")
 		return
 	}
 

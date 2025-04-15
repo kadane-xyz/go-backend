@@ -14,7 +14,7 @@ type SQLStarredRepository struct {
 	queries *sql.Queries
 }
 
-func NewSQLStarredRepository(queries *sql.Queries) StarredRepository {
+func NewSQLStarredRepository(queries *sql.Queries) *SQLStarredRepository {
 	return &SQLStarredRepository{queries: queries}
 }
 

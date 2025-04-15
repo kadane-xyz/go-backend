@@ -14,7 +14,7 @@ type SQLSolutionsRepository struct {
 	queries *sql.Queries
 }
 
-func NewSQLSolutionsRepository(queries *sql.Queries) SolutionsRepository {
+func NewSQLSolutionsRepository(queries *sql.Queries) *SQLSolutionsRepository {
 	return &SQLSolutionsRepository{queries: queries}
 }
 

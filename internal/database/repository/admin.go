@@ -15,7 +15,7 @@ type SQLAdminRepository struct {
 	queries *sql.Queries
 }
 
-func NewSQLAdminRepository(queries *sql.Queries) AdminRepository {
+func NewSQLAdminRepository(queries *sql.Queries) *SQLAdminRepository {
 	return &SQLAdminRepository{queries: queries}
 }
 

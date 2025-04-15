@@ -22,6 +22,7 @@ type APIHandlers struct {
 	ProblemHandler    *handlers.ProblemHandler
 	CommentHandler    *handlers.CommentHandler
 	FriendHandler     *handlers.FriendHandler
+	RunHandler        *handlers.RunHandler
 	SubmissionHandler *handlers.SubmissionHandler
 	SolutionsHandler  *handlers.SolutionsHandler
 	StarredHandler    *handlers.StarredHandler
@@ -90,7 +91,8 @@ func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
 	problemHandler := handlers.NewProblemHandler(problemsRepo)
 	adminHandler := handlers.NewAdminHandler(adminRepo, judge0Client, problemHandler)
 	commentHandler := handlers.NewCommentHandler(commentsRepo)
-	friendHandler := handlers.NewFriendHandler(friendsRepo)
+	friendHandler := handlers.NewFriendHandler(friendsRepo, accountsRepo)
+	runHandler := handlers.NewRunHandler(problemsRepo, judge0Client)
 	submissionHandler := handlers.NewSubmissionHandler(submissionsRepo)
 	solutionsHandler := handlers.NewSolutionsHandler(solutionsRepo)
 	starredHandler := handlers.NewStarredHandler(starredRepo)
@@ -107,6 +109,7 @@ func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
 			ProblemHandler:    problemHandler,
 			CommentHandler:    commentHandler,
 			FriendHandler:     friendHandler,
+			RunHandler:        runHandler,
 			SubmissionHandler: submissionHandler,
 			SolutionsHandler:  solutionsHandler,
 			StarredHandler:    starredHandler,
@@ -114,8 +117,8 @@ func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
 		Repositories: &Repositories{
 			AccountRepo:    accountsRepo,
 			AdminRepo:      adminRepo,
-			ProblemRepo:    problemsRepo,
 			CommentRepo:    commentsRepo,
+			ProblemRepo:    problemsRepo,
 			FriendRepo:     friendsRepo,
 			SubmissionRepo: submissionsRepo,
 			SolutionRepo:   solutionsRepo,

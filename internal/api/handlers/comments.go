@@ -14,10 +14,10 @@ import (
 )
 
 type CommentHandler struct {
-	repo *repository.CommentsRepository
+	repo *repository.SQLCommentsRepository
 }
 
-func NewCommentHandler(repo *repository.CommentsRepository) *CommentHandler {
+func NewCommentHandler(repo *repository.SQLCommentsRepository) *CommentHandler {
 	return &CommentHandler{repo: repo}
 }
 
@@ -110,30 +110,30 @@ func (h *CommentHandler) GetComments(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	response := CommentsResponse{
+	response := domain.CommentsResponse{
 		Data: topLevelComments,
 	}
 
-	SendJSONResponse(w, http.StatusOK, response)
+	httputils.SendJSONResponse(w, http.StatusOK, response)
 }
 
 // POST: /comments
-func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
+func (h *CommentHandler) CreateComment(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
-	userId, err := GetClientUserID(w, r)
+	userId, err := httputils.GetClientUserID(w, r)
 	if err != nil {
 		return
 	}
 
 	comment, apiErr := DecodeJSONRequest[CommentCreateRequest](r)
 	if apiErr != nil {
-		SendError(w, apiErr.StatusCode(), apiErr.Message())
+		httputils.SendError(w, apiErr.StatusCode(), apiErr.Message())
 		return
 	}
 
 	// Validate input
 	if comment.SolutionId == 0 || comment.Body == "" {
-		SendError(w, http.StatusBadRequest, "Missing required fields for comment creation")
+		httputils.SendError(w, http.StatusBadRequest, "Missing required fields for comment creation")
 		return
 	}
 

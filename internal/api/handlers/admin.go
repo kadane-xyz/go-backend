@@ -16,12 +16,12 @@ import (
 )
 
 type AdminHandler struct {
-	repo           *repository.AdminRepository
+	repo           repository.AdminRepository
 	judge0         *judge0.Judge0Client
 	problemHandler *ProblemHandler
 }
 
-func NewAdminHandler(repo *repository.AdminRepository, judge0 *judge0.Judge0Client, problemHandler *ProblemHandler) *AdminHandler {
+func NewAdminHandler(repo repository.AdminRepository, judge0 *judge0.Judge0Client, problemHandler *ProblemHandler) *AdminHandler {
 	return &AdminHandler{repo: repo, judge0: judge0, problemHandler: problemHandler}
 }
 
@@ -261,7 +261,7 @@ func (h *AdminHandler) CreateAdminProblem(w http.ResponseWriter, r *http.Request
 	}
 
 	// Create problem in database if all test cases pass
-	problemID, dbErr := h.problemHandler.CreateProblem(r.Context(), request)
+	problemID, dbErr := h.problemHandler.CreateProblem(request)
 	if dbErr != nil {
 		errors.SendError(w, http.StatusInternalServerError, "Failed to create problem")
 		return

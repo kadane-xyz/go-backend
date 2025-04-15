@@ -15,7 +15,7 @@ type SQLSubmissionsRepository struct {
 	queries *sql.Queries
 }
 
-func NewSQLSubmissionsRepository(queries *sql.Queries) SubmissionsRepository {
+func NewSQLSubmissionsRepository(queries *sql.Queries) *SQLSubmissionsRepository {
 	return &SQLSubmissionsRepository{queries: queries}
 }
 

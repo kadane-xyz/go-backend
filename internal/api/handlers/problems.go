@@ -10,14 +10,15 @@ import (
 	"kadane.xyz/go-backend/v2/internal/api/httputils"
 	"kadane.xyz/go-backend/v2/internal/database/repository"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
+	"kadane.xyz/go-backend/v2/internal/domain"
 	"kadane.xyz/go-backend/v2/internal/errors"
 )
 
 type ProblemHandler struct {
-	repo *repository.ProblemsRepository
+	repo repository.ProblemsRepository
 }
 
-func NewProblemHandler(repo *repository.ProblemsRepository) *ProblemHandler {
+func NewProblemHandler(repo repository.ProblemsRepository) *ProblemHandler {
 	return &ProblemHandler{repo: repo}
 }
 
@@ -75,19 +76,19 @@ func (h *ProblemHandler) GetProblemsValidateRequest(w http.ResponseWriter, r *ht
 	}, nil
 }
 
-func (h *ProblemHandler) GetProblems(ctx context.Context, w http.ResponseWriter, params sql.GetProblemsFilteredPaginatedParams) (ProblemPaginationResponse, *errors.ApiError) {
-	problems, err := h.accessor.GetProblemsFilteredPaginated(ctx, params)
+func (h *ProblemHandler) GetProblems(ctx context.Context, w http.ResponseWriter, params sql.GetProblemsFilteredPaginatedParams) (domain.ProblemPaginationResponse, *errors.ApiError) {
+	problems, err := h.repo.GetProblemsFilteredPaginated(ctx, params)
 	if err != nil {
-		return ProblemPaginationResponse{}, errors.NewApiError(err, http.StatusInternalServerError, "Failed to get problems")
+		return domain.ProblemPaginationResponse{}, errors.NewApiError(err, http.StatusInternalServerError, "Failed to get problems")
 	}
 
 	if len(problems) == 0 {
-		return ProblemPaginationResponse{}, errors.NewApiError(nil, http.StatusNotFound, "No problems found")
+		return domain.ProblemPaginationResponse{}, errors.NewApiError(nil, http.StatusNotFound, "No problems found")
 	}
 
 	totalCount := problems[0].TotalCount
 	if totalCount == 0 {
-		return ProblemPaginationResponse{}, errors.NewApiError(nil, http.StatusNotFound, "No problems found")
+		return domain.ProblemPaginationResponse{}, errors.NewApiError(nil, http.StatusNotFound, "No problems found")
 	}
 
 	lastPage := (totalCount + params.PerPage - 1) / params.PerPage
@@ -98,14 +99,14 @@ func (h *ProblemHandler) GetProblems(ctx context.Context, w http.ResponseWriter,
 
 	// check if page is out of bounds
 	if params.Page < 1 || params.Page > lastPage {
-		return ProblemPaginationResponse{}, errors.NewApiError(nil, http.StatusBadRequest, "Page out of bounds")
+		return domain.ProblemPaginationResponse{}, errors.NewApiError(nil, http.StatusBadRequest, "Page out of bounds")
 	}
 
-	responseData := []Problem{}
+	responseData := []domain.Problem{}
 
 	for _, problem := range problems {
 		codeMap := InterfaceToMap(problem.Code)
-		responseData = append(responseData, Problem{
+		responseData = append(responseData, domain.Problem{
 			ID:            problem.ID,
 			Title:         problem.Title,
 			Description:   problem.Description.String,
@@ -125,9 +126,9 @@ func (h *ProblemHandler) GetProblems(ctx context.Context, w http.ResponseWriter,
 	}
 
 	// Return an empty array if no matches (status 200)
-	return ProblemPaginationResponse{
+	return domain.ProblemPaginationResponse{
 		Data: responseData,
-		Pagination: Pagination{
+		Pagination: domain.Pagination{
 			Page:      params.Page,
 			PerPage:   params.PerPage,
 			DataCount: totalCount,
@@ -153,7 +154,7 @@ func (h *ProblemHandler) GetProblemsRoute(w http.ResponseWriter, r *http.Request
 	httputils.SendJSONResponse(w, http.StatusOK, response)
 }
 
-func CreateProblemRequestValidate(request ProblemRequest) *errors.ApiError {
+func CreateProblemRequestValidate(request domain.ProblemRequest) *errors.ApiError {
 	// Check problem fields
 	if request.Title == "" || request.Description == "" || request.FunctionName == "" || len(request.Solutions) == 0 {
 		return errors.NewApiError(nil, http.StatusBadRequest, "Title, description, function name, and solution are required")
@@ -174,7 +175,7 @@ func CreateProblemRequestValidate(request ProblemRequest) *errors.ApiError {
 	return nil
 }
 
-func (h *ProblemHandler) CreateProblem(request ProblemRequest) (*CreateProblemData, *errors.ApiError) {
+func (h *ProblemHandler) CreateProblem(request domain.ProblemRequest) (*domain.CreateProblemData, *errors.ApiError) {
 	testCaseDescriptions := []string{}
 	testCaseVisibilities := []sql.Visibility{}
 	testCaseOutputIndices := []int32{}
@@ -199,7 +200,7 @@ func (h *ProblemHandler) CreateProblem(request ProblemRequest) (*CreateProblemDa
 		testCaseOutputIndices = append(testCaseOutputIndices, int32(i))
 	}
 
-	problemID, err := h.accessor.CreateProblem(context.Background(), sql.CreateProblemParams{
+	problemID, err := h.repo.CreateProblem(context.Background(), sql.CreateProblemParams{
 		Title:                 request.Title,
 		Description:           request.Description,
 		FunctionName:          request.FunctionName,
@@ -283,13 +284,13 @@ func (h *ProblemHandler) CreateProblem(request ProblemRequest) (*CreateProblemDa
 		}
 	}*/
 
-	return &CreateProblemData{
+	return &domain.CreateProblemData{
 		ProblemID: problemID,
 	}, nil
 }
 
 func ValidateGetProblem(r *http.Request) (sql.GetProblemParams, *errors.ApiError) {
-	userId, err := httputils.GetClientUserID(w, r)
+	userId, err := httputils.GetClientUserID(r)
 	if err != nil {
 		return sql.GetProblemParams{}, errors.NewApiError(err, http.StatusInternalServerError, "Failed to get user ID")
 	}
@@ -314,7 +315,7 @@ func (h *ProblemHandler) GetProblem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	problem, err := h.accessor.GetProblem(context.Background(), params)
+	problem, err := h.repo.GetProblem(context.Background(), params)
 	if err != nil {
 		errors.SendError(w, http.StatusInternalServerError, "Failed to get problem")
 		return
@@ -322,7 +323,7 @@ func (h *ProblemHandler) GetProblem(w http.ResponseWriter, r *http.Request) {
 
 	// test cases should not contain visibility on response
 	codeMap := InterfaceToMap(problem.Code)
-	response := Problem{
+	response := domain.Problem{
 		ID:            problem.ID,
 		Title:         problem.Title,
 		FunctionName:  problem.FunctionName,

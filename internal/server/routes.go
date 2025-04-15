@@ -5,17 +5,19 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"kadane.xyz/go-backend/v2/internal/api/handlers"
+	"kadane.xyz/go-backend/v2/internal/errors"
 )
 
 func (s *Server) RegisterApiRoutes() {
 	s.mux.Route("/v1", func(r chi.Router) {
-		accountsHandler := handlers.NewAccountHandler(s.container.Services.AccountService, s.container.AWSClient, s.container.Config)
-		adminHandler := handlers.NewAdminHandler(s.container.Services.AdminService, s.container.Services.ProblemService, s.container.Judge0)
-		problemHandler := handlers.NewProblemHandler(s.container.Services.ProblemService)
-		submissionHandler := handlers.NewSubmissionHandler(s.container.Services.SubmissionService)
+		accountsHandler := handlers.NewAccountHandler(s.container.Repositories.AccountRepo, s.container.AWSClient, s.container.Config)
+		adminHandler := handlers.NewAdminHandler(s.container.Repositories.AdminRepo, s.container.Judge0, s.container.APIHandlers.ProblemHandler)
+		commentHandler := handlers.NewCommentHandler(s.container.Repositories.CommentRepo)
+		problemHandler := handlers.NewProblemHandler(s.container.Repositories.ProblemRepo)
+		submissionHandler := handlers.NewSubmissionHandler(s.container.Repositories.SubmissionRepo)
 		solutionsHandler := handlers.NewSolutionsHandler(s.container.Repositories.SolutionRepo)
 		starredHandler := handlers.NewStarredHandler(s.container.Repositories.StarredRepo)
-		friendHandler := handlers.NewFriendHandler(s.container.Repositories.FriendRepo)
+		friendHandler := handlers.NewFriendHandler(s.container.Repositories.FriendRepo, s.container.Repositories.AccountRepo)
 
 		// solutions
 		s.mux.Route("/solutions", func(r chi.Router) {
@@ -80,7 +82,7 @@ func (s *Server) RegisterApiRoutes() {
 				})
 			})
 			r.Route("/username/{username}", func(r chi.Router) {
-				r.Get("/", friendHandler.GetFriendsUsername)
+				r.Get("/", friendHandler.GetFriendByUsername)
 			})
 		})
 		//problems
@@ -138,15 +140,15 @@ func (s *Server) RegisterApiRoutes() {
 	})
 	//generate a route to catch anything not defined and error/block spam
 	s.mux.Get("/*", func(w http.ResponseWriter, r *http.Request) {
-		SendError(w, http.StatusNotFound, "Not Found")
+		errors.SendError(w, http.StatusNotFound, "Not Found")
 	})
 	s.mux.Put("/*", func(w http.ResponseWriter, r *http.Request) {
-		SendError(w, http.StatusNotFound, "Not Found")
+		errors.SendError(w, http.StatusNotFound, "Not Found")
 	})
 	s.mux.Post("/*", func(w http.ResponseWriter, r *http.Request) {
-		SendError(w, http.StatusNotFound, "Not Found")
+		errors.SendError(w, http.StatusNotFound, "Not Found")
 	})
 	s.mux.Delete("/*", func(w http.ResponseWriter, r *http.Request) {
-		SendError(w, http.StatusNotFound, "Not Found")
+		errors.SendError(w, http.StatusNotFound, "Not Found")
 	})
 }

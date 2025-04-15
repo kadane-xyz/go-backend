@@ -53,3 +53,7 @@ type StarredSubmission struct {
 	CreatedAt      time.Time
 	Starred        bool
 }
+
+type StarredRequest struct {
+	ID any `json:"id"` // can be int32 or string
+}

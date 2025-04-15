@@ -4,35 +4,39 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"kadane.xyz/go-backend/v2/internal/api/httputils"
 	"kadane.xyz/go-backend/v2/internal/database/repository"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
+	"kadane.xyz/go-backend/v2/internal/domain"
+	"kadane.xyz/go-backend/v2/internal/errors"
 )
 
 type FriendHandler struct {
-	repo repository.FriendRepository
+	repo        repository.FriendRepository
+	accountRepo repository.AccountRepository
 }
 
-func NewFriendHandler(repo repository.FriendRepository) *FriendHandler {
-	return &FriendHandler{repo: repo}
+func NewFriendHandler(repo repository.FriendRepository, accountRepo repository.AccountRepository) *FriendHandler {
+	return &FriendHandler{repo: repo, accountRepo: accountRepo}
 }
 
 // GET: /friends
 // GetFriends gets all friends
 func (h *FriendHandler) GetFriends(w http.ResponseWriter, r *http.Request) {
-	userId, err := GetClientUserID(w, r)
+	userId, err := httputils.GetClientUserID(w, r)
 	if err != nil {
 		return
 	}
 
 	friends, err := h.repo.GetFriends(r.Context(), userId)
 	if err != nil {
-		EmptyDataArrayResponse(w)
+		httputils.EmptyDataArrayResponse(w)
 		return
 	}
 
-	friendsResponseData := []Friend{}
+	friendsResponseData := []domain.Friend{}
 	for _, friend := range friends {
-		friendsResponseData = append(friendsResponseData, Friend{
+		friendsResponseData = append(friendsResponseData, domain.Friend{
 			Id:         friend.FriendID,
 			Username:   friend.FriendUsername,
 			AvatarUrl:  friend.AvatarUrl,
@@ -42,34 +46,34 @@ func (h *FriendHandler) GetFriends(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	friendsResponse := FriendsResponse{
+	friendsResponse := domain.FriendsResponse{
 		Data: friendsResponseData,
 	}
 
-	SendJSONResponse(w, http.StatusOK, friendsResponse)
+	httputils.SendJSONResponse(w, http.StatusOK, friendsResponse)
 }
 
 // POST: /friends
 // CreateFriendRequest creates a friend request
-func (h *Handler) CreateFriendRequest(w http.ResponseWriter, r *http.Request) {
-	userId, err := GetClientUserID(w, r)
+func (h *FriendHandler) CreateFriendRequest(w http.ResponseWriter, r *http.Request) {
+	userId, err := httputils.GetClientUserID(w, r)
 	if err != nil {
 		return
 	}
 
-	friendRequest, apiErr := DecodeJSONRequest[FriendRequestRequest](r)
+	friendRequest, apiErr := httputils.DecodeJSONRequest[domain.FriendRequestRequest](r)
 	if apiErr != nil {
-		SendError(w, apiErr.StatusCode(), apiErr.Message())
+		errors.SendError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
 	if friendRequest.FriendName == "" {
-		SendError(w, http.StatusBadRequest, "Missing friend name")
+		errors.SendError(w, http.StatusBadRequest, "Missing friend name")
 		return
 	}
 
 	// Get current user's username
-	currentUser, err := h.PostgresQueries.GetAccount(r.Context(), sql.GetAccountParams{
+	currentUser, err := h.accountRepo.GetAccount(r.Context(), sql.GetAccountParams{
 		ID:                userId,
 		IncludeAttributes: false,
 		UsernamesFilter:   []string{},
@@ -78,55 +82,55 @@ func (h *Handler) CreateFriendRequest(w http.ResponseWriter, r *http.Request) {
 		SortDirection:     "",
 	})
 	if err != nil {
-		SendError(w, http.StatusInternalServerError, "Error getting current user")
+		errors.SendError(w, http.StatusInternalServerError, "Error getting current user")
 		return
 	}
 
 	// Check if the friend name is the same as the current user's username
 	if friendRequest.FriendName == currentUser.Username {
-		SendError(w, http.StatusBadRequest, "Cannot add yourself as a friend")
+		errors.SendError(w, http.StatusBadRequest, "Cannot add yourself as a friend")
 		return
 	}
 
 	// Check if the friend request already exists
-	friendRequestStatus, _ := h.PostgresQueries.GetFriendRequestStatus(r.Context(), sql.GetFriendRequestStatusParams{
+	friendRequestStatus, _ := h.repo.GetFriendRequestStatus(r.Context(), sql.GetFriendRequestStatusParams{
 		UserID:     userId,
 		FriendName: friendRequest.FriendName,
 	})
 	if friendRequestStatus != "" {
-		SendError(w, http.StatusBadRequest, "Friend relationship already exists")
+		errors.SendError(w, http.StatusBadRequest, "Friend relationship already exists")
 		return
 	}
 
-	err = h.PostgresQueries.CreateFriendRequest(r.Context(), sql.CreateFriendRequestParams{
+	err = h.repo.CreateFriendRequest(r.Context(), sql.CreateFriendRequestParams{
 		UserID:     userId,
 		FriendName: friendRequest.FriendName,
 	})
 	if err != nil {
-		SendError(w, http.StatusInternalServerError, "Error creating friend request")
+		errors.SendError(w, http.StatusInternalServerError, "Error creating friend request")
 		return
 	}
 
-	SendJSONResponse(w, http.StatusCreated, nil)
+	httputils.SendJSONResponse(w, http.StatusCreated, nil)
 }
 
 // GET: /friends/requests/sent
 // GetFriendRequestsSent gets all friend requests sent
-func (h *Handler) GetFriendRequestsSent(w http.ResponseWriter, r *http.Request) {
-	userId, err := GetClientUserID(w, r)
+func (h *FriendHandler) GetFriendRequestsSent(w http.ResponseWriter, r *http.Request) {
+	userId, err := httputils.GetClientUserID(w, r)
 	if err != nil {
 		return
 	}
 
-	friendRequests, err := h.PostgresQueries.GetFriendRequestsSent(r.Context(), userId)
+	friendRequests, err := h.repo.GetFriendRequestsSent(r.Context(), userId)
 	if err != nil {
-		EmptyDataArrayResponse(w)
+		httputils.EmptyDataArrayResponse(w)
 		return
 	}
 
-	friendRequestsResponseData := []FriendRequest{}
+	friendRequestsResponseData := []domain.FriendRequest{}
 	for _, friendRequest := range friendRequests {
-		friendRequestsResponseData = append(friendRequestsResponseData, FriendRequest{
+		friendRequestsResponseData = append(friendRequestsResponseData, domain.FriendRequest{
 			FriendId:   friendRequest.FriendID,
 			FriendName: friendRequest.FriendUsername,
 			AvatarUrl:  friendRequest.AvatarUrl,
@@ -136,30 +140,30 @@ func (h *Handler) GetFriendRequestsSent(w http.ResponseWriter, r *http.Request) 
 		})
 	}
 
-	friendRequestsResponse := FriendRequestsResponse{
+	friendRequestsResponse := domain.FriendRequestsResponse{
 		Data: friendRequestsResponseData,
 	}
 
-	SendJSONResponse(w, http.StatusOK, friendRequestsResponse)
+	httputils.SendJSONResponse(w, http.StatusOK, friendRequestsResponse)
 }
 
 // GET: /friends/requests/received
 // GetFriendRequestsReceived gets all friend requests received
-func (h *Handler) GetFriendRequestsReceived(w http.ResponseWriter, r *http.Request) {
-	userId, err := GetClientUserID(w, r)
+func (h *FriendHandler) GetFriendRequestsReceived(w http.ResponseWriter, r *http.Request) {
+	userId, err := httputils.GetClientUserID(w, r)
 	if err != nil {
 		return
 	}
 
-	friendRequests, err := h.PostgresQueries.GetFriendRequestsReceived(r.Context(), userId)
+	friendRequests, err := h.repo.GetFriendRequestsReceived(r.Context(), userId)
 	if err != nil {
-		EmptyDataArrayResponse(w)
+		httputils.EmptyDataArrayResponse(w)
 		return
 	}
 
-	friendRequestsResponseData := []FriendRequest{}
+	friendRequestsResponseData := []domain.FriendRequest{}
 	for _, friendRequest := range friendRequests {
-		friendRequestsResponseData = append(friendRequestsResponseData, FriendRequest{
+		friendRequestsResponseData = append(friendRequestsResponseData, domain.FriendRequest{
 			FriendId:   friendRequest.FriendID,
 			FriendName: friendRequest.FriendUsername,
 			AvatarUrl:  friendRequest.AvatarUrl,
@@ -169,144 +173,144 @@ func (h *Handler) GetFriendRequestsReceived(w http.ResponseWriter, r *http.Reque
 		})
 	}
 
-	friendRequestsResponse := FriendRequestsResponse{
+	friendRequestsResponse := domain.FriendRequestsResponse{
 		Data: friendRequestsResponseData,
 	}
 
-	SendJSONResponse(w, http.StatusOK, friendRequestsResponse)
+	httputils.SendJSONResponse(w, http.StatusOK, friendRequestsResponse)
 }
 
 // POST: /friends/requests/accept
 // AcceptFriendRequest accepts a friend request
-func (h *Handler) AcceptFriendRequest(w http.ResponseWriter, r *http.Request) {
-	userId, err := GetClientUserID(w, r)
+func (h *FriendHandler) AcceptFriendRequest(w http.ResponseWriter, r *http.Request) {
+	userId, err := httputils.GetClientUserID(w, r)
 	if err != nil {
 		return
 	}
 
-	friendRequest, apiErr := DecodeJSONRequest[FriendRequest](r)
+	friendRequest, apiErr := httputils.DecodeJSONRequest[domain.FriendRequest](r)
 	if apiErr != nil {
-		SendError(w, apiErr.StatusCode(), apiErr.Message())
+		errors.SendError(w, apiErr.Error.StatusCode, apiErr.Error.Message)
 		return
 	}
 
-	err = h.PostgresQueries.AcceptFriendRequest(r.Context(), sql.AcceptFriendRequestParams{
+	err = h.repo.AcceptFriendRequest(r.Context(), sql.AcceptFriendRequestParams{
 		UserID:     userId,
 		FriendName: friendRequest.FriendName,
 	})
 	if err != nil {
-		http.Error(w, "Error accepting friend request", http.StatusInternalServerError)
+		errors.SendError(w, http.StatusInternalServerError, "Error accepting friend request")
 		return
 	}
 
-	SendJSONResponse(w, http.StatusNoContent, nil)
+	httputils.SendJSONResponse(w, http.StatusNoContent, nil)
 }
 
 // POST: /friends/requests/block
 // BlockFriendRequest blocks a friend request
-func (h *Handler) BlockFriendRequest(w http.ResponseWriter, r *http.Request) {
-	userId, err := GetClientUserID(w, r)
+func (h *FriendHandler) BlockFriendRequest(w http.ResponseWriter, r *http.Request) {
+	userId, err := httputils.GetClientUserID(w, r)
 	if err != nil {
 		return
 	}
 
-	friendRequest, apiErr := DecodeJSONRequest[FriendRequest](r)
+	friendRequest, apiErr := httputils.DecodeJSONRequest[domain.FriendRequest](r)
 	if apiErr != nil {
-		SendError(w, apiErr.StatusCode(), apiErr.Message())
+		errors.SendError(w, apiErr.Error.StatusCode, apiErr.Error.Message)
 		return
 	}
 
-	err = h.PostgresQueries.BlockFriend(r.Context(), sql.BlockFriendParams{
+	err = h.repo.BlockFriend(r.Context(), sql.BlockFriendParams{
 		UserID:     userId,
 		FriendName: friendRequest.FriendName,
 	})
 	if err != nil {
-		http.Error(w, "Error blocking friend request", http.StatusInternalServerError)
+		errors.SendError(w, http.StatusInternalServerError, "Error blocking friend request")
 		return
 	}
 
-	SendJSONResponse(w, http.StatusNoContent, nil)
+	httputils.SendJSONResponse(w, http.StatusNoContent, nil)
 }
 
 // POST: /friends/requests/unblock
 // UnblockFriendRequest unblocks a friend request
-func (h *Handler) UnblockFriendRequest(w http.ResponseWriter, r *http.Request) {
-	userId, err := GetClientUserID(w, r)
+func (h *FriendHandler) UnblockFriendRequest(w http.ResponseWriter, r *http.Request) {
+	userId, err := httputils.GetClientUserID(w, r)
 	if err != nil {
 		return
 	}
 
-	friendRequest, apiErr := DecodeJSONRequest[FriendRequest](r)
+	friendRequest, apiErr := httputils.DecodeJSONRequest[domain.FriendRequest](r)
 	if apiErr != nil {
-		SendError(w, apiErr.StatusCode(), apiErr.Message())
+		errors.SendError(w, apiErr.Error.StatusCode, apiErr.Error.Message)
 		return
 	}
 
-	err = h.PostgresQueries.UnblockFriend(r.Context(), sql.UnblockFriendParams{
+	err = h.repo.UnblockFriend(r.Context(), sql.UnblockFriendParams{
 		UserID:     userId,
 		FriendName: friendRequest.FriendName,
 	})
 	if err != nil {
-		http.Error(w, "Error unblocking friend request", http.StatusInternalServerError)
+		errors.SendError(w, http.StatusInternalServerError, "Error unblocking friend request")
 		return
 	}
 
-	SendJSONResponse(w, http.StatusNoContent, nil)
+	httputils.SendJSONResponse(w, http.StatusNoContent, nil)
 }
 
 // DELETE: /friends or /friends/requests/deny
 // DeleteFriend deletes a friend request or a friend
-func (h *Handler) DeleteFriend(w http.ResponseWriter, r *http.Request) {
-	userId, err := GetClientUserID(w, r)
+func (h *FriendHandler) DeleteFriend(w http.ResponseWriter, r *http.Request) {
+	userId, err := httputils.GetClientUserID(w, r)
 	if err != nil {
 		return
 	}
 
 	username := chi.URLParam(r, "username")
 	if username == "" {
-		SendError(w, http.StatusBadRequest, "Missing username")
+		errors.SendError(w, http.StatusBadRequest, "Missing username")
 		return
 	}
 
-	err = h.PostgresQueries.DeleteFriendship(r.Context(), sql.DeleteFriendshipParams{
+	err = h.repo.DeleteFriendship(r.Context(), sql.DeleteFriendshipParams{
 		UserID:     userId,
 		FriendName: username,
 	})
 	if err != nil {
-		http.Error(w, "Error deleting friend/friend request", http.StatusInternalServerError)
+		errors.SendError(w, http.StatusInternalServerError, "Error deleting friend/friend request")
 		return
 	}
 
-	SendJSONResponse(w, http.StatusNoContent, nil)
+	httputils.SendJSONResponse(w, http.StatusNoContent, nil)
 }
 
 // GET: /friends/username/{username}
 // GetFriendsUsername gets all friends by username
-func (h *Handler) GetFriendsUsername(w http.ResponseWriter, r *http.Request) {
+func (h *FriendHandler) GetFriendsUsername(w http.ResponseWriter, r *http.Request) {
 	username := chi.URLParam(r, "username")
 	if username == "" {
-		SendError(w, http.StatusBadRequest, "Missing username")
+		errors.SendError(w, http.StatusBadRequest, "Missing username")
 		return
 	}
 
-	_, err := h.PostgresQueries.GetAccountByUsername(r.Context(), sql.GetAccountByUsernameParams{
+	_, err := h.accountRepo.GetAccountByUsername(r.Context(), sql.GetAccountByUsernameParams{
 		Username:          username,
 		IncludeAttributes: false,
 	})
 	if err != nil {
-		SendError(w, http.StatusNotFound, "User not found")
+		errors.SendError(w, http.StatusNotFound, "User not found")
 		return
 	}
 
-	friends, err := h.PostgresQueries.GetFriendsByUsername(r.Context(), username)
+	friend, err := h.repo.GetFriendsByUsername(r.Context(), username)
 	if err != nil {
-		EmptyDataArrayResponse(w)
+		httputils.EmptyDataArrayResponse(w)
 		return
 	}
 
-	responseData := make([]Friend, len(friends))
+	responseData := make([]domain.Friend, len(friends))
 	for i := range friends {
-		responseData[i] = Friend{
+		responseData[i] = domain.Friend{
 			Id:         friends[i].FriendID,
 			Username:   friends[i].FriendUsername,
 			AvatarUrl:  friends[i].AvatarUrl,
@@ -316,35 +320,35 @@ func (h *Handler) GetFriendsUsername(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	response := FriendsResponse{
+	response := domain.FriendsResponse{
 		Data: responseData,
 	}
 
-	SendJSONResponse(w, http.StatusOK, response)
+	httputils.SendJSONResponse(w, http.StatusOK, response)
 }
 
 // DELETE: /friends/requests
 // DeleteFriendRequest deletes a friend request
-func (h *Handler) DeleteFriendRequest(w http.ResponseWriter, r *http.Request) {
-	userId, err := GetClientUserID(w, r)
+func (h *FriendHandler) DeleteFriendRequest(w http.ResponseWriter, r *http.Request) {
+	userId, err := httputils.GetClientUserID(w, r)
 	if err != nil {
 		return
 	}
 
 	username := chi.URLParam(r, "username")
 	if username == "" {
-		SendError(w, http.StatusBadRequest, "Missing username")
+		errors.SendError(w, http.StatusBadRequest, "Missing username")
 		return
 	}
 
-	err = h.PostgresQueries.DeleteFriendship(r.Context(), sql.DeleteFriendshipParams{
+	err = h.repo.DeleteFriendship(r.Context(), sql.DeleteFriendshipParams{
 		UserID:     userId,
 		FriendName: username,
 	})
 	if err != nil {
-		http.Error(w, "Error deleting friend request", http.StatusInternalServerError)
+		errors.SendError(w, http.StatusInternalServerError, "Error deleting friend request")
 		return
 	}
 
-	SendJSONResponse(w, http.StatusNoContent, nil)
+	httputils.SendJSONResponse(w, http.StatusNoContent, nil)
 }

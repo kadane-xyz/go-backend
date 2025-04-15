@@ -16,7 +16,7 @@ type SQLProblemsRepository struct {
 	queries *sql.Queries
 }
 
-func NewSQLProblemsRepository(queries *sql.Queries) ProblemsRepository {
+func NewSQLProblemsRepository(queries *sql.Queries) *SQLProblemsRepository {
 	return &SQLProblemsRepository{queries: queries}
 }
 

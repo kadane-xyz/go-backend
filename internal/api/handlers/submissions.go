@@ -17,10 +17,10 @@ import (
 )
 
 type SubmissionHandler struct {
-	submissionsRepo repository.SubmissionsRepository
+	submissionsRepo *repository.SubmissionsRepository
 }
 
-func NewSubmissionHandler(submissionsRepo repository.SubmissionsRepository) *SubmissionHandler {
+func NewSubmissionHandler(submissionsRepo *repository.SubmissionsRepository) *SubmissionHandler {
 	return &SubmissionHandler{submissionsRepo: submissionsRepo}
 }
 
