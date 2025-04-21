@@ -8,15 +8,17 @@ import (
 	"kadane.xyz/go-backend/v2/internal/api/httputils"
 	"kadane.xyz/go-backend/v2/internal/database/repository"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
+	"kadane.xyz/go-backend/v2/internal/domain"
+	"kadane.xyz/go-backend/v2/internal/errors"
 	"kadane.xyz/go-backend/v2/internal/judge0"
 )
 
 type StarredHandler struct {
-	starredRepo *repository.StarredRepository
+	repo *repository.StarredRepository
 }
 
-func NewStarredHandler(starredRepo *repository.StarredRepository) *StarredHandler {
-	return &StarredHandler{starredRepo: starredRepo}
+func NewStarredHandler(repo *repository.StarredRepository) *StarredHandler {
+	return &StarredHandler{repo: repo}
 }
 
 // GET: /starred/problems
@@ -26,20 +28,20 @@ func (h *StarredHandler) GetStarredProblems(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	starredProblems, err := h.PostgresQueries.GetStarredProblems(r.Context(), userId)
+	starredProblems, err := h.repo.GetStarredProblems(r.Context(), userId)
 	if err != nil {
-		SendError(w, http.StatusInternalServerError, "Failed to retrieve starred problems")
+		errors.SendError(w, http.StatusInternalServerError, "Failed to retrieve starred problems")
 		return
 	}
 
 	if len(starredProblems) == 0 {
-		EmptyDataArrayResponse(w)
+		httputils.EmptyDataArrayResponse(w)
 		return
 	}
 
-	var responseData []StarredProblem
+	var response []domain.StarredProblem
 	for _, problem := range starredProblems {
-		responseData = append(responseData, StarredProblem{
+		response = append(response, domain.StarredProblem{
 			ID:          int(problem.ID),
 			Title:       problem.Title,
 			Description: problem.Description.String,
@@ -50,34 +52,30 @@ func (h *StarredHandler) GetStarredProblems(w http.ResponseWriter, r *http.Reque
 		})
 	}
 
-	response := StarredProblemsResponse{
-		Data: responseData,
-	}
-
-	SendJSONResponse(w, http.StatusOK, response)
+	httputils.SendJSONDataResponse(w, http.StatusOK, response)
 }
 
 // GET: /starred/solutions
-func (h *Handler) GetStarredSolutions(w http.ResponseWriter, r *http.Request) {
-	userId, err := GetClientUserID(w, r)
+func (h *SolutionsHandler) GetStarredSolutions(w http.ResponseWriter, r *http.Request) {
+	userId, err := httputils.GetClientUserID(w, r)
 	if err != nil {
 		return
 	}
 
-	starredSolutions, err := h.PostgresQueries.GetStarredSolutions(r.Context(), userId)
+	starredSolutions, err := h.repo.GetStarredSolutions(r.Context(), userId)
 	if err != nil {
-		SendError(w, http.StatusInternalServerError, "Failed to retrieve starred solutions")
+		errors.SendError(w, http.StatusInternalServerError, "Failed to retrieve starred solutions")
 		return
 	}
 
 	if len(starredSolutions) == 0 {
-		EmptyDataArrayResponse(w)
+		httputils.EmptyDataArrayResponse(w)
 		return
 	}
 
-	var responseData []StarredSolution
+	var response []domain.StarredSolution
 	for _, solution := range starredSolutions {
-		responseData = append(responseData, StarredSolution{
+		response = append(response, domain.StarredSolution{
 			Id:        solution.ID,
 			Username:  solution.Username,
 			Title:     solution.Title,
@@ -90,34 +88,30 @@ func (h *Handler) GetStarredSolutions(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	response := StarredSolutionsResponse{
-		Data: responseData,
-	}
-
-	SendJSONResponse(w, http.StatusOK, response)
+	httputils.SendJSONDataResponse(w, http.StatusOK, response)
 }
 
 // GET: /starred/submissions
-func (h *Handler) GetStarredSubmissions(w http.ResponseWriter, r *http.Request) {
-	userId, err := GetClientUserID(w, r)
+func (h *SubmissionHandler) GetStarredSubmissions(w http.ResponseWriter, r *http.Request) {
+	userId, err := httputils.GetClientUserID(w, r)
 	if err != nil {
 		return
 	}
 
-	starredSubmissions, err := h.PostgresQueries.GetStarredSubmissions(r.Context(), userId)
+	starredSubmissions, err := h.repo.GetStarredSubmissions(r.Context(), userId)
 	if err != nil {
-		SendError(w, http.StatusInternalServerError, "Failed to retrieve starred submissions")
+		errors.SendError(w, http.StatusInternalServerError, "Failed to retrieve starred submissions")
 		return
 	}
 
 	if len(starredSubmissions) == 0 {
-		EmptyDataArrayResponse(w)
+		httputils.EmptyDataArrayResponse(w)
 		return
 	}
 
-	var responseData []StarredSubmission
+	var response []domain.StarredSubmission
 	for _, submission := range starredSubmissions {
-		responseData = append(responseData, StarredSubmission{
+		response = append(response, domain.StarredSubmission{
 			Id:             submission.ID,
 			Stdout:         submission.Stdout.String,
 			Time:           submission.Time.String,
@@ -136,122 +130,118 @@ func (h *Handler) GetStarredSubmissions(w http.ResponseWriter, r *http.Request) 
 		})
 	}
 
-	response := StarredSubmissionsResponse{
-		Data: responseData,
-	}
-
-	SendJSONResponse(w, http.StatusOK, response)
+	httputils.SendJSONDataResponse(w, http.StatusOK, response)
 }
 
 // PUT
 
 // PUT: /starred/problems
-func (h *Handler) PutStarProblem(w http.ResponseWriter, r *http.Request) {
-	userId, err := GetClientUserID(w, r)
+func (h *ProblemHandler) PutStarProblem(w http.ResponseWriter, r *http.Request) {
+	userId, err := httputils.GetClientUserID(w, r)
 	if err != nil {
 		return
 	}
 
-	problemRequest, apiErr := DecodeJSONRequest[StarProblemRequest](r)
+	problemRequest, apiErr := httputils.DecodeJSONRequest[domain.StarProblemRequest](r)
 	if apiErr != nil {
-		SendError(w, apiErr.StatusCode(), apiErr.Message())
+		errors.SendError(w, apiErr.StatusCode(), apiErr.Message())
 		return
 	}
 
 	if problemRequest.ProblemID == 0 {
-		SendError(w, http.StatusBadRequest, "Invalid problem ID")
+		errors.SendError(w, http.StatusBadRequest, "Invalid problem ID")
 		return
 	}
 
-	starred, err := h.PostgresQueries.PutStarredProblem(r.Context(), sql.PutStarredProblemParams{
+	starred, err := h.repo.PutStarredProblem(r.Context(), sql.PutStarredProblemParams{
 		UserID:    userId,
 		ProblemID: problemRequest.ProblemID,
 	})
 	if err != nil {
 		//SendError(w, http.StatusInternalServerError, "Failed to star problem")
-		SendError(w, http.StatusInternalServerError, err.Error())
+		errors.SendError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	var response StarredResponse
+	var response domain.StarredResponse
 	response.Data.ID = problemRequest.ProblemID // Set ID to problem ID
 	response.Data.Starred = starred
 
-	SendJSONResponse(w, http.StatusOK, response)
+	httputils.SendJSONResponse(w, http.StatusOK, response)
 }
 
 // PUT: /starred/solutions
-func (h *Handler) PutStarSolution(w http.ResponseWriter, r *http.Request) {
-	userId, err := GetClientUserID(w, r)
+func (h *SolutionsHandler) PutStarSolution(w http.ResponseWriter, r *http.Request) {
+	userId, err := httputils.GetClientUserID(w, r)
 	if err != nil {
 		return
 	}
 
-	solutionRequest, apiErr := DecodeJSONRequest[StarSolutionRequest](r)
+	solutionRequest, apiErr := httputils.DecodeJSONRequest[domain.StarSolutionRequest](r)
 	if apiErr != nil {
-		SendError(w, apiErr.StatusCode(), apiErr.Message())
+		errors.SendError(w, apiErr.StatusCode(), apiErr.Message())
 		return
 	}
 
 	if solutionRequest.SolutionID == 0 {
-		SendError(w, http.StatusBadRequest, "Invalid solution ID")
+		errors.SendError(w, http.StatusBadRequest, "Invalid solution ID")
 		return
 	}
 
-	starred, err := h.PostgresQueries.PutStarredSolution(r.Context(), sql.PutStarredSolutionParams{
+	starred, err := h.repo.PutStarredSolution(r.Context(), sql.PutStarredSolutionParams{
 		UserID:     userId,
 		SolutionID: solutionRequest.SolutionID,
 	})
 	if err != nil {
-		SendError(w, http.StatusInternalServerError, "Failed to star solution")
+		errors.SendError(w, http.StatusInternalServerError, "Failed to star solution")
 		return
 	}
 
-	var response StarredResponse
+	var response domain.StarredResponse
 	response.Data.ID = solutionRequest.SolutionID // Set ID to solution ID
 	response.Data.Starred = starred
 
-	SendJSONResponse(w, http.StatusOK, response)
+	httputils.SendJSONResponse(w, http.StatusOK, response)
 }
 
 // PUT: /starred/submissions
-func (h *Handler) PutStarSubmission(w http.ResponseWriter, r *http.Request) {
-	userId, err := GetClientUserID(w, r)
+func (h *SubmissionHandler) PutStarSubmission(w http.ResponseWriter, r *http.Request) {
+	userId, err := httputils.GetClientUserID(w, r)
 	if err != nil {
 		return
 	}
 
-	submissionRequest, apiErr := DecodeJSONRequest[StarSubmissionRequest](r)
+	submissionRequest, apiErr := httputils.DecodeJSONRequest[domain.StarSubmissionRequest](r)
 	if apiErr != nil {
-		SendError(w, apiErr.StatusCode(), apiErr.Message())
+		errors.SendError(w, apiErr.StatusCode(), apiErr.Message())
 		return
 	}
 
 	if submissionRequest.SubmissionID == "" {
-		SendError(w, http.StatusBadRequest, "Invalid submission ID")
+		errors.SendError(w, http.StatusBadRequest, "Invalid submission ID")
 		return
 	}
 
 	idUUID, err := uuid.Parse(submissionRequest.SubmissionID)
 	if err != nil {
-		SendError(w, http.StatusBadRequest, "Invalid submission ID")
+		errors.SendError(w, http.StatusBadRequest, "Invalid submission ID")
 		return
 	}
 
 	submissionID := pgtype.UUID{Bytes: idUUID, Valid: true}
 
-	starred, err := h.PostgresQueries.PutStarredSubmission(r.Context(), sql.PutStarredSubmissionParams{
+	starred, err := h.repo.PutStarredSubmission(r.Context(), sql.PutStarredSubmissionParams{
 		UserID:       userId,
 		SubmissionID: submissionID,
 	})
 	if err != nil {
-		SendError(w, http.StatusInternalServerError, "Failed to star submission")
+		errors.SendError(w, http.StatusInternalServerError, "Failed to star submission")
 		return
 	}
 
-	var response StarredResponse
+	var response domain.StarredResponse
 	response.Data.ID = submissionRequest.SubmissionID // Set ID to submission ID
 	response.Data.Starred = starred
 
-	SendJSONResponse(w, http.StatusOK, response)
+	httputils.SendJSONResponse(w, http.StatusOK, response)
 }

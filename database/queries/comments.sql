@@ -6,7 +6,7 @@ SELECT
     a.username AS user_username,
     a.avatar_url AS user_avatar_url,
     a.level AS user_level,
-    COALESCE(v.vote_count, 0) AS votes_count,
+    COALESCE(v.vote_count, 0)::integer AS votes_count,
     COALESCE(uv.vote, 'none') AS user_vote
 FROM comment c
 LEFT JOIN (
@@ -34,7 +34,7 @@ SELECT
     a.username AS user_username,
     a.avatar_url AS user_avatar_url,
     a.level AS user_level,
-    COALESCE(v.vote_count, 0) AS votes_count,
+    COALESCE(v.vote_count, 0)::integer AS votes_count,
     COALESCE(uv.vote, 'none') AS user_vote
 FROM comment c
 LEFT JOIN (
@@ -59,7 +59,7 @@ SELECT
     a.username AS user_username,
     a.avatar_url AS user_avatar_url,
     a.level AS user_level,
-    COALESCE(v.vote_count, 0) AS votes_count,
+    COALESCE(v.vote_count, 0)::integer AS votes_count,
     COALESCE(uv.vote, 'none') AS user_vote
 FROM comment c
 LEFT JOIN (
@@ -106,7 +106,7 @@ WHERE user_id = $1 AND comment_id = $2;
 -- name: CreateComment :one
 INSERT INTO comment (user_id, body, solution_id, parent_id)
 VALUES (@user_id::text, @body::text, @solution_id::bigint, sqlc.narg('parent_id')) 
-RETURNING *;
+RETURNING *; 
 
 -- PUT --
 

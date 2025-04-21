@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -267,8 +268,13 @@ func (h *AdminHandler) CreateAdminProblem(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	problemIDInt, err := strconv.ParseInt(problemID.ProblemID, 10, 32)
+	if err != nil {
+		errors.SendError(w, http.StatusInternalServerError, "Failed to convert problem id to integer")
+	}
+
 	response := domain.CreateAdminProblemData{
-		ProblemID: problemID,
+		ProblemID: int32(problemIDInt),
 	}
 
 	httputils.SendJSONResponse(w, http.StatusCreated, response)

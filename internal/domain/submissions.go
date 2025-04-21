@@ -28,3 +28,9 @@ type Submission struct {
 	PassedTestCases int32       `json:"passedTestCases"`
 	TotalTestCases  int32       `json:"totalTestCases"`
 }
+
+type SubmissionRequest struct {
+	Language   string `json:"language"`
+	SourceCode string `json:"sourceCode"`
+	ProblemID  int32  `json:"problemId"`
+}

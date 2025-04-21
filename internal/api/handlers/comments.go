@@ -74,47 +74,47 @@ func (h *CommentHandler) GetComments(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create a map to hold all comments by ID
-	commentMap := make(map[int64]*domain.Comment, len(dbComments))
+	commentMap := make(map[int64]*domain.CommentRelation, len(dbComments))
 
 	// Create a slice to maintain the order of top-level comments
-	var topLevelComments []*domain.Comment
+	var topLevelComments []*domain.CommentRelation
 
 	// First pass: Create CommentsData objects
 	for _, dbComment := range dbComments {
-		comment := &domain.Comment{
-			ID:              dbComment.ID,
-			SolutionId:      dbComment.SolutionID,
-			Username:        dbComment.UserUsername,
-			AvatarUrl:       dbComment.UserAvatarUrl.String,
-			Level:           dbComment.UserLevel,
-			Body:            dbComment.Body,
-			CreatedAt:       dbComment.CreatedAt.Time,
-			Votes:           int32(dbComment.VotesCount),
-			Children:        []*domain.Comment{},
-			CurrentUserVote: dbComment.UserVote,
+		comment := &domain.CommentRelation{
+			Comment: domain.Comment{
+				ID:         dbComment.ID,
+				SolutionId: dbComment.SolutionId,
+				Body:       dbComment.Body,
+				CreatedAt:  dbComment.CreatedAt,
+				Votes:      int32(dbComment.CurrentUserVote),
+				Children:   []*domain.Comment{},
+			},
+			CurrentUserVote: dbComment.CurrentUserVote,
+			Username:        dbComment.Username,
+			AvatarUrl:       dbComment.AvatarUrl,
+			Level:           dbComment.Level,
 		}
 		commentMap[comment.ID] = comment
 
-		if !dbComment.ParentID.Valid {
+		if dbComment.ParentId != nil {
 			topLevelComments = append(topLevelComments, comment)
 		}
 	}
 
 	// Second pass: Build the comment tree
 	for _, dbComment := range dbComments {
-		if dbComment.ParentID.Valid {
-			parentId := dbComment.ParentID.Int64
-			if parent, exists := commentMap[parentId]; exists {
+		if dbComment.ParentId != nil {
+			parentId := dbComment.ParentId
+			if parent, exists := commentMap[*parentId]; exists {
 				parent.Children = append(parent.Children, commentMap[dbComment.ID])
 			}
 		}
 	}
 
-	response := domain.CommentsResponse{
-		Data: topLevelComments,
-	}
+	response := topLevelComments
 
-	httputils.SendJSONResponse(w, http.StatusOK, response)
+	httputils.SendJSONDataResponse(w, http.StatusOK, response)
 }
 
 // POST: /comments
@@ -125,30 +125,30 @@ func (h *CommentHandler) CreateComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	comment, apiErr := DecodeJSONRequest[CommentCreateRequest](r)
+	comment, apiErr := httputils.DecodeJSONRequest[domain.CommentCreateRequest](r)
 	if apiErr != nil {
-		httputils.SendError(w, apiErr.StatusCode(), apiErr.Message())
+		errors.SendError(w, apiErr.Error.StatusCode, apiErr.Error.Message)
 		return
 	}
 
 	// Validate input
 	if comment.SolutionId == 0 || comment.Body == "" {
-		httputils.SendError(w, http.StatusBadRequest, "Missing required fields for comment creation")
+		errors.SendError(w, http.StatusBadRequest, "Missing required fields for comment creation")
 		return
 	}
 
 	// Check if solution exists
-	_, err = h.PostgresQueries.GetSolutionById(r.Context(), comment.SolutionId)
+	_, err = h.repo.GetSolutionById(r.Context(), comment.SolutionId)
 	if err != nil {
-		SendError(w, http.StatusNotFound, "Solution not found")
+		errors.SendError(w, http.StatusNotFound, "Solution not found")
 		return
 	}
 
 	// Check if parent comment exists if ParentId is provided
 	if comment.ParentId != nil {
-		_, err := h.PostgresQueries.GetCommentById(r.Context(), *comment.ParentId)
+		_, err := h.repo.GetCommentById(r.Context(), *comment.ParentId)
 		if err != nil {
-			SendError(w, http.StatusNotFound, "Parent comment not found")
+			errors.SendError(w, http.StatusNotFound, "Parent comment not found")
 			return
 		}
 	}
@@ -161,46 +161,46 @@ func (h *CommentHandler) CreateComment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// create comment
-	_, err = h.PostgresQueries.CreateComment(r.Context(), sql.CreateCommentParams{
+	_, err = h.repo.CreateComment(r.Context(), sql.CreateCommentParams{
 		SolutionID: comment.SolutionId,
 		ParentID:   parentId,
 		UserID:     userId,
 		Body:       comment.Body,
 	})
 	if err != nil {
-		SendError(w, http.StatusInternalServerError, "Failed to create comment")
+		errors.SendError(w, http.StatusInternalServerError, "Failed to create comment")
 		return
 	}
 
-	SendJSONResponse(w, http.StatusCreated, nil)
+	httputils.SendJSONResponse(w, http.StatusCreated, nil)
 }
 
 // GET: /comments/{commentId}
-func (h *Handler) GetComment(w http.ResponseWriter, r *http.Request) {
+func (h *CommentHandler) GetComment(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
-	userId, err := GetClientUserID(w, r)
+	userId, err := httputils.GetClientUserID(w, r)
 	if err != nil {
 		return
 	}
 
 	commentId := chi.URLParam(r, "commentId")
 	if commentId == "" {
-		SendError(w, http.StatusBadRequest, "Missing commentId for comment retrieval")
+		errors.SendError(w, http.StatusBadRequest, "Missing commentId for comment retrieval")
 		return
 	}
 
 	id, err := strconv.ParseInt(commentId, 10, 64)
 	if err != nil {
-		SendError(w, http.StatusBadRequest, "Invalid commentId format for comment retrieval")
+		errors.SendError(w, http.StatusBadRequest, "Invalid commentId format for comment retrieval")
 		return
 	}
 
-	comment, err := h.PostgresQueries.GetComment(r.Context(), sql.GetCommentParams{
+	comment, err := h.repo.GetComment(r.Context(), sql.GetCommentParams{
 		ID:     id,
 		UserID: userId,
 	})
 	if err != nil {
-		EmptyDataResponse(w)
+		httputils.EmptyDataResponse(w)
 		return
 	}
 
@@ -222,86 +222,86 @@ func (h *Handler) GetComment(w http.ResponseWriter, r *http.Request) {
 }
 
 // PUT: /comments/{commentId}
-func (h *Handler) UpdateComment(w http.ResponseWriter, r *http.Request) {
+func (h *CommentHandler) UpdateComment(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
-	userId, err := GetClientUserID(w, r)
+	userId, err := httputils.GetClientUserID(w, r)
 	if err != nil {
 		return
 	}
 
 	commentId := chi.URLParam(r, "commentId")
 	if commentId == "" {
-		SendError(w, http.StatusBadRequest, "Missing commentId")
+		errors.SendError(w, http.StatusBadRequest, "Missing commentId")
 		return
 	}
 
 	id, err := strconv.ParseInt(commentId, 10, 64)
 	if err != nil {
-		SendError(w, http.StatusBadRequest, "Invalid commentId format")
+		errors.SendError(w, http.StatusBadRequest, "Invalid commentId format")
 		return
 	}
 
-	comment, apiErr := DecodeJSONRequest[CommentUpdateRequest](r)
+	comment, apiErr := httputils.DecodeJSONRequest[domain.CommentUpdateRequest](r)
 	if apiErr != nil {
-		SendError(w, apiErr.StatusCode(), apiErr.Message())
+		errors.SendError(w, apiErr.Error.StatusCode, apiErr.Error.Message)
 		return
 	}
 
 	// Validate input
 	if comment.Body == "" {
-		SendError(w, http.StatusBadRequest, "Body is required")
+		errors.SendError(w, http.StatusBadRequest, "Body is required")
 		return
 	}
 
-	_, err = h.PostgresQueries.UpdateComment(r.Context(), sql.UpdateCommentParams{
+	_, err = h.repo.UpdateComment(r.Context(), sql.UpdateCommentParams{
 		ID:     id,
 		Body:   comment.Body,
 		UserID: userId, // Check if the user is the owner of the comment
 	})
 	if err != nil {
-		SendError(w, http.StatusInternalServerError, "Failed to update comment")
+		errors.SendError(w, http.StatusInternalServerError, "Failed to update comment")
 		return
 	}
 
-	SendJSONResponse(w, http.StatusNoContent, nil)
+	httputils.SendJSONResponse(w, http.StatusNoContent, nil)
 }
 
 // DELETE: /comments/{commentId}
-func (h *Handler) DeleteComment(w http.ResponseWriter, r *http.Request) {
+func (h *CommentHandler) DeleteComment(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
-	userId, err := GetClientUserID(w, r)
+	userId, err := httputils.GetClientUserID(w, r)
 	if err != nil {
 		return
 	}
 
 	commentId := chi.URLParam(r, "commentId")
 	if commentId == "" {
-		SendError(w, http.StatusBadRequest, "Missing commentId")
+		errors.SendError(w, http.StatusBadRequest, "Missing commentId")
 		return
 	}
 
 	id, err := strconv.ParseInt(commentId, 10, 64)
 	if err != nil {
-		SendError(w, http.StatusBadRequest, "Invalid commentId format")
+		errors.SendError(w, http.StatusBadRequest, "Invalid commentId format")
 		return
 	}
 
-	err = h.PostgresQueries.DeleteComment(r.Context(), sql.DeleteCommentParams{
+	err = h.repo.DeleteComment(r.Context(), sql.DeleteCommentParams{
 		ID:     id,
 		UserID: userId, // Check if the user is the owner of the comment
 	})
 	if err != nil {
-		SendError(w, http.StatusInternalServerError, "Failed to delete comment")
+		errors.SendError(w, http.StatusInternalServerError, "Failed to delete comment")
 		return
 	}
 
-	SendJSONResponse(w, http.StatusNoContent, nil)
+	httputils.SendJSONResponse(w, http.StatusNoContent, nil)
 }
 
 // PATCH: /{commentId}/vote
-func (h *Handler) VoteComment(w http.ResponseWriter, r *http.Request) {
+func (h *CommentHandler) VoteComment(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
-	userId, err := GetClientUserID(w, r)
+	userId, err := httputils.GetClientUserID(w, r)
 	if err != nil {
 		return
 	}
@@ -309,44 +309,44 @@ func (h *Handler) VoteComment(w http.ResponseWriter, r *http.Request) {
 	// Extract commentId from URL parameters
 	commentId := chi.URLParam(r, "commentId")
 	if commentId == "" {
-		SendError(w, http.StatusBadRequest, "Missing commentId")
+		errors.SendError(w, http.StatusBadRequest, "Missing commentId")
 		return
 	}
 
 	id, err := strconv.ParseInt(commentId, 10, 64)
 	if err != nil {
-		SendError(w, http.StatusBadRequest, "Invalid commentId format")
+		errors.SendError(w, http.StatusBadRequest, "Invalid commentId format")
 		return
 	}
 
 	// Decode the request body into VoteRequest struct
-	req, apiErr := DecodeJSONRequest[VoteRequest](r)
+	req, apiErr := httputils.DecodeJSONRequest[domain.VoteRequest](r)
 	if apiErr != nil {
-		SendError(w, apiErr.StatusCode(), apiErr.Message())
+		errors.SendError(w, apiErr.Error.StatusCode, apiErr.Error.Message)
 		return
 	}
 
 	if req.Vote == "" {
-		SendError(w, http.StatusBadRequest, "Vote is required")
+		errors.SendError(w, http.StatusBadRequest, "Vote is required")
 		return
 	}
 
 	// Check if the comment exists
-	_, err = h.PostgresQueries.GetCommentById(r.Context(), id)
+	_, err = h.repo.GetCommentById(r.Context(), id)
 	if err != nil {
-		SendError(w, http.StatusBadRequest, "Comment not found")
+		errors.SendError(w, http.StatusBadRequest, "Comment not found")
 		return
 	}
 
-	err = h.PostgresQueries.VoteComment(r.Context(), sql.VoteCommentParams{
+	err = h.repo.VoteComment(r.Context(), sql.VoteCommentParams{
 		UserID:    userId,
 		CommentID: id,
 		Vote:      sql.VoteType(req.Vote),
 	})
 	if err != nil {
-		SendError(w, http.StatusBadRequest, "Error voting on comment")
+		errors.SendError(w, http.StatusBadRequest, "Error voting on comment")
 		return
 	}
 
-	SendJSONResponse(w, http.StatusNoContent, nil)
+	httputils.SendJSONResponse(w, http.StatusNoContent, nil)
 }

@@ -7,10 +7,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"kadane.xyz/go-backend/v2/internal/api/httputils"
 	"kadane.xyz/go-backend/v2/internal/database/repository"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
-	"kadane.xyz/go-backend/v2/internal/utils/errors"
-	"kadane.xyz/go-backend/v2/internal/utils/httputils"
+	"kadane.xyz/go-backend/v2/internal/domain"
+	"kadane.xyz/go-backend/v2/internal/errors"
 )
 
 type SolutionsHandler struct {
@@ -90,7 +91,7 @@ func (h *SolutionsHandler) GetSolutions(w http.ResponseWriter, r *http.Request) 
 		order = "DESC"
 	}
 
-	solutions, err := h.PostgresQueries.GetSolutionsPaginated(r.Context(), sql.GetSolutionsPaginatedParams{
+	solutions, err := h.solutionsRepo.GetSolutions(r.Context(), sql.GetSolutionsPaginatedParams{
 		ProblemID:     pgtype.Int8{Int64: id, Valid: true},
 		Tags:          tagsArray,
 		Title:         titleSearch,
@@ -101,30 +102,30 @@ func (h *SolutionsHandler) GetSolutions(w http.ResponseWriter, r *http.Request) 
 		UserID:        userId,
 	})
 	if err != nil {
-		EmptyDataArrayResponse(w) // { data: [] }
+		httputils.EmptyDataArrayResponse(w) // { data: [] }
 		return
 	}
 
 	if len(solutions) == 0 {
-		EmptyDataArrayResponse(w) // { data: [] }
+		httputils.EmptyDataArrayResponse(w) // { data: [] }
 		return
 	}
 
 	totalCount := solutions[0].TotalCount
 	if totalCount == 0 {
-		SendError(w, http.StatusNotFound, "No solutions found")
+		errors.SendError(w, http.StatusNotFound, "No solutions found")
 		return
 	}
 
 	// Prepare response
-	var solutionsData []SolutionsData
+	var solutionsData []domain.SolutionsData
 	for _, solution := range solutions {
 		// If tags is nil, set it to an empty array
 		if solution.Tags == nil {
 			solution.Tags = []string{}
 		}
 
-		solutionData := SolutionsData{
+		solutionData := domain.SolutionsData{
 			Id:              solution.ID,
 			Body:            solution.Body,
 			Comments:        solution.CommentsCount,
@@ -151,9 +152,9 @@ func (h *SolutionsHandler) GetSolutions(w http.ResponseWriter, r *http.Request) 
 	lastPage := (totalCount + perPage - 1) / perPage
 
 	// Final response
-	response := SolutionsResponse{
+	response := domain.SolutionsResponse{
 		Data: solutionsData,
-		Pagination: Pagination{
+		Pagination: domain.Pagination{
 			Page:      page,       // Current page
 			PerPage:   perPage,    // Items per page
 			DataCount: totalCount, // Total items
@@ -162,29 +163,29 @@ func (h *SolutionsHandler) GetSolutions(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Write solutionsJSON to response
-	SendJSONResponse(w, http.StatusOK, response)
+	httputils.SendJSONResponse(w, http.StatusOK, response)
 }
 
 // POST: /
-func (h *Handler) CreateSolution(w http.ResponseWriter, r *http.Request) {
-	userId, err := GetClientUserID(w, r)
+func (h *SolutionsHandler) CreateSolution(w http.ResponseWriter, r *http.Request) {
+	userId, err := httputils.GetClientUserID(w, r)
 	if err != nil {
 		return
 	}
 
-	solution, apiErr := DecodeJSONRequest[CreateSolutionRequest](r)
+	solution, apiErr := httputils.DecodeJSONRequest[domain.CreateSolutionRequest](r)
 	if apiErr != nil {
-		SendError(w, apiErr.StatusCode(), apiErr.Message())
+		errors.SendError(w, apiErr.Error.StatusCode, apiErr.Error.Message)
 		return
 	}
 
 	if solution.Title == "" || solution.Body == "" || solution.ProblemId <= 0 {
-		SendError(w, http.StatusBadRequest, "Missing required fields for solution creation")
+		errors.SendError(w, http.StatusBadRequest, "Missing required fields for solution creation")
 		return
 	}
 
 	// Insert solution into db
-	_, err = h.PostgresQueries.CreateSolution(r.Context(), sql.CreateSolutionParams{
+	_, err = h.solutionsRepo.CreateSolution(r.Context(), sql.CreateSolutionParams{
 		UserID: pgtype.Text{
 			String: userId,
 			Valid:  true,
@@ -195,40 +196,40 @@ func (h *Handler) CreateSolution(w http.ResponseWriter, r *http.Request) {
 		ProblemID: pgtype.Int8{Int64: solution.ProblemId, Valid: true},
 	})
 	if err != nil {
-		SendError(w, http.StatusInternalServerError, "Error creating solution in database")
+		errors.SendError(w, http.StatusInternalServerError, "Error creating solution in database")
 		return
 	}
 
 	// Write response
-	SendJSONResponse(w, http.StatusCreated, nil)
+	httputils.SendJSONResponse(w, http.StatusCreated, nil)
 }
 
 // GET: /{solutionId}
-func (h *Handler) GetSolution(w http.ResponseWriter, r *http.Request) {
-	userId, err := GetClientUserID(w, r)
+func (h *SolutionsHandler) GetSolution(w http.ResponseWriter, r *http.Request) {
+	userId, err := httputils.GetClientUserID(w, r)
 	if err != nil {
 		return
 	}
 
 	solutionId := chi.URLParam(r, "solutionId")
 	if solutionId == "" {
-		SendError(w, http.StatusBadRequest, "Missing solutionId for solution retrieval")
+		errors.SendError(w, http.StatusBadRequest, "Missing solutionId for solution retrieval")
 		return
 	}
 
 	id, err := strconv.ParseInt(solutionId, 10, 64)
 	if err != nil {
-		SendError(w, http.StatusBadRequest, "Invalid solutionId format for solution retrieval")
+		errors.SendError(w, http.StatusBadRequest, "Invalid solutionId format for solution retrieval")
 		return
 	}
 
 	// Get solutions from db by idPg
-	solution, err := h.PostgresQueries.GetSolution(r.Context(), sql.GetSolutionParams{
+	solution, err := h.solutionsRepo.GetSolution(r.Context(), sql.GetSolutionParams{
 		ID:     id,
 		UserID: userId,
 	})
 	if err != nil {
-		EmptyDataResponse(w) // { data: {} }
+		httputils.EmptyDataResponse(w) // { data: {} }
 		return
 	}
 
@@ -237,7 +238,7 @@ func (h *Handler) GetSolution(w http.ResponseWriter, r *http.Request) {
 		solution.Tags = []string{}
 	}
 
-	solutionData := SolutionsData{
+	solutionData := domain.SolutionsData{
 		Id:              solution.ID,
 		Body:            solution.Body,
 		Comments:        solution.CommentsCount,
@@ -252,18 +253,18 @@ func (h *Handler) GetSolution(w http.ResponseWriter, r *http.Request) {
 		Starred:         solution.Starred,
 	}
 
-	response := SolutionResponse{
+	response := domain.SolutionResponse{
 		Data: solutionData,
 	}
 
 	// Write solutionsJSON to response
-	SendJSONResponse(w, http.StatusOK, response)
+	httputils.SendJSONResponse(w, http.StatusOK, response)
 }
 
 // PUT: /{solutionId}
-func (h *Handler) UpdateSolution(w http.ResponseWriter, r *http.Request) {
+func (h *SolutionsHandler) UpdateSolution(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
-	userId, err := GetClientUserID(w, r)
+	userId, err := httputils.GetClientUserID(w, r)
 	if err != nil {
 		return
 	}
@@ -272,24 +273,24 @@ func (h *Handler) UpdateSolution(w http.ResponseWriter, r *http.Request) {
 	solutionId := chi.URLParam(r, "solutionId")
 	// If problemId is empty, set idPg as NULL
 	if solutionId == "" {
-		SendError(w, http.StatusBadRequest, "solutionId is required")
+		errors.SendError(w, http.StatusBadRequest, "solutionId is required")
 		return
 	}
 
 	id, err := strconv.ParseInt(solutionId, 10, 64)
 	if err != nil {
-		SendError(w, http.StatusBadRequest, "solutionId must be an integer")
+		errors.SendError(w, http.StatusBadRequest, "solutionId must be an integer")
 		return
 	}
 
-	solutionRequest, apiErr := DecodeJSONRequest[UpdateSolutionRequest](r)
+	solutionRequest, apiErr := httputils.DecodeJSONRequest[domain.UpdateSolutionRequest](r)
 	if apiErr != nil {
-		SendError(w, apiErr.StatusCode(), apiErr.Message())
+		errors.SendError(w, apiErr.Error.StatusCode, apiErr.Error.Message)
 		return
 	}
 
 	if solutionRequest.Title == "" && solutionRequest.Body == "" && len(solutionRequest.Tags) > 0 {
-		SendError(w, http.StatusBadRequest, "at least one field must be provided")
+		errors.SendError(w, http.StatusBadRequest, "at least one field must be provided")
 		return
 	}
 
@@ -302,20 +303,20 @@ func (h *Handler) UpdateSolution(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get solutions from db by idPg
-	_, err = h.PostgresQueries.UpdateSolution(r.Context(), solutionArgs)
+	_, err = h.solutionsRepo.UpdateSolution(r.Context(), solutionArgs)
 	if err != nil {
-		SendError(w, http.StatusInternalServerError, "error getting solutions")
+		errors.SendError(w, http.StatusInternalServerError, "error getting solutions")
 		return
 	}
 
 	// Write solutionsJSON to response
-	SendJSONResponse(w, http.StatusNoContent, nil)
+	httputils.SendJSONResponse(w, http.StatusNoContent, nil)
 }
 
 // DELETE: /{solutionId}
-func (h *Handler) DeleteSolution(w http.ResponseWriter, r *http.Request) {
+func (h *SolutionsHandler) DeleteSolution(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
-	userId, err := GetClientUserID(w, r)
+	userId, err := httputils.GetClientUserID(w, r)
 	if err != nil {
 		return
 	}
@@ -324,34 +325,34 @@ func (h *Handler) DeleteSolution(w http.ResponseWriter, r *http.Request) {
 	solutionId := chi.URLParam(r, "solutionId")
 	// If problemId is empty, set idPg as NULL
 	if solutionId == "" {
-		SendError(w, http.StatusBadRequest, "solutionId is required")
+		errors.SendError(w, http.StatusBadRequest, "solutionId is required")
 		return
 	}
 
 	id, err := strconv.ParseInt(solutionId, 10, 64)
 	if err != nil {
-		SendError(w, http.StatusBadRequest, "solutionId must be an integer")
+		errors.SendError(w, http.StatusBadRequest, "solutionId must be an integer")
 		return
 	}
 
 	// Get solutions from db by idPg
-	err = h.PostgresQueries.DeleteSolution(r.Context(), sql.DeleteSolutionParams{
+	err = h.solutionsRepo.DeleteSolution(r.Context(), sql.DeleteSolutionParams{
 		ID:     id,
 		UserID: pgtype.Text{String: userId, Valid: true},
 	})
 	if err != nil {
-		SendError(w, http.StatusInternalServerError, "error getting solutions")
+		errors.SendError(w, http.StatusInternalServerError, "error getting solutions")
 		return
 	}
 
 	// Write solutionsJSON to response
-	SendJSONResponse(w, http.StatusNoContent, nil)
+	httputils.SendJSONResponse(w, http.StatusNoContent, nil)
 }
 
 // PATCH: /{solutionId}/vote
-func (h *Handler) VoteSolution(w http.ResponseWriter, r *http.Request) {
+func (h *SolutionsHandler) VoteSolution(w http.ResponseWriter, r *http.Request) {
 	// Get userid from middleware context
-	userId, err := GetClientUserID(w, r)
+	userId, err := httputils.GetClientUserID(w, r)
 	if err != nil {
 		return
 	}
@@ -359,44 +360,44 @@ func (h *Handler) VoteSolution(w http.ResponseWriter, r *http.Request) {
 	// Extract solutionId from URL parameters
 	solutionId := chi.URLParam(r, "solutionId")
 	if solutionId == "" {
-		SendError(w, http.StatusBadRequest, "Missing solutionId for solution retrieval")
+		errors.SendError(w, http.StatusBadRequest, "Missing solutionId for solution retrieval")
 		return
 	}
 
 	id, err := strconv.ParseInt(solutionId, 10, 64)
 	if err != nil {
-		SendError(w, http.StatusBadRequest, "Invalid solutionId format for solution retrieval")
+		errors.SendError(w, http.StatusBadRequest, "Invalid solutionId format for solution retrieval")
 		return
 	}
 
 	// Decode the request body into VoteRequest struct
-	req, apiErr := DecodeJSONRequest[VoteRequest](r)
+	req, apiErr := httputils.DecodeJSONRequest[domain.VoteRequest](r)
 	if apiErr != nil {
-		SendError(w, apiErr.StatusCode(), apiErr.Message())
+		errors.SendError(w, apiErr.Error.StatusCode, apiErr.Error.Message)
 		return
 	}
 
 	if req.Vote == "" {
-		SendError(w, http.StatusBadRequest, "Vote is required")
+		errors.SendError(w, http.StatusBadRequest, "Vote is required")
 		return
 	}
 
 	// Check if the solution exists
-	_, err = h.PostgresQueries.GetSolutionById(r.Context(), id)
+	_, err = h.solutionsRepo.GetSolutionById(r.Context(), id)
 	if err != nil {
-		SendError(w, http.StatusBadRequest, "Solution not found")
+		errors.SendError(w, http.StatusBadRequest, "Solution not found")
 		return
 	}
 
-	err = h.PostgresQueries.VoteSolution(r.Context(), sql.VoteSolutionParams{
+	err = h.solutionsRepo.VoteSolution(r.Context(), sql.VoteSolutionParams{
 		UserID:     userId,
 		SolutionID: id,
 		Vote:       req.Vote,
 	})
 	if err != nil {
-		SendError(w, http.StatusInternalServerError, "Error voting on solution")
+		errors.SendError(w, http.StatusInternalServerError, "Error voting on solution")
 		return
 	}
 
-	SendJSONResponse(w, http.StatusNoContent, nil)
+	httputils.SendJSONResponse(w, http.StatusNoContent, nil)
 }
