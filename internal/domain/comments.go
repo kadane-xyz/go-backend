@@ -35,16 +35,21 @@ type CommentUpdateRequest struct {
 	Body string `json:"body"`
 }
 
-func FromSQLComment(row sql.Comment) (*Comment, error) {
-	return &Comment{
+func FromSQLComment(row sql.Comment) *Comment {
+	comment := Comment{
 		ID:         row.ID,
 		SolutionId: row.SolutionID,
 		Body:       row.Body,
 		CreatedAt:  row.CreatedAt.Time,
-		Votes:      row.Votes.Int32,
-		ParentId:   row.ParentID.Int64,
 		Children:   []*Comment{},
-	}, nil
+	}
+	if row.ParentID != nil {
+		comment.ParentId = row.ParentID
+	}
+	if row.Votes != nil {
+		comment.Votes = *row.Votes
+	}
+	return &comment
 }
 
 func FromSQLGetCommentRow(row sql.GetCommentRow) (*CommentRelation, error) {
@@ -75,19 +80,24 @@ func FromSQLGetCommentRow(row sql.GetCommentRow) (*CommentRelation, error) {
 	return &comment, nil
 }
 
-func FromSQLGetCommentsRow(row []sql.GetCommentsRow) ([]*CommentRelation, error) {
-	var comments []*CommentRelation
+func FromSQLGetCommentsRow(row []sql.GetCommentsRow) []*CommentRelation {
+	comments := []*CommentRelation{}
 	for i, comment := range row {
 		domainComment, err := FromSQLGetCommentRow(sql.GetCommentRow(comment))
 		if err != nil {
-			return nil, err
+			return nil
 		}
-		comments[i] = domainComment
+
+		if domainComment != nil {
+			comments[i] = domainComment
+		}
 	}
+
+	return comments
 }
 
 // Reuse function FromSQLGetCommentsRow because type matches
-func FromSQLGetCommentsSorted(row []sql.GetCommentsSortedRow) ([]*CommentRelation, error) {
+func FromSQLGetCommentsSorted(row []sql.GetCommentsSortedRow) []*CommentRelation {
 	comments := []sql.GetCommentsRow{}
 	for i, comment := range row {
 		comments[i] = sql.GetCommentsRow(comment)

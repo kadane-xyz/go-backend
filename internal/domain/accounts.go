@@ -37,11 +37,26 @@ type AccountAttributes struct {
 	FriendRequestCount int64
 }
 
+type AccountAttributesUpdateParams struct {
+	ID           string
+	Bio          *string
+	ContactEmail *string
+	Location     *string
+	RealName     *string
+	GithubUrl    *string
+	LinkedinUrl  *string
+	FacebookUrl  *string
+	InstagramUrl *string
+	TwitterUrl   *string
+	School       *string
+	WebsiteUrl   *string
+}
+
 type AccountValidation struct {
 	Plan sql.AccountPlan `json:"plan"`
 }
 
-type CreateAccountRequest struct {
+type AccountCreateRequest struct {
 	ID       string `json:"id"`
 	Username string `json:"username"`
 	Email    string `json:"email"`
@@ -61,30 +76,44 @@ type AccountUpdateRequest struct {
 	WebsiteUrl   *string `json:"websiteUrl,omitempty"`
 }
 
+// Use for calling repo
+type AccountUpdateParams struct {
+	ID string
+	AccountUpdateRequest
+}
+
 func FromSQLAccountRow(row sql.GetAccountRow) Account {
-	return Account{
+	account := Account{
 		ID:         row.ID,
 		Username:   row.Username,
 		Email:      row.Email,
-		AvatarUrl:  row.AvatarUrl.String,
 		Level:      row.Level,
 		CreatedAt:  row.CreatedAt.Time,
 		Plan:       row.Plan,
 		Attributes: row.Attributes.(AccountAttributes),
 	}
+	if row.AvatarUrl != nil {
+		account.AvatarUrl = *row.AvatarUrl
+	}
+
+	return account
 }
 
 func FromSQLAccountByUsernameRow(row sql.GetAccountByUsernameRow) Account {
-	return Account{
+	account := Account{
 		ID:         row.ID,
 		Username:   row.Username,
 		Email:      row.Email,
-		AvatarUrl:  row.AvatarUrl.String,
 		Level:      row.Level,
 		CreatedAt:  row.CreatedAt.Time,
 		Plan:       row.Plan,
 		Attributes: row.Attributes.(AccountAttributes),
 	}
+	if row.AvatarUrl != nil {
+		account.AvatarUrl = *row.AvatarUrl
+	}
+
+	return account
 }
 
 func FromSQLListAccountsRow(rows []sql.ListAccountsRow) []Account {
@@ -94,13 +123,66 @@ func FromSQLListAccountsRow(rows []sql.ListAccountsRow) []Account {
 			ID:         row.ID,
 			Username:   row.Username,
 			Email:      row.Email,
-			AvatarUrl:  row.AvatarUrl.String,
 			Level:      row.Level,
 			CreatedAt:  row.CreatedAt.Time,
 			Plan:       row.Plan,
 			Attributes: row.Attributes.(AccountAttributes),
 		}
-
+		if row.AvatarUrl != nil {
+			accounts[i].AvatarUrl = *row.AvatarUrl
+		}
 	}
 	return accounts
+}
+
+func FromSQLGetAccountAttributes(row sql.AccountAttribute) *AccountAttributes {
+	accountAttributes := AccountAttributes{
+		ID: row.ID,
+	}
+
+	if row.Bio != nil {
+		accountAttributes.Bio = *row.Bio
+	}
+
+	if row.ContactEmail != nil {
+		accountAttributes.ContactEmail = *row.ContactEmail
+	}
+
+	if row.Location != nil {
+		accountAttributes.Location = *row.Location
+	}
+
+	if row.RealName != nil {
+		accountAttributes.RealName = *row.RealName
+	}
+
+	if row.GithubUrl != nil {
+		accountAttributes.GithubUrl = *row.GithubUrl
+	}
+
+	if row.LinkedinUrl != nil {
+		accountAttributes.LinkedinUrl = *row.LinkedinUrl
+	}
+
+	if row.FacebookUrl != nil {
+		accountAttributes.FacebookUrl = *row.FacebookUrl
+	}
+
+	if row.InstagramUrl != nil {
+		accountAttributes.InstagramUrl = *row.InstagramUrl
+	}
+
+	if row.TwitterUrl != nil {
+		accountAttributes.TwitterUrl = *row.TwitterUrl
+	}
+
+	if row.School != nil {
+		accountAttributes.School = *row.School
+	}
+
+	if row.WebsiteUrl != nil {
+		accountAttributes.WebsiteUrl = *row.WebsiteUrl
+	}
+
+	return &accountAttributes
 }

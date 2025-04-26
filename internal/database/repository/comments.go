@@ -47,7 +47,7 @@ func (r *SQLCommentsRepository) GetComments(ctx context.Context, params sql.GetC
 	if err != nil {
 		return nil, err
 	}
-	return domain.FromSQLGetCommentsRow(q)
+	return domain.FromSQLGetCommentsRow(q), nil
 }
 
 func (r *SQLCommentsRepository) GetCommentsSorted(ctx context.Context, params sql.GetCommentsSortedParams) ([]*domain.CommentRelation, error) {
@@ -55,7 +55,7 @@ func (r *SQLCommentsRepository) GetCommentsSorted(ctx context.Context, params sq
 	if err != nil {
 		return nil, err
 	}
-	return domain.FromSQLGetCommentsSorted(q)
+	return domain.FromSQLGetCommentsSorted(q), nil
 }
 
 func (r *SQLCommentsRepository) CreateComment(ctx context.Context, params sql.CreateCommentParams) (*domain.Comment, error) {
@@ -63,7 +63,7 @@ func (r *SQLCommentsRepository) CreateComment(ctx context.Context, params sql.Cr
 	if err != nil {
 		return nil, err
 	}
-	return domain.FromSQLComment(q)
+	return domain.FromSQLComment(q), nil
 }
 
 func (r *SQLCommentsRepository) UpdateComment(ctx context.Context, params sql.UpdateCommentParams) (*domain.Comment, error) {
@@ -71,7 +71,7 @@ func (r *SQLCommentsRepository) UpdateComment(ctx context.Context, params sql.Up
 	if err != nil {
 		return nil, err
 	}
-	return domain.FromSQLComment(q)
+	return domain.FromSQLComment(q), nil
 }
 
 func (r *SQLCommentsRepository) DeleteComment(ctx context.Context, params sql.DeleteCommentParams) error {
@@ -79,7 +79,6 @@ func (r *SQLCommentsRepository) DeleteComment(ctx context.Context, params sql.De
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -88,6 +87,5 @@ func (r *SQLCommentsRepository) VoteComment(ctx context.Context, params sql.Vote
 	if err != nil {
 		return err
 	}
-
 	return nil
 }

@@ -8,7 +8,7 @@ import (
 )
 
 type FriendRepository interface {
-	GetFriends(ctx context.Context, params sql.GetFriendsParams) ([]domain.Friend, error)
+	GetFriends(ctx context.Context, userId string) ([]domain.Friend, error)
 	GetFriendRequestStatus(ctx context.Context, params sql.GetFriendRequestStatusParams) (domain.FriendRequestStatus, error)
 	CreateFriendRequest(ctx context.Context, params sql.CreateFriendRequestParams) error
 	AcceptFriendRequest(ctx context.Context, params sql.AcceptFriendRequestParams) error
@@ -35,7 +35,7 @@ func (r *SQLFriendRepository) GetFriends(ctx context.Context, userId string) ([]
 	return q, nil
 }
 
-func (r *SQLFriendRepository) GetFriendRequestStatus(ctx context.Context, params sql.GetFriendRequestStatusParams) (sql.GetFriendRequestStatusRow, error) {
+func (r *SQLFriendRepository) GetFriendRequestStatus(ctx context.Context, params sql.GetFriendRequestStatusParams) (domain.FriendRequestStatus, error) {
 	q, err := r.queries.GetFriendRequestStatus(ctx, params)
 	if err != nil {
 		return nil, err
@@ -44,7 +44,7 @@ func (r *SQLFriendRepository) GetFriendRequestStatus(ctx context.Context, params
 }
 
 func (r *SQLFriendRepository) CreateFriendRequest(ctx context.Context, params sql.CreateFriendRequestParams) error {
-	q, err := r.queries.CreateFriendRequest(ctx, params)
+	err := r.queries.CreateFriendRequest(ctx, params)
 	if err != nil {
 		return err
 	}
@@ -52,7 +52,7 @@ func (r *SQLFriendRepository) CreateFriendRequest(ctx context.Context, params sq
 }
 
 func (r *SQLFriendRepository) AcceptFriendRequest(ctx context.Context, params sql.AcceptFriendRequestParams) error {
-	q, err := r.queries.AcceptFriendRequest(ctx, params)
+	err := r.queries.AcceptFriendRequest(ctx, params)
 	if err != nil {
 		return err
 	}
@@ -60,7 +60,7 @@ func (r *SQLFriendRepository) AcceptFriendRequest(ctx context.Context, params sq
 }
 
 func (r *SQLFriendRepository) BlockFriend(ctx context.Context, params sql.BlockFriendParams) error {
-	q, err := r.queries.BlockFriend(ctx, params)
+	err := r.queries.BlockFriend(ctx, params)
 	if err != nil {
 		return err
 	}
@@ -68,7 +68,7 @@ func (r *SQLFriendRepository) BlockFriend(ctx context.Context, params sql.BlockF
 }
 
 func (r *SQLFriendRepository) UnblockFriend(ctx context.Context, params sql.UnblockFriendParams) error {
-	q, err := r.queries.UnblockFriend(ctx, params)
+	err := r.queries.UnblockFriend(ctx, params)
 	if err != nil {
 		return err
 	}
@@ -76,7 +76,7 @@ func (r *SQLFriendRepository) UnblockFriend(ctx context.Context, params sql.Unbl
 }
 
 func (r *SQLFriendRepository) DeleteFriendship(ctx context.Context, params sql.DeleteFriendshipParams) error {
-	q, err := r.queries.DeleteFriendship(ctx, params)
+	err := r.queries.DeleteFriendship(ctx, params)
 	if err != nil {
 		return err
 	}

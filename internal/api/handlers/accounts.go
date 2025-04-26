@@ -91,8 +91,8 @@ func (h *AccountHandler) GetAccounts(w http.ResponseWriter, r *http.Request) {
 	httputils.SendJSONDataResponse(w, http.StatusOK, accounts)
 }
 
-func ValidateCreateAccount(r *http.Request) (*sql.CreateAccountParams, *errors.ApiError) {
-	createAccountRequest, apiErr := httputils.DecodeJSONRequest[domain.CreateAccountRequest](r)
+func ValidateCreateAccount(r *http.Request) (*domain.AccountCreateRequest, *errors.ApiError) {
+	createAccountRequest, apiErr := httputils.DecodeJSONRequest[domain.AccountCreateRequest](r)
 	if apiErr != nil {
 		return nil, errors.NewUnprocessableEntityError("Invalid request body")
 	}
@@ -112,11 +112,8 @@ func ValidateCreateAccount(r *http.Request) (*sql.CreateAccountParams, *errors.A
 	if !isValidEmail(createAccountRequest.Email) {
 		return nil, errors.NewBadRequestError("Invalid email format")
 	}
-	return &sql.CreateAccountParams{
-		ID:       createAccountRequest.ID,
-		Username: createAccountRequest.Username,
-		Email:    createAccountRequest.Email,
-	}, nil
+
+	return &createAccountRequest, nil
 }
 
 // POST: /accounts
@@ -135,27 +132,7 @@ func (h *AccountHandler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create account in the database
-	err := h.repo.CreateAccount(r.Context(), *createAccountRequest)
-	if err != nil {
-		apiErr.Send(w)
-		return
-	}
-
-	// Create account attributes in the database
-	_, err = h.repo.CreateAccountAttributes(r.Context(), sql.CreateAccountAttributesParams{
-		ID:           createAccountRequest.ID,
-		Bio:          pgtype.Text{String: "", Valid: true},
-		ContactEmail: pgtype.Text{String: "", Valid: true},
-		Location:     pgtype.Text{String: "", Valid: true},
-		RealName:     pgtype.Text{String: "", Valid: true},
-		GithubUrl:    pgtype.Text{String: "", Valid: true},
-		LinkedinUrl:  pgtype.Text{String: "", Valid: true},
-		FacebookUrl:  pgtype.Text{String: "", Valid: true},
-		InstagramUrl: pgtype.Text{String: "", Valid: true},
-		TwitterUrl:   pgtype.Text{String: "", Valid: true},
-		School:       pgtype.Text{String: "", Valid: true},
-		WebsiteUrl:   pgtype.Text{String: "", Valid: true},
-	})
+	err := h.repo.CreateAccount(r.Context(), createAccountRequest)
 	if err != nil {
 		apiErr.Send(w)
 		return
@@ -259,7 +236,7 @@ func (h *AccountHandler) UploadAccountAvatar(w http.ResponseWriter, r *http.Requ
 	// store image url in accounts table
 	err = h.repo.UploadAccountAvatar(r.Context(), sql.UpdateAccountAvatarParams{
 		ID:        userId,
-		AvatarUrl: pgtype.Text{String: url, Valid: true},
+		AvatarUrl: &url,
 	})
 	if err != nil {
 		errors.SendError(w, http.StatusInternalServerError, "Error updating avatar url")
@@ -303,100 +280,102 @@ func (h *AccountHandler) GetAccount(w http.ResponseWriter, r *http.Request) {
 	httputils.SendJSONDataResponse(w, http.StatusOK, account)
 }
 
-func ValidateUpdateAccount(r *http.Request) (sql.UpdateAccountAttributesParams, *errors.ApiError) {
+func ValidateUpdateAccount(r *http.Request) (*domain.AccountUpdateParams, *errors.ApiError) {
 	// Get account ID from URL parameters
 	accountID := chi.URLParam(r, "id")
 	if accountID == "" {
-		return sql.UpdateAccountAttributesParams{}, errors.NewBadRequestError("Missing account ID")
+		return nil, errors.NewBadRequestError("Missing account ID")
 	}
 
 	// Decode request body
 	var requestAttrs domain.AccountUpdateRequest
 	if err := json.NewDecoder(r.Body).Decode(&requestAttrs); err != nil {
-		return sql.UpdateAccountAttributesParams{}, errors.NewBadRequestError("Invalid JSON format in request body")
+		return nil, errors.NewBadRequestError("Invalid JSON format in request body")
 	}
 	defer r.Body.Close()
 
 	// Validate input fields
 	if err := validateAccountAttributes(requestAttrs); err != nil {
-		return sql.UpdateAccountAttributesParams{}, errors.NewBadRequestError(err.Error())
+		return nil, errors.NewBadRequestError(err.Error())
 	}
 
-	return sql.UpdateAccountAttributesParams{
+	return &domain.AccountUpdateParams{
 		ID: accountID,
 	}, nil
 }
 
-func prepareUpdateAccount(existingAccountAttributes sql.AccountAttribute, requestBody sql.UpdateAccountAttributesParams) (*sql.UpdateAccountAttributesParams, bool) {
+func prepareUpdateAccount(existingAccountAttributes *domain.AccountAttributes, requestBody domain.AccountUpdateRequest) (*domain.AccountUpdateParams, bool) {
 	needsUpdate := false
 
 	// Get existing account attributes
-	updateParams := sql.UpdateAccountAttributesParams{
-		ID:           existingAccountAttributes.ID,
-		Bio:          existingAccountAttributes.Bio.String,
-		ContactEmail: existingAccountAttributes.ContactEmail.String,
-		Location:     existingAccountAttributes.Location.String,
-		RealName:     existingAccountAttributes.RealName.String,
-		GithubUrl:    existingAccountAttributes.GithubUrl.String,
-		LinkedinUrl:  existingAccountAttributes.LinkedinUrl.String,
-		FacebookUrl:  existingAccountAttributes.FacebookUrl.String,
-		InstagramUrl: existingAccountAttributes.InstagramUrl.String,
-		TwitterUrl:   existingAccountAttributes.TwitterUrl.String,
-		School:       existingAccountAttributes.School.String,
-		WebsiteUrl:   existingAccountAttributes.WebsiteUrl.String,
+	updateParams := domain.AccountUpdateParams{
+		ID: existingAccountAttributes.ID,
+		AccountUpdateRequest: domain.AccountUpdateRequest{
+			Bio:          &existingAccountAttributes.Bio,
+			ContactEmail: &existingAccountAttributes.ContactEmail,
+			Location:     &existingAccountAttributes.Location,
+			RealName:     &existingAccountAttributes.RealName,
+			GithubUrl:    &existingAccountAttributes.GithubUrl,
+			LinkedinUrl:  &existingAccountAttributes.LinkedinUrl,
+			FacebookUrl:  &existingAccountAttributes.FacebookUrl,
+			InstagramUrl: &existingAccountAttributes.InstagramUrl,
+			TwitterUrl:   &existingAccountAttributes.TwitterUrl,
+			School:       &existingAccountAttributes.School,
+			WebsiteUrl:   &existingAccountAttributes.WebsiteUrl,
+		},
 	}
 
-	if requestBody.Bio != existingAccountAttributes.Bio.String {
+	if requestBody.Bio != nil && *requestBody.Bio != existingAccountAttributes.Bio {
 		updateParams.Bio = requestBody.Bio
 		needsUpdate = true
 	}
 
-	if requestBody.ContactEmail != existingAccountAttributes.ContactEmail.String {
+	if requestBody.ContactEmail != nil && *requestBody.ContactEmail != existingAccountAttributes.ContactEmail {
 		updateParams.ContactEmail = requestBody.ContactEmail
 		needsUpdate = true
 	}
 
-	if requestBody.Location != existingAccountAttributes.Location.String {
+	if requestBody.Location != nil && *requestBody.Location != existingAccountAttributes.Location {
 		updateParams.Location = requestBody.Location
 		needsUpdate = true
 	}
 
-	if requestBody.RealName != existingAccountAttributes.RealName.String {
+	if requestBody.RealName != nil && *requestBody.RealName != existingAccountAttributes.RealName {
 		updateParams.RealName = requestBody.RealName
 		needsUpdate = true
 	}
 
-	if requestBody.GithubUrl != existingAccountAttributes.GithubUrl.String {
+	if requestBody.GithubUrl != nil && *requestBody.GithubUrl != existingAccountAttributes.GithubUrl {
 		updateParams.GithubUrl = requestBody.GithubUrl
 		needsUpdate = true
 	}
 
-	if requestBody.LinkedinUrl != existingAccountAttributes.LinkedinUrl.String {
+	if requestBody.LinkedinUrl != nil && *requestBody.LinkedinUrl != existingAccountAttributes.LinkedinUrl {
 		updateParams.LinkedinUrl = requestBody.LinkedinUrl
 		needsUpdate = true
 	}
 
-	if requestBody.FacebookUrl != existingAccountAttributes.FacebookUrl.String {
+	if requestBody.FacebookUrl != nil && *requestBody.FacebookUrl != existingAccountAttributes.FacebookUrl {
 		updateParams.FacebookUrl = requestBody.FacebookUrl
 		needsUpdate = true
 	}
 
-	if requestBody.InstagramUrl != existingAccountAttributes.InstagramUrl.String {
+	if requestBody.InstagramUrl != nil && *requestBody.InstagramUrl != existingAccountAttributes.InstagramUrl {
 		updateParams.InstagramUrl = requestBody.InstagramUrl
 		needsUpdate = true
 	}
 
-	if requestBody.TwitterUrl != existingAccountAttributes.TwitterUrl.String {
+	if requestBody.TwitterUrl != nil && *requestBody.TwitterUrl != existingAccountAttributes.TwitterUrl {
 		updateParams.TwitterUrl = requestBody.TwitterUrl
 		needsUpdate = true
 	}
 
-	if requestBody.School != existingAccountAttributes.School.String {
+	if requestBody.School != nil && *requestBody.School != existingAccountAttributes.School {
 		updateParams.School = requestBody.School
 		needsUpdate = true
 	}
 
-	if requestBody.WebsiteUrl != existingAccountAttributes.WebsiteUrl.String {
+	if requestBody.WebsiteUrl != nil && *requestBody.WebsiteUrl != existingAccountAttributes.WebsiteUrl {
 		updateParams.WebsiteUrl = requestBody.WebsiteUrl
 		needsUpdate = true
 	}
@@ -423,7 +402,7 @@ func (h *AccountHandler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	updateAttributes, needsUpdate := prepareUpdateAccount(existingAttribute, params)
 	if needsUpdate {
 		// Update account in database
-		account, err := h.repo.UpdateAccountAttributes(r.Context(), *updateAttributes)
+		account, err := h.repo.UpdateAccountAttributes(r.Context(), updateAttributes)
 		if err != nil {
 			errors.SendError(w, http.StatusInternalServerError, "Failed to update account")
 			return

@@ -33,3 +33,19 @@ CREATE TABLE account_game_stat (
     losses INTEGER DEFAULT 0,
     elo INTEGER 
 );
+
+
+CREATE OR REPLACE FUNCTION create_account_attribute()
+RETURNS trigger AS $$
+BEGIN
+    INSERT INTO account_attribute (id)  -- Assume `target_table` has a `source_id` column
+    VALUES (NEW.id);
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER after_account_insert
+AFTER INSERT ON account
+FOR EACH ROW
+EXECUTE FUNCTION create_account_attributes();
