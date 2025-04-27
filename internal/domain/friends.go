@@ -3,7 +3,7 @@ package domain
 import (
 	"time"
 
-	"kadane.xyz/go-backend/v2/database/sql"
+	"kadane.xyz/go-backend/v2/internal/database/sql"
 )
 
 type Friend struct {
@@ -36,17 +36,32 @@ type FriendRequest struct {
 	Location   string    `json:"location"`
 }
 
-func FromSQLFriendsByUsernameRows(rows []sql.GetFriendsByUsernameRow) []Friend {
-	var friends []Friend
-	for _, row := range rows {
-		friends = append(friends, Friend{
+func FromSQLFriendsByUsernameRows(rows []sql.GetFriendsByUsernameRow) []*Friend {
+	friends := []*Friend{}
+	for i, row := range rows {
+		friends[i] = &Friend{
 			Id:         row.FriendID,
 			Username:   row.FriendUsername,
 			AvatarUrl:  row.AvatarUrl,
 			Level:      row.Level,
 			Location:   row.Location,
 			AcceptedAt: row.AcceptedAt.Time,
-		})
+		}
+	}
+	return friends
+}
+
+func FromSQLGetFriendRequestsReceivedRows(rows []sql.GetFriendRequestsReceivedRow) []*FriendRequest {
+	friends := []*FriendRequest{}
+	for i, row := range rows {
+		friends[i] = &FriendRequest{
+			FriendId:   row.FriendID,
+			FriendName: row.FriendUsername,
+			AvatarUrl:  row.AvatarUrl,
+			Level:      row.Level,
+			CreatedAt:  row.CreatedAt.Time,
+			Location:   row.Location,
+		}
 	}
 	return friends
 }

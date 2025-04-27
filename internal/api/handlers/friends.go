@@ -37,12 +37,12 @@ func (h *FriendHandler) GetFriends(w http.ResponseWriter, r *http.Request) {
 	friendsResponseData := []domain.Friend{}
 	for _, friend := range friends {
 		friendsResponseData = append(friendsResponseData, domain.Friend{
-			Id:         friend.FriendID,
-			Username:   friend.FriendUsername,
+			Id:         friend.Id,
+			Username:   friend.Username,
 			AvatarUrl:  friend.AvatarUrl,
 			Level:      friend.Level,
 			Location:   friend.Location,
-			AcceptedAt: friend.AcceptedAt.Time,
+			AcceptedAt: friend.AcceptedAt,
 		})
 	}
 
@@ -97,7 +97,7 @@ func (h *FriendHandler) CreateFriendRequest(w http.ResponseWriter, r *http.Reque
 		UserID:     userId,
 		FriendName: friendRequest.FriendName,
 	})
-	if friendRequestStatus != "" {
+	if friendRequestStatus != nil {
 		errors.SendError(w, http.StatusBadRequest, "Friend relationship already exists")
 		return
 	}
@@ -131,11 +131,11 @@ func (h *FriendHandler) GetFriendRequestsSent(w http.ResponseWriter, r *http.Req
 	friendRequestsResponseData := []domain.FriendRequest{}
 	for _, friendRequest := range friendRequests {
 		friendRequestsResponseData = append(friendRequestsResponseData, domain.FriendRequest{
-			FriendId:   friendRequest.FriendID,
-			FriendName: friendRequest.FriendUsername,
+			FriendId:   friendRequest.FriendId,
+			FriendName: friendRequest.FriendName,
 			AvatarUrl:  friendRequest.AvatarUrl,
 			Level:      friendRequest.Level,
-			CreatedAt:  friendRequest.CreatedAt.Time,
+			CreatedAt:  friendRequest.CreatedAt,
 			Location:   friendRequest.Location,
 		})
 	}
@@ -155,29 +155,13 @@ func (h *FriendHandler) GetFriendRequestsReceived(w http.ResponseWriter, r *http
 		return
 	}
 
-	friendRequests, err := h.repo.GetFriendRequestsReceived(r.Context(), userId)
+	friendRequests, err := h.repo.GetFriendRequestReceived(r.Context(), userId)
 	if err != nil {
 		httputils.EmptyDataArrayResponse(w)
 		return
 	}
 
-	friendRequestsResponseData := []domain.FriendRequest{}
-	for _, friendRequest := range friendRequests {
-		friendRequestsResponseData = append(friendRequestsResponseData, domain.FriendRequest{
-			FriendId:   friendRequest.FriendID,
-			FriendName: friendRequest.FriendUsername,
-			AvatarUrl:  friendRequest.AvatarUrl,
-			Level:      friendRequest.Level,
-			CreatedAt:  friendRequest.CreatedAt.Time,
-			Location:   friendRequest.Location,
-		})
-	}
-
-	friendRequestsResponse := domain.FriendRequestsResponse{
-		Data: friendRequestsResponseData,
-	}
-
-	httputils.SendJSONResponse(w, http.StatusOK, friendRequestsResponse)
+	httputils.SendJSONResponse(w, http.StatusOK, friendRequests)
 }
 
 // POST: /friends/requests/accept
@@ -302,29 +286,13 @@ func (h *FriendHandler) GetFriendsUsername(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	friend, err := h.repo.GetFriendsByUsername(r.Context(), username)
+	friend, err := h.repo.GetFriendByUsername(r.Context(), username)
 	if err != nil {
 		httputils.EmptyDataArrayResponse(w)
 		return
 	}
 
-	responseData := make([]domain.Friend, len(friends))
-	for i := range friends {
-		responseData[i] = domain.Friend{
-			Id:         friends[i].FriendID,
-			Username:   friends[i].FriendUsername,
-			AvatarUrl:  friends[i].AvatarUrl,
-			Level:      friends[i].Level,
-			Location:   friends[i].Location,
-			AcceptedAt: friends[i].AcceptedAt.Time,
-		}
-	}
-
-	response := domain.FriendsResponse{
-		Data: responseData,
-	}
-
-	httputils.SendJSONResponse(w, http.StatusOK, response)
+	httputils.SendJSONResponse(w, http.StatusOK, friend)
 }
 
 // DELETE: /friends/requests

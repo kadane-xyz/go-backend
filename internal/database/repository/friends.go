@@ -9,14 +9,15 @@ import (
 
 type FriendRepository interface {
 	GetFriends(ctx context.Context, userId string) ([]domain.Friend, error)
-	GetFriendRequestStatus(ctx context.Context, params sql.GetFriendRequestStatusParams) (domain.FriendRequestStatus, error)
+	GetFriendRequestStatus(ctx context.Context, params sql.GetFriendRequestStatusParams) (*sql.FriendshipStatus, error)
 	CreateFriendRequest(ctx context.Context, params sql.CreateFriendRequestParams) error
 	AcceptFriendRequest(ctx context.Context, params sql.AcceptFriendRequestParams) error
 	BlockFriend(ctx context.Context, params sql.BlockFriendParams) error
 	UnblockFriend(ctx context.Context, params sql.UnblockFriendParams) error
 	DeleteFriendship(ctx context.Context, params sql.DeleteFriendshipParams) error
 	GetFriendRequestsSent(ctx context.Context, userId string) ([]domain.FriendRequest, error)
-	GetFriendByUsername(ctx context.Context, username string) ([]domain.Friend, error)
+	GetFriendRequestReceived(ctx context.Context, userId string) ([]*domain.Friend, error)
+	GetFriendByUsername(ctx context.Context, username string) ([]*domain.Friend, error)
 }
 
 type SQLFriendRepository struct {
@@ -35,12 +36,12 @@ func (r *SQLFriendRepository) GetFriends(ctx context.Context, userId string) ([]
 	return q, nil
 }
 
-func (r *SQLFriendRepository) GetFriendRequestStatus(ctx context.Context, params sql.GetFriendRequestStatusParams) (domain.FriendRequestStatus, error) {
+func (r *SQLFriendRepository) GetFriendRequestStatus(ctx context.Context, params sql.GetFriendRequestStatusParams) (*sql.FriendshipStatus, error) {
 	q, err := r.queries.GetFriendRequestStatus(ctx, params)
 	if err != nil {
 		return nil, err
 	}
-	return q, nil
+	return &q, nil
 }
 
 func (r *SQLFriendRepository) CreateFriendRequest(ctx context.Context, params sql.CreateFriendRequestParams) error {
@@ -91,7 +92,15 @@ func (r *SQLFriendRepository) GetFriendRequestsSent(ctx context.Context, userId 
 	return q, nil
 }
 
-func (r *SQLFriendRepository) GetFriendsByUsername(ctx context.Context, username string) ([]domain.Friend, error) {
+func (r *SQLFriendRepository) GetFriendRequestReceived(ctx context.Context, userId string) ([]*domain.FriendRequest, error) {
+	q, err := r.queries.GetFriendRequestsReceived(ctx, userId)
+	if err != nil {
+		return nil, err
+	}
+	return domain.FromSQLGetFriendRequestsReceivedRows(q), nil
+}
+
+func (r *SQLFriendRepository) GetFriendsByUsername(ctx context.Context, username string) ([]*domain.Friend, error) {
 	q, err := r.queries.GetFriendsByUsername(ctx, username)
 	if err != nil {
 		return nil, err
