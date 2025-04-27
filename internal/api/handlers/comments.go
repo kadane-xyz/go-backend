@@ -5,7 +5,6 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"kadane.xyz/go-backend/v2/internal/api/httputils"
 	"kadane.xyz/go-backend/v2/internal/database/repository"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
@@ -14,11 +13,12 @@ import (
 )
 
 type CommentHandler struct {
-	repo *repository.SQLCommentsRepository
+	repo          *repository.SQLCommentsRepository
+	solutionsRepo *repository.SQLSolutionsRepository
 }
 
-func NewCommentHandler(repo *repository.SQLCommentsRepository) *CommentHandler {
-	return &CommentHandler{repo: repo}
+func NewCommentHandler(repo *repository.SQLCommentsRepository, solutionsRepo *repository.SQLSolutionsRepository) *CommentHandler {
+	return &CommentHandler{repo: repo, solutionsRepo: solutionsRepo}
 }
 
 // GET: /comments
@@ -138,32 +138,16 @@ func (h *CommentHandler) CreateComment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if solution exists
-	_, err = h.repo.GetSolutionById(r.Context(), comment.SolutionId)
+	_, err = h.solutionsRepo.GetSolutionById(r.Context(), comment.SolutionId)
 	if err != nil {
 		errors.SendError(w, http.StatusNotFound, "Solution not found")
 		return
 	}
 
-	// Check if parent comment exists if ParentId is provided
-	if comment.ParentId != nil {
-		_, err := h.repo.GetCommentById(r.Context(), *comment.ParentId)
-		if err != nil {
-			errors.SendError(w, http.StatusNotFound, "Parent comment not found")
-			return
-		}
-	}
-
-	var parentId pgtype.Int8
-	if comment.ParentId != nil {
-		parentId = pgtype.Int8{Int64: *comment.ParentId, Valid: true}
-	} else {
-		parentId = pgtype.Int8{Valid: false}
-	}
-
 	// create comment
-	_, err = h.repo.CreateComment(r.Context(), sql.CreateCommentParams{
+	_, err = h.repo.CreateComment(r.Context(), domain.CommentCreateParams{
 		SolutionID: comment.SolutionId,
-		ParentID:   parentId,
+		ParentID:   comment.ParentId,
 		UserID:     userId,
 		Body:       comment.Body,
 	})
@@ -204,21 +188,7 @@ func (h *CommentHandler) GetComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	commentData := domain.Comment{
-		ID:              comment.ID,
-		SolutionId:      comment.SolutionID,
-		Username:        comment.UserUsername,
-		AvatarUrl:       comment.UserAvatarUrl.String,
-		Level:           comment.UserLevel,
-		Body:            comment.Body,
-		CreatedAt:       comment.CreatedAt.Time,
-		Votes:           comment.Votes.Int32,
-		ParentId:        &comment.ParentID.Int64,
-		Children:        []*domain.Comment{},
-		CurrentUserVote: comment.UserVote,
-	}
-
-	httputils.SendJSONResponse(w, http.StatusOK, commentData)
+	httputils.SendJSONResponse(w, http.StatusOK, comment)
 }
 
 // PUT: /comments/{commentId}

@@ -31,6 +31,13 @@ type CommentCreateRequest struct {
 	ParentId   *int64 `json:"parentId,omitempty"`
 }
 
+type CommentCreateParams struct {
+	UserID     string `json:"userId"`
+	Body       string `json:"body"`
+	SolutionID int64  `json:"solutionId"`
+	ParentID   *int64 `json:"parentId"`
+}
+
 type CommentUpdateRequest struct {
 	Body string `json:"body"`
 }

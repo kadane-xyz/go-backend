@@ -90,7 +90,7 @@ func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
 	apiHandlers := handlers.NewAccountHandler(accountsRepo, awsClient, cfg)
 	problemHandler := handlers.NewProblemHandler(problemsRepo)
 	adminHandler := handlers.NewAdminHandler(adminRepo, judge0Client, problemHandler)
-	commentHandler := handlers.NewCommentHandler(commentsRepo)
+	commentHandler := handlers.NewCommentHandler(commentsRepo, solutionsRepo)
 	friendHandler := handlers.NewFriendHandler(friendsRepo, accountsRepo)
 	runHandler := handlers.NewRunHandler(problemsRepo, judge0Client)
 	submissionHandler := handlers.NewSubmissionHandler(submissionsRepo)

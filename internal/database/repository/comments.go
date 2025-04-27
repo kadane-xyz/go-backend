@@ -58,8 +58,13 @@ func (r *SQLCommentsRepository) GetCommentsSorted(ctx context.Context, params sq
 	return domain.FromSQLGetCommentsSorted(q), nil
 }
 
-func (r *SQLCommentsRepository) CreateComment(ctx context.Context, params sql.CreateCommentParams) (*domain.Comment, error) {
-	q, err := r.queries.CreateComment(ctx, params)
+func (r *SQLCommentsRepository) CreateComment(ctx context.Context, params domain.CommentCreateParams) (*domain.Comment, error) {
+	q, err := r.queries.CreateComment(ctx, sql.CreateCommentParams{
+		UserID:     params.UserID,
+		SolutionID: params.SolutionID,
+		ParentID:   params.ParentID,
+		Body:       params.Body,
+	})
 	if err != nil {
 		return nil, err
 	}

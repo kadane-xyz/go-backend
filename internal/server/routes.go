@@ -12,7 +12,7 @@ func (s *Server) RegisterApiRoutes() {
 	s.mux.Route("/v1", func(r chi.Router) {
 		accountsHandler := handlers.NewAccountHandler(s.container.Repositories.AccountRepo, s.container.AWSClient, s.container.Config)
 		adminHandler := handlers.NewAdminHandler(s.container.Repositories.AdminRepo, s.container.Judge0, s.container.APIHandlers.ProblemHandler)
-		commentHandler := handlers.NewCommentHandler(s.container.Repositories.CommentRepo)
+		commentHandler := handlers.NewCommentHandler(s.container.Repositories.CommentRepo, s.container.Repositories.SolutionRepo)
 		problemHandler := handlers.NewProblemHandler(s.container.Repositories.ProblemRepo)
 		submissionHandler := handlers.NewSubmissionHandler(s.container.Repositories.SubmissionRepo)
 		solutionsHandler := handlers.NewSolutionsHandler(s.container.Repositories.SolutionRepo)
