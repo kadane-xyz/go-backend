@@ -16,7 +16,7 @@ type AccountRepository interface {
 	GetAccountAttributes(ctx context.Context, id string) (*domain.AccountAttributes, error)
 	DeleteAccount(ctx context.Context, id string) error
 	GetAccountByUsername(ctx context.Context, params sql.GetAccountByUsernameParams) (domain.Account, error)
-	UpdateAccountAttributes(ctx context.Context, params *domain.AccountAttributesUpdateParams) (*domain.AccountAttributes, error)
+	UpdateAccountAttributes(ctx context.Context, params *domain.AccountUpdateParams) (*domain.AccountAttributes, error)
 }
 
 type SQLAccountsRepository struct {

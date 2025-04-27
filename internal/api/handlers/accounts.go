@@ -304,7 +304,7 @@ func ValidateUpdateAccount(r *http.Request) (*domain.AccountUpdateParams, *error
 	}, nil
 }
 
-func prepareUpdateAccount(existingAccountAttributes *domain.AccountAttributes, requestBody domain.AccountUpdateRequest) (*domain.AccountUpdateParams, bool) {
+func prepareUpdateAccount(existingAccountAttributes *domain.AccountAttributes, requestBody *domain.AccountUpdateParams) (*domain.AccountUpdateParams, bool) {
 	needsUpdate := false
 
 	// Get existing account attributes
