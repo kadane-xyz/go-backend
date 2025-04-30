@@ -75,20 +75,20 @@ func ValidateGetAccountsFiltered(r *http.Request) (sql.ListAccountsParams, error
 
 // GET: /accounts
 // Get all accounts with filtering
-func (h *AccountHandler) GetAccounts(w http.ResponseWriter, r *http.Request) {
+func (h *AccountHandler) GetAccounts(w http.ResponseWriter, r *http.Request) error {
 	params, err := ValidateGetAccountsFiltered(r)
 	if err != nil {
-		errors.SendError(w, http.StatusBadRequest, "Failed to validate get accounts filtered")
-		return
+		return err
 	}
 
 	accounts, err := h.repo.ListAccounts(r.Context(), params)
 	if err != nil {
-		errors.SendError(w, http.StatusInternalServerError, "Failed to get accounts filtered")
-		return
+		return errors.HandleDatabaseError(err, "accounts")
 	}
 
 	httputils.SendJSONDataResponse(w, http.StatusOK, accounts)
+
+	return nil
 }
 
 func ValidateCreateAccount(r *http.Request) (*domain.AccountCreateRequest, *errors.ApiError) {
@@ -117,25 +117,22 @@ func ValidateCreateAccount(r *http.Request) (*domain.AccountCreateRequest, *erro
 }
 
 // POST: /accounts
-func (h *AccountHandler) CreateAccount(w http.ResponseWriter, r *http.Request) {
-	admin := httputils.GetClientAdmin(w, r)
+func (h *AccountHandler) CreateAccount(w http.ResponseWriter, r *http.Request) error {
+	admin, err := httputils.GetClientAdmin(w, r)
 	if !admin {
-		errors.SendError(w, http.StatusForbidden, "You are not authorized to create accounts")
-		return
+		return err
 	}
 
 	// Validate request body
-	createAccountRequest, apiErr := ValidateCreateAccount(r)
-	if apiErr != nil {
-		apiErr.Send(w)
-		return
+	createAccountRequest, err := ValidateCreateAccount(r)
+	if err != nil {
+		return err
 	}
 
 	// Create account in the database
 	err := h.repo.CreateAccount(r.Context(), createAccountRequest)
 	if err != nil {
-		apiErr.Send(w)
-		return
+		return errors.HandleDatabaseError(err, "account")
 	}
 
 	account, err := h.repo.GetAccount(r.Context(), sql.GetAccountParams{
@@ -143,12 +140,13 @@ func (h *AccountHandler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 		IncludeAttributes: true,
 	})
 	if err != nil {
-		apiErr.Send(w)
-		return
+		return errors.HandleDatabaseError(err, "account")
 	}
 
 	// Send response
 	httputils.SendJSONDataResponse(w, http.StatusCreated, account)
+
+	return nil
 }
 
 // validateImage checks image type and dimensions
@@ -268,6 +266,7 @@ func (h *AccountHandler) GetAccount(w http.ResponseWriter, r *http.Request) {
 	params, err := ValidateGetAccount(r)
 	if err != nil {
 		errors.SendError(w, http.StatusBadRequest, "Failed to validate get account")
+		errors.New(err, "Failed to validated get account")
 		return
 	}
 

@@ -99,3 +99,17 @@ func CustomLogger(next http.Handler) http.Handler {
 		middleware.Logger(next).ServeHTTP(w, r)
 	})
 }
+
+func GetContextUserId(ctx context.Context) (*string, error) {
+	value := ctx.Value(ClientTokenKey)
+	if value == nil {
+		return nil, errors.NewAppError(nil, "user id not found in context", http.StatusUnauthorized)
+	}
+
+	userId, ok := value.(*string)
+	if !ok {
+		return nil, errors.NewAppError(nil, "user id in context is of incorrect type", http.StatusUnauthorized)
+	}
+
+	return userId, nil
+}

@@ -33,6 +33,32 @@ type ProblemRequest struct {
 	TestCases    []TestCase           `json:"testCases"`
 }
 
+type ProblemCreateRequest struct {
+	Title        string               `json:"title"`
+	Description  string               `json:"description"`
+	FunctionName string               `json:"functionName"`
+	Tags         []string             `json:"tags"`
+	Difficulty   string               `json:"difficulty"`
+	Code         ProblemRequestCode   `json:"code"`
+	Hints        []ProblemRequestHint `json:"hints"`
+	Points       int32                `json:"points"`
+	Solutions    map[string]string    `json:"solutions"` // ["language": "sourceCode"]
+	TestCases    []TestCase           `json:"testCases"`
+}
+
+type ProblemCreateParams struct {
+	Title        string               `json:"title"`
+	Description  string               `json:"description"`
+	FunctionName string               `json:"functionName"`
+	Tags         []string             `json:"tags"`
+	Difficulty   string               `json:"difficulty"`
+	Code         ProblemRequestCode   `json:"code"`
+	Hints        []ProblemRequestHint `json:"hints"`
+	Points       int32                `json:"points"`
+	Solutions    map[string]string    `json:"solutions"` // ["language": "sourceCode"]
+	TestCases    []TestCase           `json:"testCases"`
+}
+
 type ProblemHint struct {
 	Description string `json:"description"`
 	Answer      string `json:"answer"`
@@ -50,19 +76,17 @@ type ProblemRequestHint struct {
 
 type ProblemRequestCode map[string]string
 
-type ProblemResponse struct {
-	Data Problem `json:"data"`
-}
-
-type ProblemsResponse struct {
-	Data []Problem `json:"data"`
-}
-
-type ProblemPaginationResponse struct {
-	Data       []Problem  `json:"data"`
-	Pagination Pagination `json:"pagination"`
-}
-
 type CreateProblemData struct {
 	ProblemID string `json:"problemId"`
+}
+
+func FromSQLGetStarredProblemsRow(rows []sql.GetStarredProblemsRow) []*Problem {
+	problems := []*Problem{}
+
+	for i, row := range problems {
+		problem := Problem(*row)
+		problems[i] = &problem
+	}
+
+	return problems
 }

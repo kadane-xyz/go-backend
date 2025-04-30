@@ -57,3 +57,8 @@ type StarredSubmission struct {
 type StarredRequest struct {
 	ID any `json:"id"` // can be int32 or string
 }
+
+type StarProblemParams struct {
+	UserId    string
+	ProblemId string
+}

@@ -31,12 +31,34 @@ type AdminProblem struct {
 	Solution map[string]string `json:"solution,omitempty"` // ["language": "sourceCode"]
 }
 
-type AdminProblemsResponse struct {
-	Data []AdminProblem `json:"data"`
-}
-
 type AdminProblemRunRequest struct {
 	FunctionName string            `json:"functionName"`
 	Solutions    map[string]string `json:"solutions"`
 	TestCase     TestCase          `json:"testCase"`
+}
+
+type AdminProblemCreateRequest struct {
+	Title        string               `json:"title"`
+	Description  string               `json:"description"`
+	FunctionName string               `json:"functionName"`
+	Tags         []string             `json:"tags"`
+	Difficulty   string               `json:"difficulty"`
+	Code         ProblemRequestCode   `json:"code"`
+	Hints        []ProblemRequestHint `json:"hints"`
+	Points       int32                `json:"points"`
+	Solutions    map[string]string    `json:"solutions"` // ["language": "sourceCode"]
+	TestCases    []TestCase           `json:"testCases"`
+}
+
+type AdminProblemCreateParams struct {
+	Title        string               `json:"title"`
+	Description  string               `json:"description"`
+	FunctionName string               `json:"functionName"`
+	Tags         []string             `json:"tags"`
+	Difficulty   string               `json:"difficulty"`
+	Code         ProblemRequestCode   `json:"code"`
+	Hints        []ProblemRequestHint `json:"hints"`
+	Points       int32                `json:"points"`
+	Solutions    map[string]string    `json:"solutions"` // ["language": "sourceCode"]
+	TestCases    []TestCase           `json:"testCases"`
 }

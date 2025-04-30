@@ -1,17 +1,17 @@
 -- name: CreateSubmission :one
 INSERT INTO submission (id, stdout, time, memory, stderr, compile_output, message, status, language_id, language_name, account_id, problem_id, submitted_code, submitted_stdin, failed_test_case, passed_test_cases, total_test_cases) VALUES (@id::uuid, @stdout::text, @time::text, @memory::int, @stderr::text, @compile_output::text, @message::text, @status, @language_id, @language_name, @account_id, @problem_id, @submitted_code, @submitted_stdin, @failed_test_case, @passed_test_cases::int, @total_test_cases::int) RETURNING *;
 
--- name: GetSubmissionByID :one
+-- name: GetSubmission :one
 SELECT 
     *,
     CASE WHEN EXISTS (SELECT 1 FROM starred_submission WHERE submission_id = s.id AND starred_submission.user_id = @user_id) THEN true ELSE false END AS starred
 FROM submission s
-WHERE s.id = $1;
+WHERE s.id = @user_id;
 
--- name: GetSubmissionsByID :many
+-- name: GetSubmissionsById :many
 SELECT * FROM submission WHERE id = ANY(@ids::uuid[]);
 
--- name: GetSubmissionsByProblemID :many
+-- name: GetSubmissionsByProblemId :many
 SELECT * FROM submission WHERE problem_id = $1;
 
 -- name: GetSubmissionsByUsername :many

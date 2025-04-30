@@ -129,6 +129,10 @@ func (h *RunHandler) PrepareJudge0Submissions(runRequest domain.RunRequest, test
 	var judge0Submissions []judge0.Submission // submissions for judge0 to run
 
 	for _, testCase := range testCases {
+		description := ""
+		if problem.Description != nil {
+			description = *problem.Description
+		}
 		solutionRun := judge0tmpl.TemplateCreate(judge0tmpl.TemplateInput{
 			Language:     runRequest.Language,
 			SourceCode:   runRequest.SourceCode,
@@ -136,7 +140,7 @@ func (h *RunHandler) PrepareJudge0Submissions(runRequest domain.RunRequest, test
 			TestCase:     testCase,
 			Problem: domain.Problem{
 				Title:       problem.Title,
-				Description: problem.Description.String,
+				Description: description,
 				Tags:        problem.Tags,
 				Difficulty:  problem.Difficulty,
 				Hints:       problem.Hints,

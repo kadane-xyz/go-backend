@@ -5,7 +5,7 @@ import (
 	"kadane.xyz/go-backend/v2/internal/database/sql"
 )
 
-type Solutions struct {
+type Solution struct {
 	Id        int64    `json:"id"`
 	Username  string   `json:"username"`
 	Title     string   `json:"title"`

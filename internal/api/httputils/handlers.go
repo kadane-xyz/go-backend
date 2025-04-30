@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"kadane.xyz/go-backend/v2/internal/domain"
 	"kadane.xyz/go-backend/v2/internal/errors"
 )
 
@@ -11,12 +12,17 @@ type ApiResponse struct {
 	Data any `json:"data"`
 }
 
-func DecodeJSONRequest[T any](r *http.Request) (T, *errors.ApiError) {
+type ApiPaginatedResponse struct {
+	Data       any               `json:"data"`
+	Pagination domain.Pagination `json:"pagination"`
+}
+
+func DecodeJSONRequest[T any](r *http.Request) (T, error) {
 	var request T
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
 		var empty T
-		return empty, errors.NewApiError(err, http.StatusBadRequest, "Invalid request body")
+		return empty, err
 	}
 	return request, nil
 }
@@ -50,4 +56,24 @@ func SendJSONDataResponse(w http.ResponseWriter, statusCode int, data any) {
 	SendJSONResponse(w, statusCode, ApiResponse{
 		Data: data,
 	})
+}
+
+func SendJSONPaginatedResponse(w http.ResponseWriter, statusCode int, data any, pagination domain.Pagination) {
+	SendJSONDataResponse(w, statusCode, ApiPaginatedResponse{
+		Data:       data,
+		Pagination: pagination,
+	})
+}
+
+func GetQueryParam(r *http.Request, param string) (*string, error) {
+	if param == "" {
+		return nil, errors.ErrInternalServer
+	}
+
+	params := r.URL.Query().Get(param)
+	if params == "" {
+		return nil, errors.ErrUnprocessableEntity
+	}
+
+	return &params, nil
 }

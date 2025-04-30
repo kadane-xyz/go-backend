@@ -17,13 +17,14 @@ import (
 )
 
 type AdminHandler struct {
-	repo           repository.AdminRepository
+	repo           *repository.SQLAdminRepository
+	problemRepo    *repository.SQLProblemsRepository
 	judge0         *judge0.Judge0Client
 	problemHandler *ProblemHandler
 }
 
-func NewAdminHandler(repo repository.AdminRepository, judge0 *judge0.Judge0Client, problemHandler *ProblemHandler) *AdminHandler {
-	return &AdminHandler{repo: repo, judge0: judge0, problemHandler: problemHandler}
+func NewAdminHandler(repo *repository.SQLAdminRepository, problemRepo *repository.SQLProblemsRepository, judge0 *judge0.Judge0Client, problemHandler *ProblemHandler) *AdminHandler {
+	return &AdminHandler{repo: repo, problemRepo: problemRepo, judge0: judge0, problemHandler: problemHandler}
 }
 
 func (h *AdminHandler) ProblemRun(runRequest domain.AdminProblemRunRequest) (domain.AdminProblemData, *errors.ApiError) {
@@ -228,15 +229,36 @@ func (h *AdminHandler) GetAdminProblems(w http.ResponseWriter, r *http.Request) 
 	httputils.SendJSONResponse(w, http.StatusOK, adminProblems)
 }
 
+func validateAdminProblemCreateRequest(request *domain.ProblemCreateParams) *errors.ApiError {
+	// Check problem fields
+	if request.Title == "" || request.Description == "" || request.FunctionName == "" || len(request.Solutions) == 0 {
+		return errors.NewApiError(http.StatusBadRequest, "Title, description, function name, and solution are required")
+	}
+
+	if len(request.Code) == 0 {
+		return errors.NewApiError(nil, http.StatusBadRequest, "At least one code is required")
+	}
+
+	if request.Points < 0 {
+		return errors.NewApiError(nil, http.StatusBadRequest, "Points must be greater than 0")
+	}
+
+	if len(request.Solutions) == 0 {
+		return errors.NewApiError(nil, http.StatusBadRequest, "Solution is required")
+	}
+
+	return nil
+}
+
 // POST: /admin/problems
 func (h *AdminHandler) CreateAdminProblem(w http.ResponseWriter, r *http.Request) {
-	request, apiErr := httputils.DecodeJSONRequest[domain.ProblemRequest](r)
+	request, apiErr := httputils.DecodeJSONRequest[*domain.ProblemCreateParams](r)
 	if apiErr != nil {
 		errors.SendError(w, apiErr.Error.StatusCode, apiErr.Error.Message)
 		return
 	}
 
-	apiErr = CreateProblemRequestValidate(request)
+	apiErr = validateAdminProblemCreateRequest(request)
 	if apiErr != nil {
 		errors.SendError(w, apiErr.Error.StatusCode, apiErr.Error.Message)
 		return
@@ -262,7 +284,7 @@ func (h *AdminHandler) CreateAdminProblem(w http.ResponseWriter, r *http.Request
 	}
 
 	// Create problem in database if all test cases pass
-	problemID, dbErr := h.problemHandler.CreateProblem(request)
+	problemID, dbErr := h.problemRepo.CreateProblem(ctx, request)
 	if dbErr != nil {
 		errors.SendError(w, http.StatusInternalServerError, "Failed to create problem")
 		return

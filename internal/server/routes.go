@@ -6,9 +6,15 @@ import (
 	"github.com/go-chi/chi/v5"
 	"kadane.xyz/go-backend/v2/internal/api/handlers"
 	"kadane.xyz/go-backend/v2/internal/errors"
+	"kadane.xyz/go-backend/v2/internal/middleware"
 )
 
 func (s *Server) RegisterApiRoutes() {
+
+	wrap := func(h middleware.HandlerFunc) http.HandlerFunc {
+		return middleware.ErrorMiddleware(h).ServeHTTP
+	}
+
 	s.mux.Route("/v1", func(r chi.Router) {
 		accountsHandler := handlers.NewAccountHandler(s.container.Repositories.AccountRepo, s.container.AWSClient, s.container.Config)
 		adminHandler := handlers.NewAdminHandler(s.container.Repositories.AdminRepo, s.container.Judge0, s.container.APIHandlers.ProblemHandler)
@@ -21,10 +27,10 @@ func (s *Server) RegisterApiRoutes() {
 
 		// solutions
 		s.mux.Route("/solutions", func(r chi.Router) {
-			r.Get("/", solutionsHandler.GetSolutions)
-			r.Post("/", solutionsHandler.CreateSolution)
+			r.Get("/", wrap(solutionsHandler.GetSolutions))
+			r.Post("/", wrap(solutionsHandler.CreateSolution))
 			r.Route("/{solutionId}", func(r chi.Router) {
-				r.Get("/", solutionsHandler.GetSolution)
+				r.Get("/", wrap(solutionsHandler.GetSolution))
 				r.Put("/", solutionsHandler.UpdateSolution)
 				r.Delete("/", solutionsHandler.DeleteSolution)
 				r.Route("/vote", func(r chi.Router) {

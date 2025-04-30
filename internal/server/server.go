@@ -25,12 +25,15 @@ func New(container *container.Container) *Server {
 		mux:       chi.NewRouter(),
 	}
 
+	h2s := &http2.Server{}
+	mux := http.NewServeMux()
 	server.RegisterApiRoutes()
 
-	h2s := &http2.Server{}
+	handler := h2c.NewHandler(mux, h2s)
+
 	server.srv = &http.Server{
 		Addr:    ":" + server.container.Config.Port,
-		Handler: h2c.NewHandler(server.mux, h2s),
+		Handler: handler,
 	}
 
 	return server

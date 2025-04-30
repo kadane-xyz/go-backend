@@ -4,11 +4,12 @@ import (
 	"context"
 
 	"kadane.xyz/go-backend/v2/internal/database/sql"
+	"kadane.xyz/go-backend/v2/internal/domain"
 )
 
 type SubmissionsRepository interface {
 	GetSubmissions(ctx context.Context, params sql.GetSubmissionsParams) ([]sql.GetSubmissionsRow, error)
-	GetSubmissionById(ctx context.Context, id string) (sql.GetSubmissionByIdRow, error)
+	GetSubmission(ctx context.Context, id string) (*domain.Submission, error)
 }
 
 type SQLSubmissionsRepository struct {
@@ -27,10 +28,10 @@ func (r *SQLSubmissionsRepository) GetSubmissions(ctx context.Context, params sq
 	return q, nil
 }
 
-func (r *SQLSubmissionsRepository) GetSubmissionById(ctx context.Context, id string) (sql.GetSubmissionByIdRow, error) {
-	q, err := r.queries.GetSubmissionById(ctx, id)
+func (r *SQLSubmissionsRepository) GetSubmission(ctx context.Context, id string) (sql.GetSubmissionByIdRow, error) {
+	q, err := r.queries.GetSubmission(ctx, id)
 	if err != nil {
-		return sql.GetSubmissionByIdRow{}, err
+		return nil, err
 	}
 	return q, nil
 }

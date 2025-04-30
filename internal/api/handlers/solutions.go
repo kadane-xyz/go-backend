@@ -12,6 +12,7 @@ import (
 	"kadane.xyz/go-backend/v2/internal/database/sql"
 	"kadane.xyz/go-backend/v2/internal/domain"
 	"kadane.xyz/go-backend/v2/internal/errors"
+	"kadane.xyz/go-backend/v2/internal/middleware"
 )
 
 type SolutionsHandler struct {
@@ -23,10 +24,10 @@ func NewSolutionsHandler(solutionsRepo *repository.SolutionsRepository) *Solutio
 }
 
 // GET: /solutions
-func (h *SolutionsHandler) GetSolutions(w http.ResponseWriter, r *http.Request) {
-	userId, err := httputils.GetClientUserID(w, r)
+func (h *SolutionsHandler) GetSolutions(w http.ResponseWriter, r *http.Request) error {
+	userId, err := middleware.GetContextUserId(r.Context())
 	if err != nil {
-		return
+		return err
 	}
 
 	problemId := r.URL.Query().Get("problemId")
@@ -167,10 +168,10 @@ func (h *SolutionsHandler) GetSolutions(w http.ResponseWriter, r *http.Request) 
 }
 
 // POST: /
-func (h *SolutionsHandler) CreateSolution(w http.ResponseWriter, r *http.Request) {
-	userId, err := httputils.GetClientUserID(w, r)
+func (h *SolutionsHandler) CreateSolution(w http.ResponseWriter, r *http.Request) error {
+	userId, err := middleware.GetContextUserId(r.Context())
 	if err != nil {
-		return
+		return err
 	}
 
 	solution, apiErr := httputils.DecodeJSONRequest[domain.CreateSolutionRequest](r)
@@ -205,8 +206,8 @@ func (h *SolutionsHandler) CreateSolution(w http.ResponseWriter, r *http.Request
 }
 
 // GET: /{solutionId}
-func (h *SolutionsHandler) GetSolution(w http.ResponseWriter, r *http.Request) {
-	userId, err := httputils.GetClientUserID(w, r)
+func (h *SolutionsHandler) GetSolution(w http.ResponseWriter, r *http.Request) error {
+	userId, err := middleware.GetContextUserId(r.Context())
 	if err != nil {
 		return
 	}
@@ -262,11 +263,11 @@ func (h *SolutionsHandler) GetSolution(w http.ResponseWriter, r *http.Request) {
 }
 
 // PUT: /{solutionId}
-func (h *SolutionsHandler) UpdateSolution(w http.ResponseWriter, r *http.Request) {
+func (h *SolutionsHandler) UpdateSolution(w http.ResponseWriter, r *http.Request) error {
 	// Get userid from middleware context
-	userId, err := httputils.GetClientUserID(w, r)
+	userId, err := middleware.GetContextUserId(r.Context())
 	if err != nil {
-		return
+		return err
 	}
 
 	// Handle problemId query parameter
@@ -299,7 +300,7 @@ func (h *SolutionsHandler) UpdateSolution(w http.ResponseWriter, r *http.Request
 		Title:  solutionRequest.Title,
 		Body:   solutionRequest.Body,
 		Tags:   solutionRequest.Tags,
-		UserID: pgtype.Text{String: userId, Valid: true},
+		UserID: &userId,
 	}
 
 	// Get solutions from db by idPg
@@ -314,11 +315,11 @@ func (h *SolutionsHandler) UpdateSolution(w http.ResponseWriter, r *http.Request
 }
 
 // DELETE: /{solutionId}
-func (h *SolutionsHandler) DeleteSolution(w http.ResponseWriter, r *http.Request) {
+func (h *SolutionsHandler) DeleteSolution(w http.ResponseWriter, r *http.Request) error {
 	// Get userid from middleware context
-	userId, err := httputils.GetClientUserID(w, r)
+	userId, err := middleware.GetContextUserId(r.Context())
 	if err != nil {
-		return
+		return err
 	}
 
 	// Handle problemId query parameter
@@ -350,11 +351,11 @@ func (h *SolutionsHandler) DeleteSolution(w http.ResponseWriter, r *http.Request
 }
 
 // PATCH: /{solutionId}/vote
-func (h *SolutionsHandler) VoteSolution(w http.ResponseWriter, r *http.Request) {
+func (h *SolutionsHandler) VoteSolution(w http.ResponseWriter, r *http.Request) error {
 	// Get userid from middleware context
-	userId, err := httputils.GetClientUserID(w, r)
+	userId, err := middleware.GetContextUserId(r.Context())
 	if err != nil {
-		return
+		return err
 	}
 
 	// Extract solutionId from URL parameters

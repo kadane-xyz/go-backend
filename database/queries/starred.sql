@@ -10,7 +10,7 @@ SELECT
     EXISTS (
         SELECT 1 
         FROM starred_problem sp
-        WHERE sp.user_id = $1 
+        WHERE sp.user_id = @user_id::text 
           AND sp.problem_id = p.id
     ) AS starred
 FROM problem p;
@@ -63,13 +63,13 @@ SELECT COUNT(*) > 0 FROM starred_submission WHERE user_id = $1 AND submission_id
 -- name: PutStarredProblem :one
 WITH deleted(starred) AS (
     DELETE FROM starred_problem AS sp
-    WHERE sp.user_id = $1 AND sp.problem_id = $2
+    WHERE sp.user_id = @user_id AND sp.problem_id = @problem_id
     RETURNING false AS starred
 ),
 inserted(starred) AS (
     INSERT INTO starred_problem (user_id, problem_id)
     SELECT v.user_id, v.problem_id
-    FROM (VALUES ($1, $2)) AS v(user_id, problem_id)
+    FROM (VALUES (@user_id, @problem_id)) AS v(user_id, problem_id)
     WHERE NOT EXISTS (SELECT 1 FROM deleted)
     RETURNING true AS starred
 )

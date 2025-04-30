@@ -1,7 +1,6 @@
 package errors
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 )
@@ -20,67 +19,55 @@ var (
 	ErrNotFound            = errors.New("not found")             // 404
 	ErrMethodNotAllowed    = errors.New("method not allowed")    // 405
 	ErrConflict            = errors.New("conflict")              // 409
+	ErrPayloadTooLarge     = errors.New("payload too large")     // 413
 	ErrUnprocessableEntity = errors.New("unprocessable entity")  // 422
 	ErrInternalServer      = errors.New("internal server error") // 500
 )
 
-type Error struct {
-	Error      error
-	Message    string
-	StatusCode int
+type AppError struct {
+	Err        error  `json:"Error"`
+	Message    string `json:"Message"`
+	StatusCode int    `json:"StatusCode"`
 }
 
-type ApiErrorData struct {
-	Message    string `json:"message"`
-	StatusCode int    `json:"statusCode"`
+type ValidationError struct {
+	AppError
+}
+
+type ApplicationError struct {
+	AppError
+}
+
+type DatabaseError struct {
+	AppError
 }
 
 // ApiError is the error response for the API
 // { error: { statusCode: 400, message: "Bad Request" } } }
 type ApiError struct {
-	Error ApiErrorData `json:"error"`
+	Error AppError `json:"error"`
 }
 
-// NewError creates a new Error instance
-func NewError(err error, statusCode int, message string) *Error {
-	return &Error{
-		Error:      err,
+func (e *AppError) Error() string {
+	return e.Message
+}
+
+func (e *AppError) Unwrap() error {
+	return e.Err
+}
+
+func NewAppError(err error, message string, statusCode int) *AppError {
+	return &AppError{
+		Err:        err,
 		Message:    message,
 		StatusCode: statusCode,
-	}
-}
-
-// SendError sends an error response using the APIError structure
-func SendError(w http.ResponseWriter, statusCode int, message string) {
-	error := ApiError{
-		Error: ApiErrorData{
-			Message:    message,
-			StatusCode: statusCode,
-		},
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-	json.NewEncoder(w).Encode(error)
-}
-
-func (e *ApiError) Send(w http.ResponseWriter) {
-	SendError(w, e.Error.StatusCode, e.Error.Message)
-}
-
-func NewApiError(err error, statusCode int, message string) *ApiError {
-	return &ApiError{
-		Error: ApiErrorData{
-			Message:    message,
-			StatusCode: statusCode,
-		},
 	}
 }
 
 // 400 Bad Request
 func NewBadRequestError(message string) *ApiError {
 	return &ApiError{
-		Error: ApiErrorData{
+		Error: AppError{
 			Message:    message,
 			StatusCode: http.StatusBadRequest,
 		},
@@ -90,7 +77,7 @@ func NewBadRequestError(message string) *ApiError {
 // 401 Unauthorized
 func NewUnauthorizedError(message string) *ApiError {
 	return &ApiError{
-		Error: ApiErrorData{
+		Error: AppError{
 			Message:    message,
 			StatusCode: http.StatusUnauthorized,
 		},
@@ -100,7 +87,7 @@ func NewUnauthorizedError(message string) *ApiError {
 // 403 Forbidden
 func NewForbiddenError(message string) *ApiError {
 	return &ApiError{
-		Error: ApiErrorData{
+		Error: AppError{
 			Message:    message,
 			StatusCode: http.StatusForbidden,
 		},
@@ -110,7 +97,7 @@ func NewForbiddenError(message string) *ApiError {
 // 404 Not Found
 func NewNotFoundError(message string) *ApiError {
 	return &ApiError{
-		Error: ApiErrorData{
+		Error: AppError{
 			Message:    message,
 			StatusCode: http.StatusNotFound,
 		},
@@ -120,7 +107,7 @@ func NewNotFoundError(message string) *ApiError {
 // 405 Method Not Allowed
 func NewMethodNotAllowedError(message string) *ApiError {
 	return &ApiError{
-		Error: ApiErrorData{
+		Error: AppError{
 			Message:    message,
 			StatusCode: http.StatusMethodNotAllowed,
 		},
@@ -130,7 +117,7 @@ func NewMethodNotAllowedError(message string) *ApiError {
 // 409 Conflict
 func NewConflictError(message string) *ApiError {
 	return &ApiError{
-		Error: ApiErrorData{
+		Error: AppError{
 			Message:    message,
 			StatusCode: http.StatusConflict,
 		},
@@ -140,7 +127,7 @@ func NewConflictError(message string) *ApiError {
 // 422 Unprocessable Entity
 func NewUnprocessableEntityError(message string) *ApiError {
 	return &ApiError{
-		Error: ApiErrorData{
+		Error: AppError{
 			Message:    message,
 			StatusCode: http.StatusUnprocessableEntity,
 		},
@@ -150,7 +137,7 @@ func NewUnprocessableEntityError(message string) *ApiError {
 // 500 Internal Server Error
 func NewInternalServerError(message string) *ApiError {
 	return &ApiError{
-		Error: ApiErrorData{
+		Error: AppError{
 			Message:    message,
 			StatusCode: http.StatusInternalServerError,
 		},
