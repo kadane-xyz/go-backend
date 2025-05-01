@@ -8,7 +8,7 @@ import (
 )
 
 type AccountRepository interface {
-	GetAccount(ctx context.Context, params sql.GetAccountParams) (domain.Account, error)
+	GetAccount(ctx context.Context, params *domain.AccountGetParams) (domain.Account, error)
 	ListAccounts(ctx context.Context, params sql.ListAccountsParams) ([]domain.Account, error)
 	CreateAccount(ctx context.Context, params *domain.AccountCreateRequest) error
 	CreateAccountAttributes(ctx context.Context, params sql.CreateAccountAttributesParams) (sql.AccountAttribute, error)
@@ -27,8 +27,15 @@ func NewSQLAccountsRepository(queries *sql.Queries) *SQLAccountsRepository {
 	return &SQLAccountsRepository{queries: queries}
 }
 
-func (r *SQLAccountsRepository) GetAccount(ctx context.Context, params sql.GetAccountParams) (domain.Account, error) {
-	q, err := r.queries.GetAccount(ctx, params)
+func (r *SQLAccountsRepository) GetAccount(ctx context.Context, params *domain.AccountGetParams) (domain.Account, error) {
+	q, err := r.queries.GetAccount(ctx, sql.GetAccountParams{
+		ID:                params.ID,
+		IncludeAttributes: params.IncludeAttributes,
+		UsernamesFilter:   params.UsernamesFilter,
+		LocationsFilter:   params.LocationsFilter,
+		Sort:              params.Sort,
+		SortDirection:     params.SortDirection,
+	})
 	if err != nil {
 		return domain.Account{}, err
 	}

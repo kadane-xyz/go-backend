@@ -55,21 +55,19 @@ func (h *FriendHandler) GetFriends(w http.ResponseWriter, r *http.Request) {
 
 // POST: /friends
 // CreateFriendRequest creates a friend request
-func (h *FriendHandler) CreateFriendRequest(w http.ResponseWriter, r *http.Request) {
+func (h *FriendHandler) CreateFriendRequest(w http.ResponseWriter, r *http.Request) error {
 	userId, err := httputils.GetClientUserID(w, r)
 	if err != nil {
-		return
+		return err
 	}
 
-	friendRequest, apiErr := httputils.DecodeJSONRequest[domain.FriendRequestRequest](r)
-	if apiErr != nil {
-		errors.SendError(w, http.StatusBadRequest, "Invalid request body")
-		return
+	friendRequest, err := httputils.DecodeJSONRequest[domain.FriendRequestRequest](r)
+	if err != nil {
+		return errors.NewApiError(err, "Invalid request body", http.StatusBadRequest)
 	}
 
 	if friendRequest.FriendName == "" {
-		errors.SendError(w, http.StatusBadRequest, "Missing friend name")
-		return
+		return errors.NewApiError(nil, "Missing friend name", http.StatusBadRequest)
 	}
 
 	// Get current user's username
@@ -82,24 +80,21 @@ func (h *FriendHandler) CreateFriendRequest(w http.ResponseWriter, r *http.Reque
 		SortDirection:     "",
 	})
 	if err != nil {
-		errors.SendError(w, http.StatusInternalServerError, "Error getting current user")
-		return
+		return errors.NewApiError(err, "Error getting current user", http.StatusInternalServerError)
 	}
 
 	// Check if the friend name is the same as the current user's username
 	if friendRequest.FriendName == currentUser.Username {
-		errors.SendError(w, http.StatusBadRequest, "Cannot add yourself as a friend")
-		return
+		return errors.NewApiError(nil, "Cannot add yourself as a friend", http.StatusBadRequest)
 	}
 
 	// Check if the friend request already exists
-	friendRequestStatus, _ := h.repo.GetFriendRequestStatus(r.Context(), sql.GetFriendRequestStatusParams{
+	friendRequestStatus, err := h.repo.GetFriendRequestStatus(r.Context(), sql.GetFriendRequestStatusParams{
 		UserID:     userId,
 		FriendName: friendRequest.FriendName,
 	})
 	if friendRequestStatus != nil {
-		errors.SendError(w, http.StatusBadRequest, "Friend relationship already exists")
-		return
+		return errors.NewApiError(err, "Friend relationship already exists", http.StatusBadRequest)
 	}
 
 	err = h.repo.CreateFriendRequest(r.Context(), sql.CreateFriendRequestParams{
@@ -107,11 +102,12 @@ func (h *FriendHandler) CreateFriendRequest(w http.ResponseWriter, r *http.Reque
 		FriendName: friendRequest.FriendName,
 	})
 	if err != nil {
-		errors.SendError(w, http.StatusInternalServerError, "Error creating friend request")
-		return
+		return errors.HandleDatabaseError(err, "friend request")
 	}
 
 	httputils.SendJSONResponse(w, http.StatusCreated, nil)
+
+	return nil
 }
 
 // GET: /friends/requests/sent
@@ -149,33 +145,34 @@ func (h *FriendHandler) GetFriendRequestsSent(w http.ResponseWriter, r *http.Req
 
 // GET: /friends/requests/received
 // GetFriendRequestsReceived gets all friend requests received
-func (h *FriendHandler) GetFriendRequestsReceived(w http.ResponseWriter, r *http.Request) {
+func (h *FriendHandler) GetFriendRequestsReceived(w http.ResponseWriter, r *http.Request) error {
 	userId, err := httputils.GetClientUserID(w, r)
 	if err != nil {
-		return
+		return err
 	}
 
 	friendRequests, err := h.repo.GetFriendRequestReceived(r.Context(), userId)
 	if err != nil {
 		httputils.EmptyDataArrayResponse(w)
-		return
+		return err
 	}
 
 	httputils.SendJSONResponse(w, http.StatusOK, friendRequests)
+
+	return nil
 }
 
 // POST: /friends/requests/accept
 // AcceptFriendRequest accepts a friend request
-func (h *FriendHandler) AcceptFriendRequest(w http.ResponseWriter, r *http.Request) {
+func (h *FriendHandler) AcceptFriendRequest(w http.ResponseWriter, r *http.Request) error {
 	userId, err := httputils.GetClientUserID(w, r)
 	if err != nil {
-		return
+		return err
 	}
 
-	friendRequest, apiErr := httputils.DecodeJSONRequest[domain.FriendRequest](r)
-	if apiErr != nil {
-		errors.SendError(w, apiErr.Error.StatusCode, apiErr.Error.Message)
-		return
+	friendRequest, err := httputils.DecodeJSONRequest[domain.FriendRequest](r)
+	if err != nil {
+		return errors.NewApiError(err, "validation", http.StatusBadRequest)
 	}
 
 	err = h.repo.AcceptFriendRequest(r.Context(), sql.AcceptFriendRequestParams{
@@ -183,25 +180,25 @@ func (h *FriendHandler) AcceptFriendRequest(w http.ResponseWriter, r *http.Reque
 		FriendName: friendRequest.FriendName,
 	})
 	if err != nil {
-		errors.SendError(w, http.StatusInternalServerError, "Error accepting friend request")
-		return
+		return errors.NewApiError(err, "Error accepting friend request", http.StatusInternalServerError)
 	}
 
 	httputils.SendJSONResponse(w, http.StatusNoContent, nil)
+
+	return nil
 }
 
 // POST: /friends/requests/block
 // BlockFriendRequest blocks a friend request
-func (h *FriendHandler) BlockFriendRequest(w http.ResponseWriter, r *http.Request) {
+func (h *FriendHandler) BlockFriendRequest(w http.ResponseWriter, r *http.Request) error {
 	userId, err := httputils.GetClientUserID(w, r)
 	if err != nil {
-		return
+		return err
 	}
 
-	friendRequest, apiErr := httputils.DecodeJSONRequest[domain.FriendRequest](r)
-	if apiErr != nil {
-		errors.SendError(w, apiErr.Error.StatusCode, apiErr.Error.Message)
-		return
+	friendRequest, err := httputils.DecodeJSONRequest[domain.FriendRequest](r)
+	if err != nil {
+		return errors.NewApiError(err, "validation", http.StatusBadRequest)
 	}
 
 	err = h.repo.BlockFriend(r.Context(), sql.BlockFriendParams{
@@ -209,25 +206,25 @@ func (h *FriendHandler) BlockFriendRequest(w http.ResponseWriter, r *http.Reques
 		FriendName: friendRequest.FriendName,
 	})
 	if err != nil {
-		errors.SendError(w, http.StatusInternalServerError, "Error blocking friend request")
-		return
+		return errors.HandleDatabaseError(err, "block friend")
 	}
 
 	httputils.SendJSONResponse(w, http.StatusNoContent, nil)
+
+	return nil
 }
 
 // POST: /friends/requests/unblock
 // UnblockFriendRequest unblocks a friend request
-func (h *FriendHandler) UnblockFriendRequest(w http.ResponseWriter, r *http.Request) {
+func (h *FriendHandler) UnblockFriendRequest(w http.ResponseWriter, r *http.Request) error {
 	userId, err := httputils.GetClientUserID(w, r)
 	if err != nil {
-		return
+		return err
 	}
 
-	friendRequest, apiErr := httputils.DecodeJSONRequest[domain.FriendRequest](r)
-	if apiErr != nil {
-		errors.SendError(w, apiErr.Error.StatusCode, apiErr.Error.Message)
-		return
+	friendRequest, err := httputils.DecodeJSONRequest[domain.FriendRequest](r)
+	if err != nil {
+		return errors.NewApiError(err, "validation", http.StatusBadRequest)
 	}
 
 	err = h.repo.UnblockFriend(r.Context(), sql.UnblockFriendParams{
@@ -235,11 +232,12 @@ func (h *FriendHandler) UnblockFriendRequest(w http.ResponseWriter, r *http.Requ
 		FriendName: friendRequest.FriendName,
 	})
 	if err != nil {
-		errors.SendError(w, http.StatusInternalServerError, "Error unblocking friend request")
-		return
+		return errors.HandleDatabaseError(err, "unblock friend")
 	}
 
 	httputils.SendJSONResponse(w, http.StatusNoContent, nil)
+
+	return nil
 }
 
 // DELETE: /friends or /friends/requests/deny

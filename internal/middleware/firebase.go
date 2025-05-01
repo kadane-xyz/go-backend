@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5/middleware"
+	"kadane.xyz/go-backend/v2/internal/database/sql"
 	"kadane.xyz/go-backend/v2/internal/errors"
 )
 
@@ -53,6 +54,7 @@ func (h *Handler) FirebaseAuth() func(http.Handler) http.Handler {
 				errors.NewUnauthorizedError("Invalid Firebase ID token")
 				return
 			}
+
 			claims := ClientContext{
 				UserID: token.UID,
 				Email:  getStringClaim(token.Claims, "email"),
@@ -100,16 +102,46 @@ func CustomLogger(next http.Handler) http.Handler {
 	})
 }
 
-func GetContextUserId(ctx context.Context) (*string, error) {
+func GetClientClaims(ctx context.Context) (*ClientContext, error) {
 	value := ctx.Value(ClientTokenKey)
 	if value == nil {
 		return nil, errors.NewAppError(nil, "user id not found in context", http.StatusUnauthorized)
 	}
 
-	userId, ok := value.(*string)
+	claims, ok := value.(*ClientContext)
 	if !ok {
 		return nil, errors.NewAppError(nil, "user id in context is of incorrect type", http.StatusUnauthorized)
 	}
 
-	return userId, nil
+	return claims, nil
+}
+
+func (c *ClientContext) UserId() string {
+	return c.UserID
+}
+
+func (c *ClientContext) IsAdmin() bool {
+	return c.Admin
+}
+
+func (c *ClientContext) GetName() string {
+	return c.Name
+}
+
+func (c *ClientContext) GetEmail() string {
+	return c.Email
+}
+
+func (c *ClientContext) GetPlan() sql.AccountPlan {
+	return c.Plan
+}
+
+func GetContextUserIsAdmin(ctx context.Context) (bool, error) {
+	claims, err := GetClientClaims(ctx)
+	if err != nil {
+		return false, err
+	}
+
+	return claims.Admin, nil
+
 }

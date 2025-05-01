@@ -21,6 +21,7 @@ import (
 	"kadane.xyz/go-backend/v2/internal/database/sql"
 	"kadane.xyz/go-backend/v2/internal/domain"
 	"kadane.xyz/go-backend/v2/internal/errors"
+	"kadane.xyz/go-backend/v2/internal/middleware"
 )
 
 const (
@@ -118,9 +119,12 @@ func ValidateCreateAccount(r *http.Request) (*domain.AccountCreateRequest, *erro
 
 // POST: /accounts
 func (h *AccountHandler) CreateAccount(w http.ResponseWriter, r *http.Request) error {
-	admin, err := httputils.GetClientAdmin(w, r)
-	if !admin {
+	admin, err := middleware.GetContextUserIsAdmin(r.Context())
+	if err != nil {
 		return err
+	}
+	if !admin {
+		return nil
 	}
 
 	// Validate request body
@@ -130,12 +134,12 @@ func (h *AccountHandler) CreateAccount(w http.ResponseWriter, r *http.Request) e
 	}
 
 	// Create account in the database
-	err := h.repo.CreateAccount(r.Context(), createAccountRequest)
+	err = h.repo.CreateAccount(r.Context(), createAccountRequest)
 	if err != nil {
 		return errors.HandleDatabaseError(err, "account")
 	}
 
-	account, err := h.repo.GetAccount(r.Context(), sql.GetAccountParams{
+	account, err := h.repo.GetAccount(r.Context(), &domain.AccountGetParams{
 		ID:                createAccountRequest.ID,
 		IncludeAttributes: true,
 	})
@@ -173,81 +177,75 @@ func validateImage(imageData []byte) error {
 
 // POST: /accounts/avatar
 // Uploads an avatar image to S3 bucket and stores the URL in the accounts table
-func (h *AccountHandler) UploadAccountAvatar(w http.ResponseWriter, r *http.Request) {
+func (h *AccountHandler) UploadAccountAvatar(w http.ResponseWriter, r *http.Request) error {
 	// Get userid from middleware context
-	userId, err := httputils.GetClientUserID(w, r)
+	claims, err := middleware.GetClientClaims(r.Context())
 	if err != nil {
-		return
+		return err
 	}
 
 	if !strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
-		errors.SendError(w, http.StatusBadRequest, "Invalid content type")
-		return
+		return errors.NewApiError(nil, "Invalid content type", http.StatusBadRequest)
 	}
 
 	// Limit the max file size
 	r.Body = http.MaxBytesReader(w, r.Body, maxFileSize)
 
 	if err := r.ParseMultipartForm(maxFileSize); err != nil {
-		errors.SendError(w, http.StatusBadRequest, "File too large. Maximum size is 1MB")
-		return
+		return err
 	}
 	defer r.MultipartForm.RemoveAll()
 
 	file, fileHeader, err := r.FormFile("image")
 	if err != nil {
-		errors.SendError(w, http.StatusBadRequest, "Error getting image file")
-		return
+		return err
 	}
 	defer file.Close()
 
 	if fileHeader.Size > maxFileSize {
-		errors.SendError(w, http.StatusBadRequest, "File too large. Maximum size is 1MB")
-		return
+		return errors.NewApiError(nil, "File too large. Maximum size is 1MB", http.StatusRequestEntityTooLarge)
 	}
 
 	imageData, err := io.ReadAll(file)
 	if err != nil {
-		errors.SendError(w, http.StatusInternalServerError, "Error reading image file")
-		return
+		return errors.NewAppError(nil, "Error reading image file", http.StatusInternalServerError)
 	}
 
 	if err := validateImage(imageData); err != nil {
-		errors.SendError(w, http.StatusBadRequest, err.Error())
-		return
+		return errors.NewAppError(nil, err.Error(), http.StatusInternalServerError)
 	}
 
 	// s3 bucket upload file and return url
 	_, err = h.awsClient.PutObject(r.Context(), &s3.PutObjectInput{
 		Bucket: &h.config.AWS.BucketAvatar,
-		Key:    &userId,
+		Key:    &claims.UserID,
 		Body:   bytes.NewReader(imageData),
 	})
 	if err != nil {
-		errors.SendError(w, http.StatusInternalServerError, "Error uploading avatar")
-		return
+		return errors.NewAppError(nil, "Error uploading avatar", http.StatusInternalServerError)
 	}
 
 	// Use CloudFront URL instead of S3 public URL
-	url := h.config.AWS.CloudFrontURL + "/" + userId
+	url := h.config.AWS.CloudFrontURL + "/" + claims.UserID
 
 	// store image url in accounts table
 	err = h.repo.UploadAccountAvatar(r.Context(), sql.UpdateAccountAvatarParams{
-		ID:        userId,
+		ID:        claims.UserID,
 		AvatarUrl: &url,
 	})
 	if err != nil {
-		errors.SendError(w, http.StatusInternalServerError, "Error updating avatar url")
-		return
+		return err
 	}
 
 	httputils.SendJSONDataResponse(w, http.StatusCreated, url)
+
+	return nil
 }
 
-func ValidateGetAccount(r *http.Request) (sql.GetAccountParams, *errors.ApiError) {
+func ValidateGetAccount(r *http.Request) (*domain.AccountGetParams, error) {
 	accountId := chi.URLParam(r, "id")
 	if accountId == "" {
-		return sql.GetAccountParams{}, errors.NewBadRequestError("Missing account id")
+		return nil, errors.NewBadRequestError("Missing account id")
 	}
 
 	attributes := r.URL.Query().Get("attributes")
@@ -255,31 +253,31 @@ func ValidateGetAccount(r *http.Request) (sql.GetAccountParams, *errors.ApiError
 		attributes = "false"
 	}
 
-	return sql.GetAccountParams{
+	return &domain.AccountGetParams{
 		ID:                accountId,
 		IncludeAttributes: attributes == "true",
 	}, nil
 }
 
 // GET: /accounts/id
-func (h *AccountHandler) GetAccount(w http.ResponseWriter, r *http.Request) {
+func (h *AccountHandler) GetAccount(w http.ResponseWriter, r *http.Request) error {
 	params, err := ValidateGetAccount(r)
 	if err != nil {
-		errors.SendError(w, http.StatusBadRequest, "Failed to validate get account")
-		errors.New(err, "Failed to validated get account")
-		return
+		return err
 	}
 
-	account, dbErr := h.repo.GetAccount(r.Context(), params)
-	if dbErr != nil {
+	account, err := h.repo.GetAccount(r.Context(), params)
+	if err != nil {
 		httputils.EmptyDataResponse(w)
-		return
+		return nil
 	}
 
 	httputils.SendJSONDataResponse(w, http.StatusOK, account)
+
+	return nil
 }
 
-func ValidateUpdateAccount(r *http.Request) (*domain.AccountUpdateParams, *errors.ApiError) {
+func ValidateUpdateAccount(r *http.Request) (*domain.AccountUpdateParams, error) {
 	// Get account ID from URL parameters
 	accountID := chi.URLParam(r, "id")
 	if accountID == "" {
@@ -384,17 +382,15 @@ func prepareUpdateAccount(existingAccountAttributes *domain.AccountAttributes, r
 
 // PUT: /accounts/{id}
 // Updates attributes for a given account
-func (h *AccountHandler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
-	params, apiErr := ValidateUpdateAccount(r)
-	if apiErr != nil {
-		apiErr.Send(w)
-		return
+func (h *AccountHandler) UpdateAccount(w http.ResponseWriter, r *http.Request) error {
+	params, err := ValidateUpdateAccount(r)
+	if err != nil {
+		return err
 	}
 
 	existingAttribute, err := h.repo.GetAccountAttributes(r.Context(), params.ID)
 	if err != nil {
-		errors.SendError(w, http.StatusInternalServerError, "Error getting account attributes")
-		return
+		return err
 	}
 
 	// Build update parameters
@@ -403,25 +399,27 @@ func (h *AccountHandler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 		// Update account in database
 		account, err := h.repo.UpdateAccountAttributes(r.Context(), updateAttributes)
 		if err != nil {
-			errors.SendError(w, http.StatusInternalServerError, "Failed to update account")
-			return
+			return err
 		}
 
 		httputils.SendJSONDataResponse(w, http.StatusOK, account)
+
+		return nil
 	}
 
 	// Get updated account attributes
-	account, err := h.repo.GetAccount(r.Context(), sql.GetAccountParams{
+	account, err := h.repo.GetAccount(r.Context(), &domain.AccountGetParams{
 		ID:                params.ID,
 		IncludeAttributes: true,
 	})
 	if err != nil {
-		errors.SendError(w, http.StatusInternalServerError, "Error getting account")
-		return
+		return err
 	}
 
 	// Send response
 	httputils.SendJSONDataResponse(w, http.StatusOK, account)
+
+	return nil
 }
 
 // AccountUpdates tracks which fields are being updated
@@ -538,33 +536,32 @@ func isValidEmail(email string) bool {
 }
 
 // DELETE: /accounts/id
-func (h *AccountHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
+func (h *AccountHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) error {
 	accountId := chi.URLParam(r, "id")
 	if accountId == "" {
-		errors.SendError(w, http.StatusBadRequest, "Missing account ID")
-		return
+		return errors.NewAppError(nil, "Missing account ID", http.StatusBadRequest)
 	}
 
 	err := h.repo.DeleteAccount(r.Context(), accountId)
 	if err != nil {
-		errors.SendError(w, http.StatusInternalServerError, "Error deleting account")
-		return
+		return err
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+
+	return nil
 }
 
 // GET: /accounts/username
-func (h *AccountHandler) GetAccountByUsername(w http.ResponseWriter, r *http.Request) {
+func (h *AccountHandler) GetAccountByUsername(w http.ResponseWriter, r *http.Request) error {
 	userID, err := httputils.GetClientUserID(w, r)
 	if err != nil {
-		return
+		return err
 	}
 
 	username := chi.URLParam(r, "username")
 	if username == "" {
-		errors.SendError(w, http.StatusBadRequest, "Missing username")
-		return
+		return errors.NewApiError(nil, "Missing username", http.StatusBadRequest)
 	}
 
 	attributes := r.URL.Query().Get("attributes")
@@ -580,17 +577,19 @@ func (h *AccountHandler) GetAccountByUsername(w http.ResponseWriter, r *http.Req
 	})
 	if err != nil {
 		httputils.EmptyDataResponse(w)
-		return
+		return err
 	}
 
 	httputils.SendJSONDataResponse(w, http.StatusOK, account)
+
+	return nil
 }
 
 // GET: /accounts/validate
-func (h *AccountHandler) GetAccountValidation(w http.ResponseWriter, r *http.Request) {
+func (h *AccountHandler) GetAccountValidation(w http.ResponseWriter, r *http.Request) error {
 	accountPlan, err := httputils.GetClientPlan(w, r)
 	if err != nil {
-		return
+		return err
 	}
 
 	response := domain.AccountValidation{
@@ -598,4 +597,6 @@ func (h *AccountHandler) GetAccountValidation(w http.ResponseWriter, r *http.Req
 	}
 
 	httputils.SendJSONDataResponse(w, http.StatusOK, response)
+
+	return nil
 }

@@ -37,6 +37,15 @@ type AccountAttributes struct {
 	FriendRequestCount int64
 }
 
+type AccountGetParams struct {
+	ID                string            `json:"id"`
+	IncludeAttributes bool              `json:"includeAttributes"`
+	UsernamesFilter   []string          `json:"usernamesFilter"`
+	LocationsFilter   []string          `json:"locationsFilter"`
+	Sort              string            `json:"sort"`
+	SortDirection     sql.SortDirection `json:"sortDirection"`
+}
+
 type AccountAttributesUpdateParams struct {
 	ID           string
 	Bio          *string

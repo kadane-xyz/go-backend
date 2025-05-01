@@ -45,7 +45,7 @@ type DatabaseError struct {
 // ApiError is the error response for the API
 // { error: { statusCode: 400, message: "Bad Request" } } }
 type ApiError struct {
-	Error AppError `json:"error"`
+	Err AppError `json:"error"`
 }
 
 func (e *AppError) Error() string {
@@ -56,6 +56,14 @@ func (e *AppError) Unwrap() error {
 	return e.Err
 }
 
+func (e *ApiError) Error() string {
+	return e.Err.Message
+}
+
+func (e *ApiError) Unwrap() error {
+	return e.Err.Err
+}
+
 func NewAppError(err error, message string, statusCode int) *AppError {
 	return &AppError{
 		Err:        err,
@@ -64,10 +72,20 @@ func NewAppError(err error, message string, statusCode int) *AppError {
 	}
 }
 
+func NewApiError(err error, message string, statusCode int) *ApiError {
+	return &ApiError{
+		Err: AppError{
+			Err:        err,
+			Message:    message,
+			StatusCode: statusCode,
+		},
+	}
+}
+
 // 400 Bad Request
 func NewBadRequestError(message string) *ApiError {
 	return &ApiError{
-		Error: AppError{
+		Err: AppError{
 			Message:    message,
 			StatusCode: http.StatusBadRequest,
 		},
@@ -77,7 +95,7 @@ func NewBadRequestError(message string) *ApiError {
 // 401 Unauthorized
 func NewUnauthorizedError(message string) *ApiError {
 	return &ApiError{
-		Error: AppError{
+		Err: AppError{
 			Message:    message,
 			StatusCode: http.StatusUnauthorized,
 		},
@@ -87,7 +105,7 @@ func NewUnauthorizedError(message string) *ApiError {
 // 403 Forbidden
 func NewForbiddenError(message string) *ApiError {
 	return &ApiError{
-		Error: AppError{
+		Err: AppError{
 			Message:    message,
 			StatusCode: http.StatusForbidden,
 		},
@@ -97,7 +115,7 @@ func NewForbiddenError(message string) *ApiError {
 // 404 Not Found
 func NewNotFoundError(message string) *ApiError {
 	return &ApiError{
-		Error: AppError{
+		Err: AppError{
 			Message:    message,
 			StatusCode: http.StatusNotFound,
 		},
@@ -107,7 +125,7 @@ func NewNotFoundError(message string) *ApiError {
 // 405 Method Not Allowed
 func NewMethodNotAllowedError(message string) *ApiError {
 	return &ApiError{
-		Error: AppError{
+		Err: AppError{
 			Message:    message,
 			StatusCode: http.StatusMethodNotAllowed,
 		},
@@ -117,7 +135,7 @@ func NewMethodNotAllowedError(message string) *ApiError {
 // 409 Conflict
 func NewConflictError(message string) *ApiError {
 	return &ApiError{
-		Error: AppError{
+		Err: AppError{
 			Message:    message,
 			StatusCode: http.StatusConflict,
 		},
@@ -127,7 +145,7 @@ func NewConflictError(message string) *ApiError {
 // 422 Unprocessable Entity
 func NewUnprocessableEntityError(message string) *ApiError {
 	return &ApiError{
-		Error: AppError{
+		Err: AppError{
 			Message:    message,
 			StatusCode: http.StatusUnprocessableEntity,
 		},
@@ -137,7 +155,7 @@ func NewUnprocessableEntityError(message string) *ApiError {
 // 500 Internal Server Error
 func NewInternalServerError(message string) *ApiError {
 	return &ApiError{
-		Error: AppError{
+		Err: AppError{
 			Message:    message,
 			StatusCode: http.StatusInternalServerError,
 		},

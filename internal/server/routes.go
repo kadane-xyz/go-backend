@@ -11,7 +11,7 @@ import (
 
 func (s *Server) RegisterApiRoutes() {
 
-	wrap := func(h middleware.HandlerFunc) http.HandlerFunc {
+	errorMiddleware := func(h middleware.HandlerFunc) http.HandlerFunc {
 		return middleware.ErrorMiddleware(h).ServeHTTP
 	}
 
@@ -27,14 +27,14 @@ func (s *Server) RegisterApiRoutes() {
 
 		// solutions
 		s.mux.Route("/solutions", func(r chi.Router) {
-			r.Get("/", wrap(solutionsHandler.GetSolutions))
-			r.Post("/", wrap(solutionsHandler.CreateSolution))
+			r.Get("/", errorMiddleware(solutionsHandler.GetSolutions))
+			r.Post("/", errorMiddleware(solutionsHandler.CreateSolution))
 			r.Route("/{solutionId}", func(r chi.Router) {
-				r.Get("/", wrap(solutionsHandler.GetSolution))
-				r.Put("/", solutionsHandler.UpdateSolution)
-				r.Delete("/", solutionsHandler.DeleteSolution)
+				r.Get("/", errorMiddleware(solutionsHandler.GetSolution))
+				r.Put("/", errorMiddleware(solutionsHandler.UpdateSolution))
+				r.Delete("/", errorMiddleware(solutionsHandler.DeleteSolution))
 				r.Route("/vote", func(r chi.Router) {
-					r.Patch("/", solutionsHandler.VoteSolution)
+					r.Patch("/", errorMiddleware(solutionsHandler.VoteSolution))
 				})
 			})
 		})
@@ -53,21 +53,21 @@ func (s *Server) RegisterApiRoutes() {
 		})
 		//accounts
 		s.mux.Route("/accounts", func(r chi.Router) {
-			r.Post("/", accountsHandler.CreateAccount)
-			r.Get("/", accountsHandler.GetAccounts)
+			r.Post("/", errorMiddleware(accountsHandler.CreateAccount))
+			r.Get("/", errorMiddleware(accountsHandler.GetAccounts))
 			r.Route("/avatar", func(r chi.Router) {
-				r.Post("/", accountsHandler.UploadAccountAvatar)
+				r.Post("/", errorMiddleware(accountsHandler.UploadAccountAvatar))
 			})
 			r.Route("/{id}", func(r chi.Router) {
-				r.Get("/", accountsHandler.GetAccount)
-				r.Put("/", accountsHandler.UpdateAccount)
-				r.Delete("/", accountsHandler.DeleteAccount)
+				r.Get("/", errorMiddleware(accountsHandler.GetAccount))
+				r.Put("/", errorMiddleware(accountsHandler.UpdateAccount))
+				r.Delete("/", errorMiddleware(accountsHandler.DeleteAccount))
 			})
 			r.Route("/username/{username}", func(r chi.Router) {
-				r.Get("/", accountsHandler.GetAccountByUsername)
+				r.Get("/", errorMiddleware(accountsHandler.GetAccountByUsername))
 			})
 			r.Route("/validate", func(r chi.Router) {
-				r.Get("/", accountsHandler.GetAccountValidation)
+				r.Get("/", errorMiddleware(accountsHandler.GetAccountValidation))
 			})
 		})
 		s.mux.Route("/friends", func(r chi.Router) {
@@ -88,25 +88,25 @@ func (s *Server) RegisterApiRoutes() {
 				})
 			})
 			r.Route("/username/{username}", func(r chi.Router) {
-				r.Get("/", friendHandler.GetFriendByUsername)
+				r.Get("/", errorMiddleware(friendHandler.GetFriendByUsername))
 			})
 		})
 		//problems
 		s.mux.Route("/problems", func(r chi.Router) {
-			r.Get("/", problemHandler.GetProblems)
+			r.Get("/", errorMiddleware(problemHandler.GetProblems))
 			r.Route("/{problemId}", func(r chi.Router) {
-				r.Get("/", problemHandler.GetProblem)
+				r.Get("/", errorMiddleware(problemHandler.GetProblem))
 			})
 		})
 		//submissions
 		s.mux.Route("/submissions", func(r chi.Router) {
 			r.Route("/{token}", func(r chi.Router) {
-				r.Get("/", submissionHandler.GetSubmission)
+				r.Get("/", errorMiddleware(submissionHandler.GetSubmission))
 			})
 			r.Route("/username/{username}", func(r chi.Router) {
-				r.Get("/", submissionHandler.GetSubmissionsByUsername)
+				r.Get("/", errorMiddleware(submissionHandler.GetSubmissionsByUsername))
 			})
-			r.Post("/", submissionHandler.CreateSubmission)
+			r.Post("/", errorMiddleware(submissionHandler.CreateSubmission))
 		})
 		//rooms
 		/*r.Route("/rooms", func(r chi.Router) {
