@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"net/http"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -14,6 +13,7 @@ import (
 	"kadane.xyz/go-backend/v2/internal/errors"
 	"kadane.xyz/go-backend/v2/internal/judge0"
 	"kadane.xyz/go-backend/v2/internal/judge0tmpl"
+	"kadane.xyz/go-backend/v2/internal/middleware"
 )
 
 type AdminHandler struct {
@@ -167,10 +167,17 @@ func ProblemRunRequestValidate(runRequest domain.AdminProblemRunRequest) error {
 
 // GET: /admin/validate
 func (h *AdminHandler) GetAdminValidation(w http.ResponseWriter, r *http.Request) error {
-	admin := httputils.GetClientAdmin(w, r)
+	claims, err := middleware.GetClientClaims(r.Context())
+	if err != nil {
+		return err
+	}
+
+	if !claims.Admin {
+		return nil
+	}
 
 	response := domain.AdminValidation{
-		IsAdmin: admin,
+		IsAdmin: claims.Admin,
 	}
 
 	httputils.SendJSONResponse(w, http.StatusOK, response)
@@ -283,18 +290,13 @@ func (h *AdminHandler) CreateAdminProblem(w http.ResponseWriter, r *http.Request
 	}
 
 	// Create problem in database if all test cases pass
-	problemId, dbErr := h.problemRepo.CreateProblem(ctx, request)
+	problemId, dbErr := h.problemRepo.CreateProblem(r.Context(), request)
 	if dbErr != nil {
 		return errors.HandleDatabaseError(nil, "create problem")
 	}
 
-	problemIdInt, err := strconv.ParseInt(problemId.ProblemID, 10, 32)
-	if err != nil {
-		return errors.NewApiError(err, "Failed to convert problem id to integer", http.StatusBadRequest)
-	}
-
 	response := domain.CreateAdminProblemData{
-		ProblemID: int32(problemIdInt),
+		ProblemID: problemId.Id,
 	}
 
 	httputils.SendJSONResponse(w, http.StatusCreated, response)
