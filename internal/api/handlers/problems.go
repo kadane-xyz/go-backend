@@ -12,6 +12,7 @@ import (
 	"kadane.xyz/go-backend/v2/internal/database/sql"
 	"kadane.xyz/go-backend/v2/internal/domain"
 	"kadane.xyz/go-backend/v2/internal/errors"
+	"kadane.xyz/go-backend/v2/internal/middleware"
 )
 
 type ProblemHandler struct {
@@ -148,7 +149,7 @@ func (h *ProblemHandler) GetProblems(ctx context.Context, w http.ResponseWriter,
 }
 
 func ValidateGetProblem(r *http.Request) (*domain.ProblemGetParams, error) {
-	userId, err := httputils.GetClientUserID(r)
+	claims, err := middleware.GetClientClaims(r.Context())
 	if err != nil {
 		return nil, err
 	}
@@ -159,8 +160,8 @@ func ValidateGetProblem(r *http.Request) (*domain.ProblemGetParams, error) {
 		return nil, err
 	}
 
-	return sql.GetProblemParams{
-		UserID:    userId,
+	return &domain.ProblemGetParams{
+		UserID:    claims.UserID,
 		ProblemID: int32(problemIdInt),
 	}, nil
 }
@@ -183,7 +184,7 @@ func (h *ProblemHandler) GetProblem(w http.ResponseWriter, r *http.Request) erro
 		ID:            problem.ID,
 		Title:         problem.Title,
 		FunctionName:  problem.FunctionName,
-		Description:   problem.Description,
+		Description:   *problem.Description,
 		Tags:          problem.Tags,
 		Difficulty:    problem.Difficulty,
 		Code:          codeMap,

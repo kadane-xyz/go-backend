@@ -10,6 +10,7 @@ import (
 	"kadane.xyz/go-backend/v2/internal/database/sql"
 	"kadane.xyz/go-backend/v2/internal/domain"
 	"kadane.xyz/go-backend/v2/internal/errors"
+	"kadane.xyz/go-backend/v2/internal/middleware"
 )
 
 type CommentHandler struct {
@@ -24,7 +25,7 @@ func NewCommentHandler(repo *repository.SQLCommentsRepository, solutionsRepo *re
 // GET: /comments
 func (h *CommentHandler) GetComments(w http.ResponseWriter, r *http.Request) error {
 	// Get userid from middleware context
-	userId, err := httputils.GetClientUserID(w, r)
+	claims, err := middleware.GetClientClaims(r.Context())
 	if err != nil {
 		return err
 	}
@@ -62,7 +63,7 @@ func (h *CommentHandler) GetComments(w http.ResponseWriter, r *http.Request) err
 
 	dbComments, err := h.repo.GetCommentsSorted(r.Context(), sql.GetCommentsSortedParams{
 		SolutionID:    id,
-		UserID:        userId,
+		UserID:        claims.UserID,
 		Sort:          sort,
 		SortDirection: order,
 	})
@@ -120,7 +121,7 @@ func (h *CommentHandler) GetComments(w http.ResponseWriter, r *http.Request) err
 // POST: /comments
 func (h *CommentHandler) CreateComment(w http.ResponseWriter, r *http.Request) error {
 	// Get userid from middleware context
-	userId, err := httputils.GetClientUserID(w, r)
+	claims, err := middleware.GetClientClaims(r.Context())
 	if err != nil {
 		return err
 	}
@@ -145,7 +146,7 @@ func (h *CommentHandler) CreateComment(w http.ResponseWriter, r *http.Request) e
 	_, err = h.repo.CreateComment(r.Context(), domain.CommentCreateParams{
 		SolutionID: comment.SolutionId,
 		ParentID:   comment.ParentId,
-		UserID:     userId,
+		UserID:     claims.UserID,
 		Body:       comment.Body,
 	})
 	if err != nil {
@@ -160,7 +161,7 @@ func (h *CommentHandler) CreateComment(w http.ResponseWriter, r *http.Request) e
 // GET: /comments/{commentId}
 func (h *CommentHandler) GetComment(w http.ResponseWriter, r *http.Request) error {
 	// Get userid from middleware context
-	userId, err := httputils.GetClientUserID(w, r)
+	claims, err := middleware.GetClientClaims(r.Context())
 	if err != nil {
 		return err
 	}
@@ -177,7 +178,7 @@ func (h *CommentHandler) GetComment(w http.ResponseWriter, r *http.Request) erro
 
 	comment, err := h.repo.GetComment(r.Context(), sql.GetCommentParams{
 		ID:     id,
-		UserID: userId,
+		UserID: claims.UserID,
 	})
 	if err != nil {
 		httputils.EmptyDataResponse(w)
@@ -192,7 +193,7 @@ func (h *CommentHandler) GetComment(w http.ResponseWriter, r *http.Request) erro
 // PUT: /comments/{commentId}
 func (h *CommentHandler) UpdateComment(w http.ResponseWriter, r *http.Request) error {
 	// Get userid from middleware context
-	userId, err := httputils.GetClientUserID(w, r)
+	claims, err := middleware.GetClientClaims(r.Context())
 	if err != nil {
 		return err
 	}
@@ -220,7 +221,7 @@ func (h *CommentHandler) UpdateComment(w http.ResponseWriter, r *http.Request) e
 	_, err = h.repo.UpdateComment(r.Context(), sql.UpdateCommentParams{
 		ID:     id,
 		Body:   comment.Body,
-		UserID: userId, // Check if the user is the owner of the comment
+		UserID: claims.UserID, // Check if the user is the owner of the comment
 	})
 	if err != nil {
 		return errors.HandleDatabaseError(err, "comment")
@@ -234,7 +235,7 @@ func (h *CommentHandler) UpdateComment(w http.ResponseWriter, r *http.Request) e
 // DELETE: /comments/{commentId}
 func (h *CommentHandler) DeleteComment(w http.ResponseWriter, r *http.Request) error {
 	// Get userid from middleware context
-	userId, err := httputils.GetClientUserID(w, r)
+	claims, err := middleware.GetClientClaims(r.Context())
 	if err != nil {
 		return err
 	}
@@ -251,7 +252,7 @@ func (h *CommentHandler) DeleteComment(w http.ResponseWriter, r *http.Request) e
 
 	err = h.repo.DeleteComment(r.Context(), sql.DeleteCommentParams{
 		ID:     id,
-		UserID: userId, // Check if the user is the owner of the comment
+		UserID: claims.UserID, // Check if the user is the owner of the comment
 	})
 	if err != nil {
 		return errors.HandleDatabaseError(err, "Failed to delete comment")
@@ -265,7 +266,7 @@ func (h *CommentHandler) DeleteComment(w http.ResponseWriter, r *http.Request) e
 // PATCH: /{commentId}/vote
 func (h *CommentHandler) VoteComment(w http.ResponseWriter, r *http.Request) error {
 	// Get userid from middleware context
-	userId, err := httputils.GetClientUserID(w, r)
+	claims, err := middleware.GetClientClaims(r.Context())
 	if err != nil {
 		return err
 	}
@@ -298,7 +299,7 @@ func (h *CommentHandler) VoteComment(w http.ResponseWriter, r *http.Request) err
 	}
 
 	err = h.repo.VoteComment(r.Context(), sql.VoteCommentParams{
-		UserID:    userId,
+		UserID:    claims.UserID,
 		CommentID: id,
 		Vote:      sql.VoteType(req.Vote),
 	})

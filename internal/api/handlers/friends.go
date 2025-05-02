@@ -9,6 +9,7 @@ import (
 	"kadane.xyz/go-backend/v2/internal/database/sql"
 	"kadane.xyz/go-backend/v2/internal/domain"
 	"kadane.xyz/go-backend/v2/internal/errors"
+	"kadane.xyz/go-backend/v2/internal/middleware"
 )
 
 type FriendHandler struct {
@@ -22,16 +23,16 @@ func NewFriendHandler(repo repository.FriendRepository, accountRepo repository.A
 
 // GET: /friends
 // GetFriends gets all friends
-func (h *FriendHandler) GetFriends(w http.ResponseWriter, r *http.Request) {
-	userId, err := httputils.GetClientUserID(w, r)
+func (h *FriendHandler) GetFriends(w http.ResponseWriter, r *http.Request) error {
+	claims, err := middleware.GetClientClaims(r.Context())
 	if err != nil {
-		return
+		return err
 	}
 
-	friends, err := h.repo.GetFriends(r.Context(), userId)
+	friends, err := h.repo.GetFriends(r.Context(), claims.UserID)
 	if err != nil {
 		httputils.EmptyDataArrayResponse(w)
-		return
+		return nil
 	}
 
 	friendsResponseData := []domain.Friend{}
@@ -56,7 +57,7 @@ func (h *FriendHandler) GetFriends(w http.ResponseWriter, r *http.Request) {
 // POST: /friends
 // CreateFriendRequest creates a friend request
 func (h *FriendHandler) CreateFriendRequest(w http.ResponseWriter, r *http.Request) error {
-	userId, err := httputils.GetClientUserID(w, r)
+	claims, err := middleware.GetClientClaims(r.Context())
 	if err != nil {
 		return err
 	}
@@ -72,7 +73,7 @@ func (h *FriendHandler) CreateFriendRequest(w http.ResponseWriter, r *http.Reque
 
 	// Get current user's username
 	currentUser, err := h.accountRepo.GetAccount(r.Context(), sql.GetAccountParams{
-		ID:                userId,
+		ID:                claims.UserID,
 		IncludeAttributes: false,
 		UsernamesFilter:   []string{},
 		LocationsFilter:   []string{},
@@ -90,7 +91,7 @@ func (h *FriendHandler) CreateFriendRequest(w http.ResponseWriter, r *http.Reque
 
 	// Check if the friend request already exists
 	friendRequestStatus, err := h.repo.GetFriendRequestStatus(r.Context(), sql.GetFriendRequestStatusParams{
-		UserID:     userId,
+		UserID:     claims.UserID,
 		FriendName: friendRequest.FriendName,
 	})
 	if friendRequestStatus != nil {
@@ -98,7 +99,7 @@ func (h *FriendHandler) CreateFriendRequest(w http.ResponseWriter, r *http.Reque
 	}
 
 	err = h.repo.CreateFriendRequest(r.Context(), sql.CreateFriendRequestParams{
-		UserID:     userId,
+		UserID:     claims.UserID,
 		FriendName: friendRequest.FriendName,
 	})
 	if err != nil {
@@ -112,16 +113,16 @@ func (h *FriendHandler) CreateFriendRequest(w http.ResponseWriter, r *http.Reque
 
 // GET: /friends/requests/sent
 // GetFriendRequestsSent gets all friend requests sent
-func (h *FriendHandler) GetFriendRequestsSent(w http.ResponseWriter, r *http.Request) {
-	userId, err := httputils.GetClientUserID(w, r)
+func (h *FriendHandler) GetFriendRequestsSent(w http.ResponseWriter, r *http.Request) error {
+	claims, err := middleware.GetClientClaims(r.Context())
 	if err != nil {
-		return
+		return err
 	}
 
-	friendRequests, err := h.repo.GetFriendRequestsSent(r.Context(), userId)
+	friendRequests, err := h.repo.GetFriendRequestsSent(r.Context(), claims.UserID)
 	if err != nil {
 		httputils.EmptyDataArrayResponse(w)
-		return
+		return err
 	}
 
 	friendRequestsResponseData := []domain.FriendRequest{}
@@ -141,17 +142,19 @@ func (h *FriendHandler) GetFriendRequestsSent(w http.ResponseWriter, r *http.Req
 	}
 
 	httputils.SendJSONResponse(w, http.StatusOK, friendRequestsResponse)
+
+	return nil
 }
 
 // GET: /friends/requests/received
 // GetFriendRequestsReceived gets all friend requests received
 func (h *FriendHandler) GetFriendRequestsReceived(w http.ResponseWriter, r *http.Request) error {
-	userId, err := httputils.GetClientUserID(w, r)
+	claims, err := middleware.GetClientClaims(r.Context())
 	if err != nil {
 		return err
 	}
 
-	friendRequests, err := h.repo.GetFriendRequestReceived(r.Context(), userId)
+	friendRequests, err := h.repo.GetFriendRequestReceived(r.Context(), claims.UserID)
 	if err != nil {
 		httputils.EmptyDataArrayResponse(w)
 		return err
@@ -165,7 +168,7 @@ func (h *FriendHandler) GetFriendRequestsReceived(w http.ResponseWriter, r *http
 // POST: /friends/requests/accept
 // AcceptFriendRequest accepts a friend request
 func (h *FriendHandler) AcceptFriendRequest(w http.ResponseWriter, r *http.Request) error {
-	userId, err := httputils.GetClientUserID(w, r)
+	claims, err := middleware.GetClientClaims(r.Context())
 	if err != nil {
 		return err
 	}
@@ -176,7 +179,7 @@ func (h *FriendHandler) AcceptFriendRequest(w http.ResponseWriter, r *http.Reque
 	}
 
 	err = h.repo.AcceptFriendRequest(r.Context(), sql.AcceptFriendRequestParams{
-		UserID:     userId,
+		UserID:     claims.UserID,
 		FriendName: friendRequest.FriendName,
 	})
 	if err != nil {
@@ -191,7 +194,7 @@ func (h *FriendHandler) AcceptFriendRequest(w http.ResponseWriter, r *http.Reque
 // POST: /friends/requests/block
 // BlockFriendRequest blocks a friend request
 func (h *FriendHandler) BlockFriendRequest(w http.ResponseWriter, r *http.Request) error {
-	userId, err := httputils.GetClientUserID(w, r)
+	claims, err := middleware.GetClientClaims(r.Context())
 	if err != nil {
 		return err
 	}
@@ -202,7 +205,7 @@ func (h *FriendHandler) BlockFriendRequest(w http.ResponseWriter, r *http.Reques
 	}
 
 	err = h.repo.BlockFriend(r.Context(), sql.BlockFriendParams{
-		UserID:     userId,
+		UserID:     claims.UserID,
 		FriendName: friendRequest.FriendName,
 	})
 	if err != nil {
@@ -217,7 +220,7 @@ func (h *FriendHandler) BlockFriendRequest(w http.ResponseWriter, r *http.Reques
 // POST: /friends/requests/unblock
 // UnblockFriendRequest unblocks a friend request
 func (h *FriendHandler) UnblockFriendRequest(w http.ResponseWriter, r *http.Request) error {
-	userId, err := httputils.GetClientUserID(w, r)
+	claims, err := middleware.GetClientClaims(r.Context())
 	if err != nil {
 		return err
 	}
@@ -228,7 +231,7 @@ func (h *FriendHandler) UnblockFriendRequest(w http.ResponseWriter, r *http.Requ
 	}
 
 	err = h.repo.UnblockFriend(r.Context(), sql.UnblockFriendParams{
-		UserID:     userId,
+		UserID:     claims.UserID,
 		FriendName: friendRequest.FriendName,
 	})
 	if err != nil {
@@ -243,7 +246,7 @@ func (h *FriendHandler) UnblockFriendRequest(w http.ResponseWriter, r *http.Requ
 // DELETE: /friends or /friends/requests/deny
 // DeleteFriend deletes a friend request or a friend
 func (h *FriendHandler) DeleteFriend(w http.ResponseWriter, r *http.Request) error {
-	userId, err := httputils.GetClientUserID(w, r)
+	claims, err := middleware.GetClientClaims(r.Context())
 	if err != nil {
 		return err
 	}
@@ -254,7 +257,7 @@ func (h *FriendHandler) DeleteFriend(w http.ResponseWriter, r *http.Request) err
 	}
 
 	err = h.repo.DeleteFriendship(r.Context(), sql.DeleteFriendshipParams{
-		UserID:     userId,
+		UserID:     claims.UserID,
 		FriendName: username,
 	})
 	if err != nil {
@@ -296,7 +299,7 @@ func (h *FriendHandler) GetFriendsUsername(w http.ResponseWriter, r *http.Reques
 // DELETE: /friends/requests
 // DeleteFriendRequest deletes a friend request
 func (h *FriendHandler) DeleteFriendRequest(w http.ResponseWriter, r *http.Request) error {
-	userId, err := httputils.GetClientUserID(w, r)
+	claims, err := middleware.GetClientClaims(r.Context())
 	if err != nil {
 		return err
 	}
@@ -307,7 +310,7 @@ func (h *FriendHandler) DeleteFriendRequest(w http.ResponseWriter, r *http.Reque
 	}
 
 	err = h.repo.DeleteFriendship(r.Context(), sql.DeleteFriendshipParams{
-		UserID:     userId,
+		UserID:     claims.UserID,
 		FriendName: username,
 	})
 	if err != nil {

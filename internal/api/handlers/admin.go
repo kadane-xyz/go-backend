@@ -283,18 +283,18 @@ func (h *AdminHandler) CreateAdminProblem(w http.ResponseWriter, r *http.Request
 	}
 
 	// Create problem in database if all test cases pass
-	problemID, dbErr := h.problemRepo.CreateProblem(ctx, request)
+	problemId, dbErr := h.problemRepo.CreateProblem(ctx, request)
 	if dbErr != nil {
 		return errors.HandleDatabaseError(nil, "create problem")
 	}
 
-	problemIDInt, err := strconv.ParseInt(problemID.ProblemID, 10, 32)
+	problemIdInt, err := strconv.ParseInt(problemId.ProblemID, 10, 32)
 	if err != nil {
 		return errors.NewApiError(err, "Failed to convert problem id to integer", http.StatusBadRequest)
 	}
 
 	response := domain.CreateAdminProblemData{
-		ProblemID: int32(problemIDInt),
+		ProblemID: int32(problemIdInt),
 	}
 
 	httputils.SendJSONResponse(w, http.StatusCreated, response)

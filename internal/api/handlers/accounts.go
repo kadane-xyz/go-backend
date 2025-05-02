@@ -554,7 +554,7 @@ func (h *AccountHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) e
 
 // GET: /accounts/username
 func (h *AccountHandler) GetAccountByUsername(w http.ResponseWriter, r *http.Request) error {
-	userID, err := httputils.GetClientUserID(w, r)
+	claims, err := middleware.GetClientClaims(r.Context())
 	if err != nil {
 		return err
 	}
@@ -572,7 +572,7 @@ func (h *AccountHandler) GetAccountByUsername(w http.ResponseWriter, r *http.Req
 	// check if account exists
 	account, err := h.repo.GetAccountByUsername(r.Context(), sql.GetAccountByUsernameParams{
 		Username:          username,
-		UserID:            userID,
+		UserID:            claims.UserID,
 		IncludeAttributes: attributes == "true",
 	})
 	if err != nil {
@@ -587,13 +587,13 @@ func (h *AccountHandler) GetAccountByUsername(w http.ResponseWriter, r *http.Req
 
 // GET: /accounts/validate
 func (h *AccountHandler) GetAccountValidation(w http.ResponseWriter, r *http.Request) error {
-	accountPlan, err := httputils.GetClientPlan(w, r)
+	claims, err := middleware.GetClientClaims(r.Context())
 	if err != nil {
 		return err
 	}
 
 	response := domain.AccountValidation{
-		Plan: accountPlan,
+		Plan: claims.Plan,
 	}
 
 	httputils.SendJSONDataResponse(w, http.StatusOK, response)

@@ -363,7 +363,7 @@ func (h *SolutionsHandler) VoteSolution(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if req.Vote == "" {
-		return errors.SendError(w, http.StatusBadRequest, "Vote is required")
+		return errors.NewApiError(nil, "Vote is required", http.StatusBadRequest)
 	}
 
 	// Check if the solution exists

@@ -14,6 +14,7 @@ import (
 	"kadane.xyz/go-backend/v2/internal/errors"
 	"kadane.xyz/go-backend/v2/internal/judge0"
 	"kadane.xyz/go-backend/v2/internal/judge0tmpl"
+	"kadane.xyz/go-backend/v2/internal/middleware"
 )
 
 type RunHandler struct {
@@ -288,7 +289,7 @@ func (h *RunHandler) ExecuteCodeRun(r *http.Request, userId string, runRequest d
 
 func (h *RunHandler) CreateRunRoute(w http.ResponseWriter, r *http.Request) error {
 	// Get userid from middleware context
-	userId, err := httputils.GetClientUserID(w, r)
+	claims, err := middleware.GetClientClaims(r.Context())
 	if err != nil {
 		return err
 	}
@@ -299,7 +300,7 @@ func (h *RunHandler) CreateRunRoute(w http.ResponseWriter, r *http.Request) erro
 		return errors.NewApiError(nil, "validation", http.StatusBadRequest)
 	}
 
-	response, err := h.ExecuteCodeRun(r, userId, body)
+	response, err := h.ExecuteCodeRun(r, claims.UserID, body)
 	if err != nil {
 		return errors.NewAppError(err, "execute code run", http.StatusInternalServerError)
 	}

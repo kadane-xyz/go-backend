@@ -18,6 +18,7 @@ import (
 	"kadane.xyz/go-backend/v2/internal/errors"
 	"kadane.xyz/go-backend/v2/internal/judge0"
 	"kadane.xyz/go-backend/v2/internal/judge0tmpl"
+	"kadane.xyz/go-backend/v2/internal/middleware"
 )
 
 type SubmissionHandler struct {
@@ -50,7 +51,7 @@ func ValidateSubmissionRequest(request domain.SubmissionRequest) *errors.ApiErro
 }
 
 // FetchProblemAndTestCases retrieves problem details and test cases
-func (h *SubmissionHandler) FetchProblemAndTestCases(ctx context.Context, problemID int32, userID string) (sql.GetProblemRow, []TestCase, *errors.ApiError) {
+func (h *SubmissionHandler) FetchProblemAndTestCases(ctx context.Context, problemID int32, userID string) (sql.GetProblemRow, []TestCase, error) {
 	// Get problem details
 	problem, err := h.repo.GetProblem(ctx, sql.GetProblemParams{
 		ProblemID: problemID,
@@ -130,7 +131,7 @@ func (h *SubmissionHandler) PrepareSubmissions(request domain.SubmissionRequest,
 	}
 
 	if len(submissions) == 0 {
-		return nil, errors.NewApiError(nil, http.StatusBadRequest, "Failed to create submissions")
+		return nil, errors.NewApiError(nil, "Failed to create submissions", http.StatusInternalServerError)
 	}
 
 	return submissions, nil
@@ -245,11 +246,11 @@ func (h *SubmissionHandler) ProcessSubmission(ctx context.Context, request domai
 	// Submit to judge0
 	submissionResponses, err := h.judge0client.CreateSubmissionBatchAndWait(submissions)
 	if err != nil {
-		return nil, NewError(http.StatusInternalServerError, "Failed to create submission")
+		return nil, errors.NewAppError(error, "Failed to create submission", http.StatusInternalServerError)
 	}
 
 	if len(submissionResponses) == 0 {
-		return nil, NewError(http.StatusBadRequest, "Failed to create submissions")
+		return nil, errors.NewApiError(nil, "Failed to create submissions", http.StatusBadRequest)
 	}
 
 	// Evaluate the test results
@@ -258,7 +259,7 @@ func (h *SubmissionHandler) ProcessSubmission(ctx context.Context, request domai
 
 	// Verify passed test cases count
 	if passedTestCases > totalTestCases {
-		return nil, NewError(http.StatusInternalServerError, "Passed test cases greater than total test cases")
+		return nil, errors.NewAppError(nil, "Passed test cases greater than total test cases", http.StatusInternalServerError)
 	}
 
 	// Create the averaged submission
@@ -293,120 +294,115 @@ func (h *SubmissionHandler) ProcessSubmission(ctx context.Context, request domai
 		failedTestCase, passedTestCases, totalTestCases,
 		lastLanguageID, lastLanguageName, submissionId)
 	if err != nil {
-		return nil, NewError(http.StatusInternalServerError, "Failed to create submission")
+		return nil, errors.HandleDatabaseError(err, "Failed to create submission")
 	}
 
 	// Save to database
 	_, err = h.repo.CreateSubmission(ctx, dbSubmission)
 	if err != nil {
-		return nil, NewError(http.StatusInternalServerError, "Failed to create submission")
+		return nil, errors.HandleDatabaseError(err, "create submission")
 	}
 
 	// Prepare response
 	language := judge0.LanguageIDToLanguage(int(lastLanguageID))
 
-	response := domain.SubmissionResponse{
-		Data: domain.Submission{
-			Id:              submissionId.String(),
-			Stdout:          avgSubmission.Stdout,
-			Time:            avgSubmission.Time,
-			Memory:          avgSubmission.Memory,
-			Stderr:          avgSubmission.Stderr,
-			CompileOutput:   avgSubmission.CompileOutput,
-			Message:         avgSubmission.Message,
-			Status:          avgSubmission.Status,
-			Language:        language,
-			AccountID:       userId,
-			SubmittedCode:   request.SourceCode,
-			SubmittedStdin:  "",
-			ProblemID:       request.ProblemID,
-			CreatedAt:       time.Now(),
-			FailedTestCase:  failedTestCase,
-			PassedTestCases: passedTestCases,
-			TotalTestCases:  totalTestCases,
-		},
+	response := domain.Submission{
+		Id:              submissionId.String(),
+		Stdout:          avgSubmission.Stdout,
+		Time:            avgSubmission.Time,
+		Memory:          avgSubmission.Memory,
+		Stderr:          avgSubmission.Stderr,
+		CompileOutput:   avgSubmission.CompileOutput,
+		Message:         avgSubmission.Message,
+		Status:          avgSubmission.Status,
+		Language:        language,
+		AccountID:       userId,
+		SubmittedCode:   request.SourceCode,
+		SubmittedStdin:  "",
+		ProblemID:       request.ProblemID,
+		CreatedAt:       time.Now(),
+		FailedTestCase:  failedTestCase,
+		PassedTestCases: passedTestCases,
+		TotalTestCases:  totalTestCases,
 	}
 
 	return &response, nil
 }
 
-func (h *SubmissionHandler) CreateSubmissionRoute(w http.ResponseWriter, r *http.Request) {
+func (h *SubmissionHandler) CreateSubmissionRoute(w http.ResponseWriter, r *http.Request) error {
 	// Get userid from middleware context
-	userId, err := httputils.GetClientUserID(w, r)
+	claims, err := middleware.GetClientClaims(r.Context())
 	if err != nil {
-		return
+		return err
 	}
 
-	request, apiErr := httputils.DecodeJSONRequest[domain.SubmissionRequest](r)
-	if apiErr != nil {
-		SendError(w, apiErr.StatusCode(), apiErr.Message())
-		return
+	request, err := httputils.DecodeJSONRequest[domain.SubmissionRequest](r)
+	if err != nil {
+		return errors.NewApiError(err, "validation", http.StatusBadRequest)
 	}
 
-	apiErr = ValidateSubmissionRequest(request)
-	if apiErr != nil {
-		SendError(w, apiErr.StatusCode(), apiErr.Message())
-		return
+	err = ValidateSubmissionRequest(request)
+	if err != nil {
+		return errors.NewApiError(err, "validation", http.StatusBadRequest)
 	}
 
-	response, apiErr := h.ProcessSubmission(r.Context(), request, userId)
+	response, apiErr := h.ProcessSubmission(r.Context(), request, claims.UserID)
 	if apiErr != nil {
-		SendError(w, apiErr.StatusCode(), apiErr.Message())
-		return
+		return errors.NewAppError(err, "process submission", http.StatusInternalServerError)
 	}
 
 	httputils.SendJSONResponse(w, http.StatusOK, response)
+
+	return nil
 }
 
-func (h *SubmissionHandler) GetSubmission(w http.ResponseWriter, r *http.Request) {
+func (h *SubmissionHandler) GetSubmission(w http.ResponseWriter, r *http.Request) error {
 	// Get userid from middleware context
-	userId, err := httputils.GetClientUserID(w, r)
+	claims, err := middleware.GetClientClaims(r.Context())
 	if err != nil {
-		return
+		return err
 	}
 
 	token := chi.URLParam(r, "token")
 	if token == "" {
-		SendError(w, http.StatusBadRequest, "Missing submission ID")
-		return
+		return errors.NewApiError(nil, "Missing submission ID", http.StatusBadRequest)
 	}
 
 	idUUID, err := uuid.Parse(token)
 	if err != nil {
-		SendError(w, http.StatusBadRequest, "Invalid submission ID")
-		return
+		return errors.NewApiError(err, "Invalid submission ID", http.StatusBadRequest)
 	}
 
 	result, err := h.repo.GetSubmissionByID(r.Context(), sql.GetSubmissionByIDParams{
 		ID:     pgtype.UUID{Bytes: idUUID, Valid: true},
-		UserID: userId,
+		UserID: claims.UserID,
 	})
 	if err != nil {
 		httputils.EmptyDataResponse(w) // { data: {} }
-		return
+		return nil
 	}
 
 	httputils.SendJSONResponse(w, http.StatusOK, result)
+
+	return nil
 }
 
-func (h *SubmissionHandler) GetSubmissionsByUsername(w http.ResponseWriter, r *http.Request) {
+func (h *SubmissionHandler) GetSubmissionsByUsername(w http.ResponseWriter, r *http.Request) error {
 	// Get userid from middleware context
-	userId, err := httputils.GetClientUserID(w, r)
+	claims, err := middleware.GetClientClaims(r.Context())
 	if err != nil {
-		return
+		return err
 	}
 
 	username := chi.URLParam(r, "username")
 	if username == "" {
-		errors.SendError(w, http.StatusBadRequest, "Missing username")
-		return
+		return errors.NewApiError(nil, "Missing username", http.StatusBadRequest)
 	}
 
 	// Extract and validate query parameters
-	queryParams, apiErr := ExtractSubmissionQueryParams(r)
-	if apiErr != nil {
-		errors.SendError(w, apiErr.StatusCode(), apiErr.Message())
-		return
+	queryParams, err := ExtractSubmissionQueryParams(r)
+	if err != nil {
+		return errors.NewApiError(err, "validation", http.StatusBadRequest)
 	}
 
 	// Get submissions from database
@@ -416,21 +412,22 @@ func (h *SubmissionHandler) GetSubmissionsByUsername(w http.ResponseWriter, r *h
 		Sort:          queryParams.sort,
 		SortDirection: queryParams.order,
 		Status:        sql.SubmissionStatus(queryParams.status),
-		UserID:        userId,
+		UserID:        claims.UserID,
 	})
 	if err != nil {
 		httputils.EmptyDataArrayResponse(w) // { data: [] }
-		return
+		return nil
 	}
 
 	// Transform database results to API response
-	submissionResults, apiErr := TransformSubmissionResults(submissions)
-	if apiErr != nil {
-		errors.SendError(w, apiErr.StatusCode(), apiErr.Message())
-		return
+	submissionResults, err := TransformSubmissionResults(submissions)
+	if err != nil {
+		return errors.NewAppError(err, "submission result error", http.StatusInternalServerError)
 	}
 
 	httputils.SendJSONResponse(w, http.StatusOK, submissionResults)
+
+	return nil
 }
 
 // QueryParams holds processed query parameters
@@ -443,7 +440,7 @@ type SubmissionQueryParams struct {
 
 // ExtractSubmissionQueryParams processes and validates query parameters
 // New helper function for FetchSubmissionsByUsername
-func ExtractSubmissionQueryParams(r *http.Request) (SubmissionQueryParams, *errors.ApiError) {
+func ExtractSubmissionQueryParams(r *http.Request) (SubmissionQueryParams, error) {
 	result := SubmissionQueryParams{}
 
 	// Process problem ID
@@ -516,7 +513,7 @@ func ExtractSubmissionQueryParams(r *http.Request) (SubmissionQueryParams, *erro
 }
 
 // TransformSubmissionResults converts database results to API response format
-func TransformSubmissionResults(submissions []sql.GetSubmissionsByUsernameRow) ([]domain.Submission, *errors.ApiError) {
+func TransformSubmissionResults(submissions []sql.GetSubmissionsByUsernameRow) ([]domain.Submission, error) {
 	submissionResults := make([]domain.Submission, 0, len(submissions))
 
 	for _, submission := range submissions {
@@ -525,7 +522,7 @@ func TransformSubmissionResults(submissions []sql.GetSubmissionsByUsernameRow) (
 
 		err := json.Unmarshal(submission.FailedTestCase, &submissionFailedTestCase)
 		if err != nil {
-			return nil, errors.NewApiError(nil, http.StatusInternalServerError, "Failed to unmarshal failed test case")
+			return nil, errors.NewAppError(err, "Failed to unmarshal failed test case", http.StatusInternalServerError)
 		}
 
 		submissionResults = append(submissionResults, domain.Submission{
