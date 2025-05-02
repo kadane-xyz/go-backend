@@ -242,16 +242,15 @@ func (h *FriendHandler) UnblockFriendRequest(w http.ResponseWriter, r *http.Requ
 
 // DELETE: /friends or /friends/requests/deny
 // DeleteFriend deletes a friend request or a friend
-func (h *FriendHandler) DeleteFriend(w http.ResponseWriter, r *http.Request) {
+func (h *FriendHandler) DeleteFriend(w http.ResponseWriter, r *http.Request) error {
 	userId, err := httputils.GetClientUserID(w, r)
 	if err != nil {
-		return
+		return err
 	}
 
 	username := chi.URLParam(r, "username")
 	if username == "" {
-		errors.SendError(w, http.StatusBadRequest, "Missing username")
-		return
+		return errors.NewApiError(nil, "Missing username", http.StatusBadRequest)
 	}
 
 	err = h.repo.DeleteFriendship(r.Context(), sql.DeleteFriendshipParams{
@@ -259,20 +258,20 @@ func (h *FriendHandler) DeleteFriend(w http.ResponseWriter, r *http.Request) {
 		FriendName: username,
 	})
 	if err != nil {
-		errors.SendError(w, http.StatusInternalServerError, "Error deleting friend/friend request")
-		return
+		return errors.HandleDatabaseError(err, "delete friendship")
 	}
 
 	httputils.SendJSONResponse(w, http.StatusNoContent, nil)
+
+	return nil
 }
 
 // GET: /friends/username/{username}
 // GetFriendsUsername gets all friends by username
-func (h *FriendHandler) GetFriendsUsername(w http.ResponseWriter, r *http.Request) {
+func (h *FriendHandler) GetFriendsUsername(w http.ResponseWriter, r *http.Request) error {
 	username := chi.URLParam(r, "username")
 	if username == "" {
-		errors.SendError(w, http.StatusBadRequest, "Missing username")
-		return
+		return errors.NewApiError(nil, "Missing username", http.StatusBadRequest)
 	}
 
 	_, err := h.accountRepo.GetAccountByUsername(r.Context(), sql.GetAccountByUsernameParams{
@@ -280,31 +279,31 @@ func (h *FriendHandler) GetFriendsUsername(w http.ResponseWriter, r *http.Reques
 		IncludeAttributes: false,
 	})
 	if err != nil {
-		errors.SendError(w, http.StatusNotFound, "User not found")
-		return
+		return errors.HandleDatabaseError(w, "get account by username")
 	}
 
 	friend, err := h.repo.GetFriendByUsername(r.Context(), username)
 	if err != nil {
 		httputils.EmptyDataArrayResponse(w)
-		return
+		return nil
 	}
 
 	httputils.SendJSONResponse(w, http.StatusOK, friend)
+
+	return nil
 }
 
 // DELETE: /friends/requests
 // DeleteFriendRequest deletes a friend request
-func (h *FriendHandler) DeleteFriendRequest(w http.ResponseWriter, r *http.Request) {
+func (h *FriendHandler) DeleteFriendRequest(w http.ResponseWriter, r *http.Request) error {
 	userId, err := httputils.GetClientUserID(w, r)
 	if err != nil {
-		return
+		return err
 	}
 
 	username := chi.URLParam(r, "username")
 	if username == "" {
-		errors.SendError(w, http.StatusBadRequest, "Missing username")
-		return
+		return errors.NewApiError(nil, "Missing username", http.StatusBadRequest)
 	}
 
 	err = h.repo.DeleteFriendship(r.Context(), sql.DeleteFriendshipParams{
@@ -312,9 +311,10 @@ func (h *FriendHandler) DeleteFriendRequest(w http.ResponseWriter, r *http.Reque
 		FriendName: username,
 	})
 	if err != nil {
-		errors.SendError(w, http.StatusInternalServerError, "Error deleting friend request")
-		return
+		return errors.HandleDatabaseError(err, "delete friendship")
 	}
 
 	httputils.SendJSONResponse(w, http.StatusNoContent, nil)
+
+	return nil
 }

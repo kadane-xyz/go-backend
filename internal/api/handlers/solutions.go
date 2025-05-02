@@ -25,21 +25,19 @@ func NewSolutionsHandler(solutionsRepo *repository.SolutionsRepository) *Solutio
 
 // GET: /solutions
 func (h *SolutionsHandler) GetSolutions(w http.ResponseWriter, r *http.Request) error {
-	userId, err := middleware.GetContextUserId(r.Context())
+	claims, err := middleware.GetClientClaims(r.Context())
 	if err != nil {
 		return err
 	}
 
 	problemId := r.URL.Query().Get("problemId")
 	if problemId == "" {
-		errors.SendError(w, http.StatusBadRequest, "Missing problemId for solutions retrieval")
-		return
+		return errors.NewApiError(nil, "Missing problemId for solutions retrieval", http.StatusBadRequest)
 	}
 
 	id, err := strconv.ParseInt(problemId, 10, 64)
 	if err != nil {
-		errors.SendError(w, http.StatusBadRequest, "Invalid problemId format for solutions retrieval")
-		return
+		return errors.NewApiError(err, "Invalid problemId format for solutions retrieval", http.StatusBadRequest)
 	}
 
 	titleSearch := r.URL.Query().Get("titleSearch")
@@ -100,22 +98,21 @@ func (h *SolutionsHandler) GetSolutions(w http.ResponseWriter, r *http.Request) 
 		Page:          page,
 		Sort:          sort,
 		SortDirection: order,
-		UserID:        userId,
+		UserID:        claims.UserID,
 	})
 	if err != nil {
 		httputils.EmptyDataArrayResponse(w) // { data: [] }
-		return
+		return nil
 	}
 
 	if len(solutions) == 0 {
 		httputils.EmptyDataArrayResponse(w) // { data: [] }
-		return
+		return nil
 	}
 
 	totalCount := solutions[0].TotalCount
 	if totalCount == 0 {
-		errors.SendError(w, http.StatusNotFound, "No solutions found")
-		return
+		return errors.NewAppError(nil, "No solutions found", http.StatusNotFound)
 	}
 
 	// Prepare response
@@ -165,73 +162,69 @@ func (h *SolutionsHandler) GetSolutions(w http.ResponseWriter, r *http.Request) 
 
 	// Write solutionsJSON to response
 	httputils.SendJSONResponse(w, http.StatusOK, response)
+
+	return nil
 }
 
 // POST: /
 func (h *SolutionsHandler) CreateSolution(w http.ResponseWriter, r *http.Request) error {
-	userId, err := middleware.GetContextUserId(r.Context())
+	claims, err := middleware.GetClientClaims(r.Context())
 	if err != nil {
 		return err
 	}
 
-	solution, apiErr := httputils.DecodeJSONRequest[domain.CreateSolutionRequest](r)
-	if apiErr != nil {
-		errors.SendError(w, apiErr.Error.StatusCode, apiErr.Error.Message)
-		return
+	solution, err := httputils.DecodeJSONRequest[domain.CreateSolutionRequest](r)
+	if err != nil {
+		return err
 	}
 
 	if solution.Title == "" || solution.Body == "" || solution.ProblemId <= 0 {
-		errors.SendError(w, http.StatusBadRequest, "Missing required fields for solution creation")
-		return
+		return errors.NewApiError(nil, "Missing required fields for solution creation", http.StatusBadRequest)
 	}
 
 	// Insert solution into db
 	_, err = h.solutionsRepo.CreateSolution(r.Context(), sql.CreateSolutionParams{
-		UserID: pgtype.Text{
-			String: userId,
-			Valid:  true,
-		},
+		UserID:    &claims.UserID,
 		Title:     solution.Title,
 		Tags:      solution.Tags,
 		Body:      solution.Body,
 		ProblemID: pgtype.Int8{Int64: solution.ProblemId, Valid: true},
 	})
 	if err != nil {
-		errors.SendError(w, http.StatusInternalServerError, "Error creating solution in database")
-		return
+		return errors.HandleDatabaseError(err, "create solution")
 	}
 
 	// Write response
 	httputils.SendJSONResponse(w, http.StatusCreated, nil)
+
+	return nil
 }
 
 // GET: /{solutionId}
 func (h *SolutionsHandler) GetSolution(w http.ResponseWriter, r *http.Request) error {
-	userId, err := middleware.GetContextUserId(r.Context())
+	claims, err := middleware.GetClientClaims(r.Context())
 	if err != nil {
-		return
+		return err
 	}
 
 	solutionId := chi.URLParam(r, "solutionId")
 	if solutionId == "" {
-		errors.SendError(w, http.StatusBadRequest, "Missing solutionId for solution retrieval")
-		return
+		return errors.NewApiError(nil, "Missing solutionId for solution retrieval", http.StatusBadRequest)
 	}
 
 	id, err := strconv.ParseInt(solutionId, 10, 64)
 	if err != nil {
-		errors.SendError(w, http.StatusBadRequest, "Invalid solutionId format for solution retrieval")
-		return
+		return errors.NewApiError(err, "Invalid solutionId format for solution retrieval", http.StatusBadRequest)
 	}
 
 	// Get solutions from db by idPg
 	solution, err := h.solutionsRepo.GetSolution(r.Context(), sql.GetSolutionParams{
 		ID:     id,
-		UserID: userId,
+		UserID: claims.UserID,
 	})
 	if err != nil {
 		httputils.EmptyDataResponse(w) // { data: {} }
-		return
+		return nil
 	}
 
 	// If tags is nil, set it to an empty array
@@ -254,18 +247,16 @@ func (h *SolutionsHandler) GetSolution(w http.ResponseWriter, r *http.Request) e
 		Starred:         solution.Starred,
 	}
 
-	response := domain.SolutionResponse{
-		Data: solutionData,
-	}
-
 	// Write solutionsJSON to response
-	httputils.SendJSONResponse(w, http.StatusOK, response)
+	httputils.SendJSONDataResponse(w, http.StatusOK, solutionData)
+
+	return nil
 }
 
 // PUT: /{solutionId}
 func (h *SolutionsHandler) UpdateSolution(w http.ResponseWriter, r *http.Request) error {
 	// Get userid from middleware context
-	userId, err := middleware.GetContextUserId(r.Context())
+	claims, err := middleware.GetClientClaims(r.Context())
 	if err != nil {
 		return err
 	}
@@ -274,25 +265,21 @@ func (h *SolutionsHandler) UpdateSolution(w http.ResponseWriter, r *http.Request
 	solutionId := chi.URLParam(r, "solutionId")
 	// If problemId is empty, set idPg as NULL
 	if solutionId == "" {
-		errors.SendError(w, http.StatusBadRequest, "solutionId is required")
-		return
+		return errors.NewApiError(nil, "solutionId is required", http.StatusBadRequest)
 	}
 
 	id, err := strconv.ParseInt(solutionId, 10, 64)
 	if err != nil {
-		errors.SendError(w, http.StatusBadRequest, "solutionId must be an integer")
-		return
+		return errors.NewApiError(err, "solutionId must be an integer", http.StatusBadRequest)
 	}
 
-	solutionRequest, apiErr := httputils.DecodeJSONRequest[domain.UpdateSolutionRequest](r)
-	if apiErr != nil {
-		errors.SendError(w, apiErr.Error.StatusCode, apiErr.Error.Message)
-		return
+	solutionRequest, err := httputils.DecodeJSONRequest[domain.UpdateSolutionRequest](r)
+	if err != nil {
+		return err
 	}
 
 	if solutionRequest.Title == "" && solutionRequest.Body == "" && len(solutionRequest.Tags) > 0 {
-		errors.SendError(w, http.StatusBadRequest, "at least one field must be provided")
-		return
+		return errors.NewApiError(nil, "at least one field must be provided", http.StatusBadRequest)
 	}
 
 	solutionArgs := sql.UpdateSolutionParams{
@@ -300,24 +287,25 @@ func (h *SolutionsHandler) UpdateSolution(w http.ResponseWriter, r *http.Request
 		Title:  solutionRequest.Title,
 		Body:   solutionRequest.Body,
 		Tags:   solutionRequest.Tags,
-		UserID: &userId,
+		UserID: &claims.UserID,
 	}
 
 	// Get solutions from db by idPg
 	_, err = h.solutionsRepo.UpdateSolution(r.Context(), solutionArgs)
 	if err != nil {
-		errors.SendError(w, http.StatusInternalServerError, "error getting solutions")
-		return
+		return errors.HandleDatabaseError(err, "update solution")
 	}
 
 	// Write solutionsJSON to response
 	httputils.SendJSONResponse(w, http.StatusNoContent, nil)
+
+	return nil
 }
 
 // DELETE: /{solutionId}
 func (h *SolutionsHandler) DeleteSolution(w http.ResponseWriter, r *http.Request) error {
 	// Get userid from middleware context
-	userId, err := middleware.GetContextUserId(r.Context())
+	claims, err := middleware.GetClientClaims(r.Context())
 	if err != nil {
 		return err
 	}
@@ -326,34 +314,33 @@ func (h *SolutionsHandler) DeleteSolution(w http.ResponseWriter, r *http.Request
 	solutionId := chi.URLParam(r, "solutionId")
 	// If problemId is empty, set idPg as NULL
 	if solutionId == "" {
-		errors.SendError(w, http.StatusBadRequest, "solutionId is required")
-		return
+		return errors.NewApiError(nil, "solutionId is required", http.StatusBadRequest)
 	}
 
 	id, err := strconv.ParseInt(solutionId, 10, 64)
 	if err != nil {
-		errors.SendError(w, http.StatusBadRequest, "solutionId must be an integer")
-		return
+		return errors.NewApiError(err, "solutionId must be an integer", http.StatusBadRequest)
 	}
 
 	// Get solutions from db by idPg
 	err = h.solutionsRepo.DeleteSolution(r.Context(), sql.DeleteSolutionParams{
 		ID:     id,
-		UserID: pgtype.Text{String: userId, Valid: true},
+		UserID: &claims.UserID,
 	})
 	if err != nil {
-		errors.SendError(w, http.StatusInternalServerError, "error getting solutions")
-		return
+		return errors.HandleDatabaseError(err, "delete solution")
 	}
 
 	// Write solutionsJSON to response
 	httputils.SendJSONResponse(w, http.StatusNoContent, nil)
+
+	return nil
 }
 
 // PATCH: /{solutionId}/vote
 func (h *SolutionsHandler) VoteSolution(w http.ResponseWriter, r *http.Request) error {
 	// Get userid from middleware context
-	userId, err := middleware.GetContextUserId(r.Context())
+	claims, err := middleware.GetClientClaims(r.Context())
 	if err != nil {
 		return err
 	}
@@ -361,44 +348,40 @@ func (h *SolutionsHandler) VoteSolution(w http.ResponseWriter, r *http.Request) 
 	// Extract solutionId from URL parameters
 	solutionId := chi.URLParam(r, "solutionId")
 	if solutionId == "" {
-		errors.SendError(w, http.StatusBadRequest, "Missing solutionId for solution retrieval")
-		return
+		return errors.NewApiError(nil, "Missing solutionId for solution retrieval", http.StatusBadRequest)
 	}
 
 	id, err := strconv.ParseInt(solutionId, 10, 64)
 	if err != nil {
-		errors.SendError(w, http.StatusBadRequest, "Invalid solutionId format for solution retrieval")
-		return
+		return errors.NewApiError(err, "Invalid solutionId format for solution retrieval", http.StatusBadRequest)
 	}
 
 	// Decode the request body into VoteRequest struct
-	req, apiErr := httputils.DecodeJSONRequest[domain.VoteRequest](r)
-	if apiErr != nil {
-		errors.SendError(w, apiErr.Error.StatusCode, apiErr.Error.Message)
-		return
+	req, err := httputils.DecodeJSONRequest[domain.VoteRequest](r)
+	if err != nil {
+		return errors.NewApiError(err, "validation", http.StatusBadRequest)
 	}
 
 	if req.Vote == "" {
-		errors.SendError(w, http.StatusBadRequest, "Vote is required")
-		return
+		return errors.SendError(w, http.StatusBadRequest, "Vote is required")
 	}
 
 	// Check if the solution exists
 	_, err = h.solutionsRepo.GetSolutionById(r.Context(), id)
 	if err != nil {
-		errors.SendError(w, http.StatusBadRequest, "Solution not found")
-		return
+		return errors.HandleDatabaseError(err, "Solution not found")
 	}
 
 	err = h.solutionsRepo.VoteSolution(r.Context(), sql.VoteSolutionParams{
-		UserID:     userId,
+		UserID:     claims.UserID,
 		SolutionID: id,
 		Vote:       req.Vote,
 	})
 	if err != nil {
-		errors.SendError(w, http.StatusInternalServerError, "Error voting on solution")
-		return
+		return errors.HandleDatabaseError(err, "Error voting on solution")
 	}
 
 	httputils.SendJSONResponse(w, http.StatusNoContent, nil)
+
+	return nil
 }

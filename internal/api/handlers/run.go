@@ -80,52 +80,52 @@ func (h *RunHandler) AggregateTestResults(userId string, problemId int32, source
 
 // ValidateRunRequest validates the incoming run request
 // Renamed from RunRequestValidate to follow verb-noun convention
-func (h *RunHandler) ValidateRunRequest(w http.ResponseWriter, r *http.Request) (domain.RunRequest, *errors.ApiError) {
-	runRequest, apiErr := httputils.DecodeJSONRequest[domain.RunRequest](r)
-	if apiErr != nil {
-		return domain.RunRequest{}, apiErr
+func (h *RunHandler) ValidateRunRequest(w http.ResponseWriter, r *http.Request) (*domain.RunRequest, error) {
+	runRequest, err := httputils.DecodeJSONRequest[domain.RunRequest](r)
+	if err != nil {
+		return nil, err
 	}
 
 	if runRequest.ProblemID == 0 {
-		return domain.RunRequest{}, errors.NewApiError(nil, http.StatusBadRequest, "Missing problem ID")
+		return nil, errors.NewApiError(nil, "Missing problem ID", http.StatusBadRequest)
 	}
 
 	// Check if language is valid
 	if runRequest.Language != "" {
 		lang := string(sql.ProblemLanguage(runRequest.Language))
 		if runRequest.Language != lang {
-			return domain.RunRequest{}, errors.NewApiError(nil, http.StatusBadRequest, "Invalid language: "+runRequest.Language)
+			return nil, errors.NewApiError(nil, "Invalid language: "+runRequest.Language, http.StatusBadRequest)
 		}
 	}
 
 	if runRequest.SourceCode == "" {
-		return domain.RunRequest{}, errors.NewApiError(nil, http.StatusBadRequest, "Missing source code")
+		return nil, errors.NewApiError(nil, "Missing source code", http.StatusBadRequest)
 	}
 
-	return runRequest, nil
+	return &runRequest, nil
 }
 
 // FetchAndValidateProblem gets problem details and validates against request
-func (h *RunHandler) FetchAndValidateProblem(r *http.Request, userId string, runRequest domain.RunRequest) (sql.GetProblemRow, *errors.ApiError) {
+func (h *RunHandler) FetchAndValidateProblem(r *http.Request, userId string, runRequest domain.RunRequest) (*domain.Problem, error) {
 	// Get problem
 	problem, err := h.repo.GetProblem(sql.GetProblemParams{
 		ProblemID: int32(runRequest.ProblemID),
 		UserID:    userId,
 	})
 	if err != nil {
-		return sql.GetProblemRow{}, errors.NewApiError(err, http.StatusInternalServerError, "Failed to get problem")
+		return nil, errors.HandleDatabaseError(err, "get problem")
 	}
 
 	// Check if function name is valid
 	if !strings.Contains(runRequest.SourceCode, problem.FunctionName) {
-		return sql.GetProblemRow{}, errors.NewApiError(http.StatusBadRequest, "Correct function name: "+problem.FunctionName+" not found in "+runRequest.Language+" source code")
+		return nil, errors.NewApiError(http.StatusBadRequest, "Correct function name: "+problem.FunctionName+" not found in "+runRequest.Language+" source code")
 	}
 
-	return problem, nil
+	return &problem, nil
 }
 
 // PrepareJudge0Submissions creates submissions for Judge0 from test cases
-func (h *RunHandler) PrepareJudge0Submissions(runRequest domain.RunRequest, testCases []domain.TestCase, problem sql.GetProblemRow) ([]judge0.Submission, *errors.ApiError) {
+func (h *RunHandler) PrepareJudge0Submissions(runRequest domain.RunRequest, testCases []domain.TestCase, problem sql.GetProblemRow) ([]judge0.Submission, error) {
 	var judge0Submissions []judge0.Submission // submissions for judge0 to run
 
 	for _, testCase := range testCases {
@@ -153,7 +153,7 @@ func (h *RunHandler) PrepareJudge0Submissions(runRequest domain.RunRequest, test
 
 	// Validate submissions before sending
 	if len(judge0Submissions) == 0 {
-		return nil, errors.NewApiError(http.StatusBadRequest, "Failed to create runs")
+		return nil, errors.NewApiError(nil, "Failed to create runs", http.StatusInternalServerError)
 	}
 
 	return judge0Submissions, nil
@@ -219,7 +219,7 @@ func (h *RunHandler) NormalizeOutput(output string) string {
 }
 
 // EvaluateRunResults processes judge0 responses and creates final result
-func (h *RunHandler) EvaluateRunResults(userId string, runRequest domain.RunRequest, testCases []domain.TestCase, judge0Responses []judge0.SubmissionResult) (*domain.RunResult, *errors.ApiError) {
+func (h *RunHandler) EvaluateRunResults(userId string, runRequest domain.RunRequest, testCases []domain.TestCase, judge0Responses []judge0.SubmissionResult) (*domain.RunResult, error) {
 	// Process each test case
 	testCaseResults, statusMap, expectedOutput := h.ProcessTestCaseResults(testCases, judge0Responses)
 
@@ -229,7 +229,7 @@ func (h *RunHandler) EvaluateRunResults(userId string, runRequest domain.RunRequ
 	// Get the aggregated results which includes all metadata
 	finalResult, err := h.AggregateTestResults(userId, int32(runRequest.ProblemID), runRequest.SourceCode, expectedOutput, judge0Responses)
 	if err != nil {
-		return nil, errors.NewApiError(err, http.StatusInternalServerError, "Failed to process submission")
+		return nil, errors.NewApiError(err, "Failed to process submission", http.StatusInternalServerError)
 	}
 
 	// Always use the aggregated results, but override status and test cases if needed
@@ -258,53 +258,53 @@ func (h *RunHandler) DetermineOverallStatus(statusMap map[string]int, totalTestC
 }
 
 // ExecuteCodeRun processes a code run request end-to-end
-func (h *RunHandler) ExecuteCodeRun(r *http.Request, userId string, runRequest domain.RunRequest) (*domain.RunResultResponse, *errors.ApiError) {
+func (h *RunHandler) ExecuteCodeRun(r *http.Request, userId string, runRequest domain.RunRequest) (*domain.RunResultResponse, error) {
 	// Get problem
-	problem, apiErr := h.FetchAndValidateProblem(r, userId, runRequest)
-	if apiErr != nil {
-		return nil, apiErr
+	problem, err := h.FetchAndValidateProblem(r, userId, runRequest)
+	if err != nil {
+		return nil, err
 	}
 
 	// Create submissions for judge0
-	submissions, apiErr := h.PrepareJudge0Submissions(runRequest, runRequest.TestCases, problem)
-	if apiErr != nil {
-		return nil, apiErr
+	submissions, err := h.PrepareJudge0Submissions(runRequest, runRequest.TestCases, problem)
+	if err != nil {
+		return nil, err
 	}
 
 	// Send submissions to judge0
 	judge0Responses, err := h.judge0Client.CreateSubmissionBatchAndWait(submissions)
 	if err != nil {
-		return nil, errors.NewApiError(err, http.StatusInternalServerError, "Failed to create solution submission")
+		return nil, errors.NewApiError(err, "Failed to create solution submission", http.StatusInternalServerError)
 	}
 
 	// Process results
-	runResult, apiErr := h.EvaluateRunResults(userId, runRequest, runRequest.TestCases, judge0Responses)
-	if apiErr != nil {
-		return nil, apiErr
+	runResult, err := h.EvaluateRunResults(userId, runRequest, runRequest.TestCases, judge0Responses)
+	if err != nil {
+		return nil, err
 	}
 
 	return &domain.RunResultResponse{Data: runResult}, nil
 }
 
-func (h *RunHandler) CreateRunRoute(w http.ResponseWriter, r *http.Request) {
+func (h *RunHandler) CreateRunRoute(w http.ResponseWriter, r *http.Request) error {
 	// Get userid from middleware context
 	userId, err := httputils.GetClientUserID(w, r)
 	if err != nil {
-		return
+		return err
 	}
 
 	// Validate request body
 	body, apiErr := h.ValidateRunRequest(w, r)
 	if apiErr != nil {
-		errors.SendError(w, apiErr.Error.StatusCode, apiErr.Error.Message)
-		return
+		return errors.NewApiError(nil, "validation", http.StatusBadRequest)
 	}
 
-	response, apiErr := h.ExecuteCodeRun(r, userId, body)
-	if apiErr != nil {
-		errors.SendError(w, apiErr.Error.StatusCode, apiErr.Error.Message)
-		return
+	response, err := h.ExecuteCodeRun(r, userId, body)
+	if err != nil {
+		return errors.NewAppError(err, "execute code run", http.StatusInternalServerError)
 	}
 
 	httputils.SendJSONResponse(w, http.StatusCreated, response)
+
+	return nil
 }

@@ -22,20 +22,20 @@ func NewProblemHandler(repo repository.ProblemsRepository) *ProblemHandler {
 	return &ProblemHandler{repo: repo}
 }
 
-func (h *ProblemHandler) GetProblemsValidateRequest(w http.ResponseWriter, r *http.Request) (sql.GetProblemsFilteredPaginatedParams, *errors.ApiError) {
+func (h *ProblemHandler) GetProblemsValidateRequest(w http.ResponseWriter, r *http.Request) (sql.GetProblemsFilteredPaginatedParams, error) {
 	titleSearch := strings.TrimSpace(r.URL.Query().Get("titleSearch"))
 	sortType := strings.TrimSpace(r.URL.Query().Get("sort"))
 	if sortType == "" {
 		sortType = string(sql.ProblemSortIndex)
 	} else if sortType != string(sql.ProblemSortAlpha) && sortType != string(sql.ProblemSortIndex) {
-		return sql.GetProblemsFilteredPaginatedParams{}, errors.NewApiError(nil, http.StatusBadRequest, "Invalid sort")
+		return sql.GetProblemsFilteredPaginatedParams{}, errors.NewApiError(nil, "Invalid sort", http.StatusBadRequest)
 	}
 
 	order := strings.TrimSpace(r.URL.Query().Get("order"))
 	if order == "" {
 		order = string(sql.SortDirectionAsc)
 	} else if order != string(sql.SortDirectionAsc) && order != string(sql.SortDirectionDesc) {
-		return sql.GetProblemsFilteredPaginatedParams{}, errors.NewApiError(nil, http.StatusBadRequest, "Invalid order")
+		return sql.GetProblemsFilteredPaginatedParams{}, errors.NewApiError(nil, "Invalid order", http.StatusBadRequest)
 	}
 
 	var page int32
@@ -77,24 +77,24 @@ func (h *ProblemHandler) GetProblemsValidateRequest(w http.ResponseWriter, r *ht
 }
 
 // GET: /problems
-func (h *ProblemHandler) GetProblems(ctx context.Context, w http.ResponseWriter, params sql.GetProblemsFilteredPaginatedParams) *errors.ApiError {
-	params, apiErr := h.GetProblemsValidateRequest(w, r)
-	if apiErr != nil {
-		apiErr.Send(w)
+func (h *ProblemHandler) GetProblems(ctx context.Context, w http.ResponseWriter, params sql.GetProblemsFilteredPaginatedParams) error {
+	params, err := h.GetProblemsValidateRequest(w, r)
+	if err != nil {
+		return err
 	}
 
 	problems, err := h.repo.GetProblemsFilteredPaginated(ctx, params)
 	if err != nil {
-		return errors.NewApiError(err, http.StatusInternalServerError, "Failed to get problems")
+		return errors.HandleDatabaseError(err, "get problems")
 	}
 
 	if len(problems) == 0 {
-		return errors.NewApiError(nil, http.StatusNotFound, "No problems found")
+		return errors.NewAppError(err, "No problems found", http.StatusNotFound)
 	}
 
 	totalCount := problems[0].TotalCount
 	if totalCount == 0 {
-		return errors.NewApiError(nil, http.StatusNotFound, "No problems found")
+		return errors.NewAppError(nil, "No problems found", http.StatusNotFound)
 	}
 
 	lastPage := (totalCount + params.PerPage - 1) / params.PerPage
@@ -105,7 +105,7 @@ func (h *ProblemHandler) GetProblems(ctx context.Context, w http.ResponseWriter,
 
 	// check if page is out of bounds
 	if params.Page < 1 || params.Page > lastPage {
-		return errors.NewApiError(nil, http.StatusBadRequest, "Page out of bounds")
+		return errors.NewApiError(nil, "Page out of bounds", http.StatusBadRequest)
 	}
 
 	responseData := []domain.Problem{}
@@ -147,16 +147,16 @@ func (h *ProblemHandler) GetProblems(ctx context.Context, w http.ResponseWriter,
 	return nil
 }
 
-func ValidateGetProblem(r *http.Request) (sql.GetProblemParams, *errors.ApiError) {
+func ValidateGetProblem(r *http.Request) (*domain.ProblemGetParams, error) {
 	userId, err := httputils.GetClientUserID(r)
 	if err != nil {
-		return sql.GetProblemParams{}, errors.NewApiError(err, http.StatusInternalServerError, "Failed to get user ID")
+		return nil, err
 	}
 
 	problemId := chi.URLParam(r, "problemId")
 	problemIdInt, err := strconv.ParseInt(problemId, 10, 32)
 	if err != nil {
-		return sql.GetProblemParams{}, errors.NewApiError(err, http.StatusBadRequest, "Invalid problem ID")
+		return nil, err
 	}
 
 	return sql.GetProblemParams{
@@ -166,17 +166,15 @@ func ValidateGetProblem(r *http.Request) (sql.GetProblemParams, *errors.ApiError
 }
 
 // GET: /problems/{problemId}
-func (h *ProblemHandler) GetProblem(w http.ResponseWriter, r *http.Request) {
-	params, apiErr := ValidateGetProblem(r)
-	if apiErr != nil {
-		apiErr.Send(w)
-		return
+func (h *ProblemHandler) GetProblem(w http.ResponseWriter, r *http.Request) error {
+	params, err := ValidateGetProblem(r)
+	if err != nil {
+		return err
 	}
 
 	problem, err := h.repo.GetProblem(context.Background(), params)
 	if err != nil {
-		errors.SendError(w, http.StatusInternalServerError, "Failed to get problem")
-		return
+		return errors.HandleDatabaseError(err, "get problem")
 	}
 
 	// test cases should not contain visibility on response
@@ -199,6 +197,8 @@ func (h *ProblemHandler) GetProblem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httputils.SendJSONResponse(w, http.StatusOK, response)
+
+	return nil
 }
 
 func InterfaceToMap(object interface{}) map[string]string {
