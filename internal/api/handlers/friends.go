@@ -35,23 +35,9 @@ func (h *FriendHandler) GetFriends(w http.ResponseWriter, r *http.Request) error
 		return nil
 	}
 
-	friendsResponseData := []domain.Friend{}
-	for _, friend := range friends {
-		friendsResponseData = append(friendsResponseData, domain.Friend{
-			Id:         friend.Id,
-			Username:   friend.Username,
-			AvatarUrl:  friend.AvatarUrl,
-			Level:      friend.Level,
-			Location:   friend.Location,
-			AcceptedAt: friend.AcceptedAt,
-		})
-	}
+	httputils.SendJSONResponse(w, http.StatusOK, friends)
 
-	friendsResponse := domain.FriendsResponse{
-		Data: friendsResponseData,
-	}
-
-	httputils.SendJSONResponse(w, http.StatusOK, friendsResponse)
+	return nil
 }
 
 // POST: /friends
@@ -72,7 +58,7 @@ func (h *FriendHandler) CreateFriendRequest(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Get current user's username
-	currentUser, err := h.accountRepo.GetAccount(r.Context(), sql.GetAccountParams{
+	currentUser, err := h.accountRepo.GetAccount(r.Context(), &domain.AccountGetParams{
 		ID:                claims.UserID,
 		IncludeAttributes: false,
 		UsernamesFilter:   []string{},
@@ -282,7 +268,7 @@ func (h *FriendHandler) GetFriendsUsername(w http.ResponseWriter, r *http.Reques
 		IncludeAttributes: false,
 	})
 	if err != nil {
-		return errors.HandleDatabaseError(w, "get account by username")
+		return errors.HandleDatabaseError(err, "get account by username")
 	}
 
 	friend, err := h.repo.GetFriendByUsername(r.Context(), username)

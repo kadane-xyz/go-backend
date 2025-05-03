@@ -16,27 +16,27 @@ import (
 )
 
 type ProblemHandler struct {
-	repo repository.ProblemsRepository
+	repo repository.SQLProblemsRepository
 }
 
-func NewProblemHandler(repo repository.ProblemsRepository) *ProblemHandler {
+func NewProblemHandler(repo repository.SQLProblemsRepository) *ProblemHandler {
 	return &ProblemHandler{repo: repo}
 }
 
-func (h *ProblemHandler) GetProblemsValidateRequest(w http.ResponseWriter, r *http.Request) (sql.GetProblemsFilteredPaginatedParams, error) {
+func (h *ProblemHandler) GetProblemsValidateRequest(w http.ResponseWriter, r *http.Request) (*domain.ProblemRequest, error) {
 	titleSearch := strings.TrimSpace(r.URL.Query().Get("titleSearch"))
 	sortType := strings.TrimSpace(r.URL.Query().Get("sort"))
 	if sortType == "" {
 		sortType = string(sql.ProblemSortIndex)
 	} else if sortType != string(sql.ProblemSortAlpha) && sortType != string(sql.ProblemSortIndex) {
-		return sql.GetProblemsFilteredPaginatedParams{}, errors.NewApiError(nil, "Invalid sort", http.StatusBadRequest)
+		return nil, errors.NewApiError(nil, "Invalid sort", http.StatusBadRequest)
 	}
 
 	order := strings.TrimSpace(r.URL.Query().Get("order"))
 	if order == "" {
 		order = string(sql.SortDirectionAsc)
 	} else if order != string(sql.SortDirectionAsc) && order != string(sql.SortDirectionDesc) {
-		return sql.GetProblemsFilteredPaginatedParams{}, errors.NewApiError(nil, "Invalid order", http.StatusBadRequest)
+		return nil, errors.NewApiError(nil, "Invalid order", http.StatusBadRequest)
 	}
 
 	var page int32
@@ -67,7 +67,7 @@ func (h *ProblemHandler) GetProblemsValidateRequest(w http.ResponseWriter, r *ht
 		difficulty = ""
 	}
 
-	return sql.GetProblemsFilteredPaginatedParams{
+	return &domain.ProblemGetParams{
 		Title:         titleSearch,
 		Difficulty:    difficulty,
 		Sort:          sql.ProblemSort(sortType),
@@ -78,7 +78,7 @@ func (h *ProblemHandler) GetProblemsValidateRequest(w http.ResponseWriter, r *ht
 }
 
 // GET: /problems
-func (h *ProblemHandler) GetProblems(ctx context.Context, w http.ResponseWriter, params sql.GetProblemsFilteredPaginatedParams) error {
+func (h *ProblemHandler) GetProblems(ctx context.Context, w http.ResponseWriter, r *http.Response, params sql.GetProblemsFilteredPaginatedParams) error {
 	params, err := h.GetProblemsValidateRequest(w, r)
 	if err != nil {
 		return err
@@ -161,8 +161,8 @@ func ValidateGetProblem(r *http.Request) (*domain.ProblemGetParams, error) {
 	}
 
 	return &domain.ProblemGetParams{
-		UserID:    claims.UserID,
-		ProblemID: int32(problemIdInt),
+		UserId:    claims.UserID,
+		ProblemId: problemIdInt,
 	}, nil
 }
 
@@ -180,11 +180,17 @@ func (h *ProblemHandler) GetProblem(w http.ResponseWriter, r *http.Request) erro
 
 	// test cases should not contain visibility on response
 	codeMap := InterfaceToMap(problem.Code)
+
+	description := ""
+	if problem.Description != nil {
+		description = *problem.Description
+	}
+
 	response := domain.Problem{
 		ID:            problem.ID,
 		Title:         problem.Title,
 		FunctionName:  problem.FunctionName,
-		Description:   *problem.Description,
+		Description:   description,
 		Tags:          problem.Tags,
 		Difficulty:    problem.Difficulty,
 		Code:          codeMap,

@@ -60,5 +60,44 @@ type StarredRequest struct {
 
 type StarProblemParams struct {
 	UserId    string
-	ProblemId string
+	ProblemId int32
+}
+
+type StarSolutionParams struct {
+	UserId     string
+	SolutionId string
+}
+
+type StarSubmissionParams struct {
+	UserId       string
+	SubmissionId string
+}
+
+func FromSQLGetStarredSolutionsRows(rows []sql.GetStarredSolutionsRow) ([]*StarredSolution, error) {
+	solutions := []*StarredSolution{}
+	for _, row := range rows {
+		votes := int32(0)
+		if row.Votes != nil {
+			votes = *row.Votes
+		}
+		problemId := int64(0)
+		if row.ProblemID != nil {
+			problemId = *row.ProblemID
+		}
+		solution := &StarredSolution{
+			Id:        row.ID,
+			Username:  row.Username,
+			Title:     row.Title,
+			Date:      row.CreatedAt,
+			Tags:      row.Tags,
+			Body:      row.Body,
+			Votes:     votes,
+			ProblemId: problemId,
+			Starred:   row.Starred,
+		}
+
+		solutions = append(solutions, solution)
+	}
+
+	return solutions, nil
 }

@@ -109,9 +109,9 @@ func (h *RunHandler) ValidateRunRequest(w http.ResponseWriter, r *http.Request) 
 // FetchAndValidateProblem gets problem details and validates against request
 func (h *RunHandler) FetchAndValidateProblem(r *http.Request, userId string, runRequest domain.RunRequest) (*domain.Problem, error) {
 	// Get problem
-	problem, err := h.repo.GetProblem(sql.GetProblemParams{
-		ProblemID: int32(runRequest.ProblemID),
-		UserID:    userId,
+	problem, err := h.repo.GetProblem(r.Context(), &domain.ProblemGetParams{
+		ProblemId: int64(runRequest.ProblemID),
+		UserId:    userId,
 	})
 	if err != nil {
 		return nil, errors.HandleDatabaseError(err, "get problem")
@@ -126,14 +126,11 @@ func (h *RunHandler) FetchAndValidateProblem(r *http.Request, userId string, run
 }
 
 // PrepareJudge0Submissions creates submissions for Judge0 from test cases
-func (h *RunHandler) PrepareJudge0Submissions(runRequest domain.RunRequest, testCases []domain.TestCase, problem sql.GetProblemRow) ([]judge0.Submission, error) {
+func (h *RunHandler) PrepareJudge0Submissions(runRequest domain.RunRequest, testCases []domain.TestCase, problem *domain.Problem) ([]judge0.Submission, error) {
 	var judge0Submissions []judge0.Submission // submissions for judge0 to run
 
 	for _, testCase := range testCases {
 		description := ""
-		if problem.Description != nil {
-			description = *problem.Description
-		}
 		solutionRun := judge0tmpl.TemplateCreate(judge0tmpl.TemplateInput{
 			Language:     runRequest.Language,
 			SourceCode:   runRequest.SourceCode,

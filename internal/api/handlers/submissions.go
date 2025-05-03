@@ -40,7 +40,7 @@ func ValidateSubmissionRequest(request domain.SubmissionRequest) *errors.ApiErro
 	// Check if language is valid
 	lang := string(sql.ProblemLanguage(request.Language))
 	if request.Language == "" || request.Language != lang {
-		return errors.NewApiError(nil, http.StatusBadRequest, "Invalid language: "+request.Language)
+		return errors.NewApiError(nil, "Invalid language: "+request.Language, http.StatusBadRequest)
 	}
 
 	if request.SourceCode == "" {
@@ -51,14 +51,14 @@ func ValidateSubmissionRequest(request domain.SubmissionRequest) *errors.ApiErro
 }
 
 // FetchProblemAndTestCases retrieves problem details and test cases
-func (h *SubmissionHandler) FetchProblemAndTestCases(ctx context.Context, problemID int32, userID string) (sql.GetProblemRow, []TestCase, error) {
+func (h *SubmissionHandler) FetchProblemAndTestCases(ctx context.Context, problemID int32, userID string) (*domain.Problem, []domain.TestCase, error) {
 	// Get problem details
-	problem, err := h.repo.GetProblem(ctx, sql.GetProblemParams{
+	problem, err := h.repo.GetProblem(ctx, domain.ProblemGetParams{
 		ProblemID: problemID,
 		UserID:    userID,
 	})
 	if err != nil {
-		return sql.GetProblemRow{}, nil, errors.NewApiError(nil, http.StatusInternalServerError, "Failed to get problem")
+		return nil, nil, errors.HandleDatabaseError(err, "get problem")
 	}
 
 	// Get problem test cases
@@ -66,11 +66,11 @@ func (h *SubmissionHandler) FetchProblemAndTestCases(ctx context.Context, proble
 		ProblemID: problemID,
 	})
 	if err != nil {
-		return sql.GetProblemRow{}, nil, errors.NewApiError(http.StatusInternalServerError, "Failed to get problem solution")
+		return nil, nil, errors.NewApiError(http.StatusInternalServerError, "Failed to get problem solution")
 	}
 
 	if len(problemTestCases) == 0 {
-		return sql.GetProblemRow{}, nil, errors.NewApiError(nil, http.StatusBadRequest, "No test cases found")
+		return nil, nil, errors.NewApiError(nil, "No test cases found", http.StatusBadRequest)
 	}
 
 	// Convert database test cases to our internal format
@@ -101,7 +101,7 @@ func (h *SubmissionHandler) FetchProblemAndTestCases(ctx context.Context, proble
 	}
 
 	if len(testCases) == 0 {
-		return sql.GetProblemRow{}, nil, errors.NewApiError(nil, http.StatusBadRequest, "No test cases found")
+		return nil, nil, errors.NewApiError(nil, "No test cases found", http.StatusBadRequest)
 	}
 
 	return problem, testCases, nil
@@ -112,6 +112,10 @@ func (h *SubmissionHandler) PrepareSubmissions(request domain.SubmissionRequest,
 	var submissions []judge0.Submission
 
 	for _, testCase := range testCases {
+		description := ""
+		if problem.Description != nil {
+			description = *problem.Description
+		}
 		submissionRun := judge0tmpl.TemplateCreate(judge0tmpl.TemplateInput{
 			Language:     request.Language,
 			SourceCode:   request.SourceCode,
@@ -119,7 +123,7 @@ func (h *SubmissionHandler) PrepareSubmissions(request domain.SubmissionRequest,
 			TestCase:     testCase,
 			Problem: domain.Problem{
 				Title:       problem.Title,
-				Description: problem.Description,
+				Description: description,
 				Tags:        problem.Tags,
 				Difficulty:  problem.Difficulty,
 				Hints:       problem.Hints,
@@ -246,7 +250,7 @@ func (h *SubmissionHandler) ProcessSubmission(ctx context.Context, request domai
 	// Submit to judge0
 	submissionResponses, err := h.judge0client.CreateSubmissionBatchAndWait(submissions)
 	if err != nil {
-		return nil, errors.NewAppError(error, "Failed to create submission", http.StatusInternalServerError)
+		return nil, errors.NewAppError(err, "Failed to create submission", http.StatusInternalServerError)
 	}
 
 	if len(submissionResponses) == 0 {
@@ -373,7 +377,7 @@ func (h *SubmissionHandler) GetSubmission(w http.ResponseWriter, r *http.Request
 		return errors.NewApiError(err, "Invalid submission ID", http.StatusBadRequest)
 	}
 
-	result, err := h.repo.GetSubmissionByID(r.Context(), sql.GetSubmissionByIDParams{
+	result, err := h.repo.GetSubmissionByID(r.Context(), domain.SubmissionGetParams{
 		ID:     pgtype.UUID{Bytes: idUUID, Valid: true},
 		UserID: claims.UserID,
 	})
@@ -406,13 +410,13 @@ func (h *SubmissionHandler) GetSubmissionsByUsername(w http.ResponseWriter, r *h
 	}
 
 	// Get submissions from database
-	submissions, err := h.repo.GetSubmissionsByUsername(r.Context(), sql.GetSubmissionsByUsernameParams{
+	submissions, err := h.repo.GetSubmissionByUsername(r.Context(), domain.SubmissionGetParams{
 		Username:      username,
-		ProblemID:     int32(queryParams.problemId),
-		Sort:          queryParams.sort,
-		SortDirection: queryParams.order,
+		ProblemID:     queryParams.problemId,
+		Sort:          sql.ProblemSort(queryParams.sort),
+		SortDirection: sql.SortDirection(queryParams.order),
 		Status:        sql.SubmissionStatus(queryParams.status),
-		UserID:        claims.UserID,
+		UserId:        claims.UserID,
 	})
 	if err != nil {
 		httputils.EmptyDataArrayResponse(w) // { data: [] }
@@ -448,7 +452,7 @@ func ExtractSubmissionQueryParams(r *http.Request) (SubmissionQueryParams, error
 	if id != "" {
 		problemId, err := strconv.Atoi(id)
 		if err != nil {
-			return result, errors.NewApiError(nil, http.StatusBadRequest, "Invalid problem ID")
+			return result, errors.NewApiError(nil, "Invalid problem ID", http.StatusBadRequest)
 		}
 		result.problemId = problemId
 	}
@@ -481,7 +485,7 @@ func ExtractSubmissionQueryParams(r *http.Request) (SubmissionQueryParams, error
 		}
 
 		if !isValid {
-			return result, errors.NewApiError(nil, http.StatusBadRequest, "Invalid status parameter")
+			return result, errors.NewApiError(nil, "Invalid status parameter", http.StatusBadRequest)
 		}
 		result.status = status
 	}
@@ -527,23 +531,23 @@ func TransformSubmissionResults(submissions []sql.GetSubmissionsByUsernameRow) (
 
 		submissionResults = append(submissionResults, domain.Submission{
 			Id:              submissionId.String(),
-			Stdout:          submission.Stdout.String,
-			Time:            submission.Time.String,
-			Memory:          int(submission.Memory.Int32),
-			Stderr:          submission.Stderr.String,
-			CompileOutput:   submission.CompileOutput.String,
-			Message:         submission.Message.String,
+			Stdout:          submission.Stdout,
+			Time:            submission.Time,
+			Memory:          submission.Memory,
+			Stderr:          submission.Stderr,
+			CompileOutput:   submission.CompileOutput,
+			Message:         submission.Message,
 			Status:          submission.Status,
 			Language:        judge0.LanguageIDToLanguage(int(submission.LanguageID)),
 			AccountID:       submission.AccountID,
 			SubmittedCode:   submission.SubmittedCode,
-			SubmittedStdin:  submission.SubmittedStdin.String,
+			SubmittedStdin:  submission.SubmittedStdin,
 			ProblemID:       submission.ProblemID,
 			CreatedAt:       submission.CreatedAt.Time,
 			Starred:         submission.Starred,
 			FailedTestCase:  submissionFailedTestCase,
-			PassedTestCases: submission.PassedTestCases.Int32,
-			TotalTestCases:  submission.TotalTestCases.Int32,
+			PassedTestCases: submission.PassedTestCases,
+			TotalTestCases:  submission.TotalTestCases,
 		})
 	}
 

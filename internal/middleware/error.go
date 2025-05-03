@@ -21,13 +21,13 @@ func ErrorMiddleware(next HandlerFunc) http.Handler {
 		// Handle application errors
 		var appErr *appError.AppError
 		if errors.As(err, &appErr) {
-			log.Error("Application error: ", appErr.Err, appErr.StatusCode)
+			log.Errorf("application error: %v", appErr.Err, appErr.StatusCode)
 			httputils.SendJSONResponse(w, appErr.StatusCode, appErr.Message)
 			return
 		}
 
 		// Handle unknown errors
-		log.Error("unknown error", err)
+		log.Errorf("unknown error: %v", err)
 		httputils.SendJSONResponse(w, http.StatusInternalServerError, "unexpected error")
 	})
 }

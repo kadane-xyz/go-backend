@@ -16,11 +16,11 @@ import (
 )
 
 type SolutionsHandler struct {
-	solutionsRepo *repository.SolutionsRepository
+	repo *repository.SolutionsRepository
 }
 
-func NewSolutionsHandler(solutionsRepo *repository.SolutionsRepository) *SolutionsHandler {
-	return &SolutionsHandler{solutionsRepo: solutionsRepo}
+func NewSolutionsHandler(repo *repository.SolutionsRepository) *SolutionsHandler {
+	return &SolutionsHandler{repo: repo}
 }
 
 // GET: /solutions
@@ -90,7 +90,7 @@ func (h *SolutionsHandler) GetSolutions(w http.ResponseWriter, r *http.Request) 
 		order = "DESC"
 	}
 
-	solutions, err := h.solutionsRepo.GetSolutions(r.Context(), sql.GetSolutionsPaginatedParams{
+	solutions, err := h.repo.GetSolutions(r.Context(), sql.GetSolutionsPaginatedParams{
 		ProblemID:     pgtype.Int8{Int64: id, Valid: true},
 		Tags:          tagsArray,
 		Title:         titleSearch,
@@ -183,12 +183,12 @@ func (h *SolutionsHandler) CreateSolution(w http.ResponseWriter, r *http.Request
 	}
 
 	// Insert solution into db
-	_, err = h.solutionsRepo.CreateSolution(r.Context(), sql.CreateSolutionParams{
+	_, err = h.repo.CreateSolution(r.Context(), sql.CreateSolutionParams{
 		UserID:    &claims.UserID,
 		Title:     solution.Title,
 		Tags:      solution.Tags,
 		Body:      solution.Body,
-		ProblemID: pgtype.Int8{Int64: solution.ProblemId, Valid: true},
+		ProblemID: &solution.ProblemId,
 	})
 	if err != nil {
 		return errors.HandleDatabaseError(err, "create solution")
@@ -218,7 +218,7 @@ func (h *SolutionsHandler) GetSolution(w http.ResponseWriter, r *http.Request) e
 	}
 
 	// Get solutions from db by idPg
-	solution, err := h.solutionsRepo.GetSolution(r.Context(), sql.GetSolutionParams{
+	solution, err := h.repo.GetSolution(r.Context(), sql.GetSolutionParams{
 		ID:     id,
 		UserID: claims.UserID,
 	})
@@ -291,7 +291,7 @@ func (h *SolutionsHandler) UpdateSolution(w http.ResponseWriter, r *http.Request
 	}
 
 	// Get solutions from db by idPg
-	_, err = h.solutionsRepo.UpdateSolution(r.Context(), solutionArgs)
+	_, err = h.repo.UpdateSolution(r.Context(), solutionArgs)
 	if err != nil {
 		return errors.HandleDatabaseError(err, "update solution")
 	}
@@ -323,7 +323,7 @@ func (h *SolutionsHandler) DeleteSolution(w http.ResponseWriter, r *http.Request
 	}
 
 	// Get solutions from db by idPg
-	err = h.solutionsRepo.DeleteSolution(r.Context(), sql.DeleteSolutionParams{
+	err = h.repo.DeleteSolution(r.Context(), sql.DeleteSolutionParams{
 		ID:     id,
 		UserID: &claims.UserID,
 	})
@@ -367,12 +367,12 @@ func (h *SolutionsHandler) VoteSolution(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Check if the solution exists
-	_, err = h.solutionsRepo.GetSolutionById(r.Context(), id)
+	_, err = h.repo.GetSolutionById(r.Context(), id)
 	if err != nil {
 		return errors.HandleDatabaseError(err, "Solution not found")
 	}
 
-	err = h.solutionsRepo.VoteSolution(r.Context(), sql.VoteSolutionParams{
+	err = h.repo.VoteSolution(r.Context(), sql.VoteSolutionParams{
 		UserID:     claims.UserID,
 		SolutionID: id,
 		Vote:       req.Vote,

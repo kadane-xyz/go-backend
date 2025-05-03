@@ -8,9 +8,9 @@ import (
 )
 
 type ProblemsRepository interface {
-	GetProblem(ctx context.Context, params sql.GetProblemParams) (sql.GetProblemRow, error)
+	GetProblem(ctx context.Context, params *domain.ProblemGetParams) (domain.Problem, error)
 	GetProblemsFilteredPaginated(ctx context.Context, params sql.GetProblemsFilteredPaginatedParams) ([]sql.GetProblemsFilteredPaginatedRow, error)
-	CreateProblem(ctx context.Context, params domain.ProblemCreateParams) (*domain.Problem, error)
+	CreateProblem(ctx context.Context, params domain.ProblemCreateParams) (*domain.ProblemCreate, error)
 }
 
 type SQLProblemsRepository struct {
@@ -21,8 +21,11 @@ func NewSQLProblemsRepository(queries *sql.Queries) *SQLProblemsRepository {
 	return &SQLProblemsRepository{queries: queries}
 }
 
-func (r *SQLProblemsRepository) GetProblem(ctx context.Context, params sql.GetProblemParams) (sql.GetProblemRow, error) {
-	q, err := r.queries.GetProblem(ctx, params)
+func (r *SQLProblemsRepository) GetProblem(ctx context.Context, params *domain.ProblemGetParams) (sql.GetProblemRow, error) {
+	q, err := r.queries.GetProblem(ctx, sql.GetProblemParams{
+		UserID:    params.UserId,
+		ProblemID: int32(params.ProblemId),
+	})
 	if err != nil {
 		return sql.GetProblemRow{}, err
 	}
@@ -37,7 +40,7 @@ func (r *SQLProblemsRepository) GetProblemsFilteredPaginated(ctx context.Context
 	return q, nil
 }
 
-func (r *SQLProblemsRepository) CreateProblem(ctx context.Context, params domain.ProblemCreateParams) (*domain.Problem, error) {
+func (r *SQLProblemsRepository) CreateProblem(ctx context.Context, params *domain.ProblemCreateParams) (*domain.ProblemCreate, error) {
 	q, err := r.queries.CreateProblem(ctx, sql.CreateProblemParams{
 		Title:        params.Title,
 		Description:  params.Description,
@@ -49,5 +52,5 @@ func (r *SQLProblemsRepository) CreateProblem(ctx context.Context, params domain
 	if err != nil {
 		return nil, err
 	}
-	return q, nil
+	return domain.FromSQLCreateProblemRow(q)
 }

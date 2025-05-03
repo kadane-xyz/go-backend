@@ -8,7 +8,7 @@ SELECT
 FROM submission s
 WHERE s.id = @user_id;
 
--- name: GetSubmissionsById :many
+-- name: GetSubmissions :many
 SELECT * FROM submission WHERE id = ANY(@ids::uuid[]);
 
 -- name: GetSubmissionsByProblemId :many

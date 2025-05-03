@@ -30,10 +30,10 @@ SELECT
     EXISTS (
         SELECT 1
         FROM starred_solution ss
-        WHERE ss.user_id = $1 
+        WHERE ss.user_id = @user_id 
           AND ss.solution_id = s.id
     ) AS starred,
-    (SELECT username FROM account WHERE id = $1) AS username
+    (SELECT username FROM account WHERE id = @user_id) AS username
 FROM solution s;
 
 -- name: GetStarredSubmissions :many

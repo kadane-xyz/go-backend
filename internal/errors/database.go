@@ -19,14 +19,14 @@ func HandleDatabaseError(err error, resourceName string) *ApiError {
 		case "23505", "23514": // Constraint violations
 			return NewApiError(
 				err,
-				http.StatusConflict,
 				pgErr.Detail,
+				http.StatusConflict,
 			)
 		case "P0001": // Invalid function argument
 			return NewApiError(
 				err,
-				http.StatusBadRequest,
 				pgErr.Detail,
+				http.StatusBadRequest,
 			)
 		default:
 			// Unknown database error - this should be reported

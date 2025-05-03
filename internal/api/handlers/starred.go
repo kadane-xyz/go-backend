@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"kadane.xyz/go-backend/v2/internal/api/httputils"
+	"kadane.xyz/go-backend/v2/internal/api/responses"
 	"kadane.xyz/go-backend/v2/internal/database/repository"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
 	"kadane.xyz/go-backend/v2/internal/domain"
@@ -15,10 +16,10 @@ import (
 )
 
 type StarredHandler struct {
-	repo *repository.StarredRepository
+	repo *repository.SQLStarredRepository
 }
 
-func NewStarredHandler(repo *repository.StarredRepository) *StarredHandler {
+func NewStarredHandler(repo *repository.SQLStarredRepository) *StarredHandler {
 	return &StarredHandler{repo: repo}
 }
 
@@ -39,20 +40,7 @@ func (h *StarredHandler) GetStarredProblems(w http.ResponseWriter, r *http.Reque
 		return nil
 	}
 
-	var response []domain.StarredProblem
-	for _, problem := range starredProblems {
-		response = append(response, domain.StarredProblem{
-			ID:          int(problem.ID),
-			Title:       problem.Title,
-			Description: problem.Description.String,
-			Tags:        problem.Tags,
-			Difficulty:  string(problem.Difficulty),
-			Points:      int(problem.Points),
-			Starred:     problem.Starred,
-		})
-	}
-
-	httputils.SendJSONDataResponse(w, http.StatusOK, response)
+	httputils.SendJSONDataResponse(w, http.StatusOK, starredProblems)
 
 	return nil
 }
@@ -90,6 +78,8 @@ func (h *SolutionsHandler) GetStarredSolutions(w http.ResponseWriter, r *http.Re
 	}
 
 	httputils.SendJSONDataResponse(w, http.StatusOK, response)
+
+	return nil
 }
 
 // GET: /starred/submissions
@@ -162,9 +152,7 @@ func (h *ProblemHandler) PutStarProblem(w http.ResponseWriter, r *http.Request) 
 		return errors.HandleDatabaseError(err, "starred problem")
 	}
 
-	var response domain.StarredResponse
-	response.Data.ID = problemRequest.ProblemID // Set ID to problem ID
-	response.Data.Starred = starred
+	response := responses.NewStarredResponse(problemRequest.ProblemID, starred)
 
 	httputils.SendJSONResponse(w, http.StatusOK, response)
 
@@ -184,7 +172,7 @@ func (h *SolutionsHandler) PutStarSolution(w http.ResponseWriter, r *http.Reques
 	}
 
 	if solutionRequest.SolutionID == 0 {
-		return errors.NewApiError(w, http.StatusBadRequest, "Invalid solution ID")
+		return errors.NewApiError(nil, "Invalid solution ID", http.StatusBadRequest)
 	}
 
 	starred, err := h.repo.PutStarredSolution(r.Context(), sql.PutStarredSolutionParams{
@@ -195,9 +183,7 @@ func (h *SolutionsHandler) PutStarSolution(w http.ResponseWriter, r *http.Reques
 		return errors.HandleDatabaseError(err, "starred solution")
 	}
 
-	var response domain.StarredResponse
-	response.Data.ID = solutionRequest.SolutionID // Set ID to solution ID
-	response.Data.Starred = starred
+	response := responses.NewStarredResponse(solutionRequest.SolutionID, starred)
 
 	httputils.SendJSONResponse(w, http.StatusOK, response)
 
@@ -235,11 +221,9 @@ func (h *SubmissionHandler) PutStarSubmission(w http.ResponseWriter, r *http.Req
 		return errors.HandleDatabaseError(err, "starred solution")
 	}
 
-	var response domain.StarredResponse
-	response.Data.ID = submissionRequest.SubmissionID // Set ID to submission ID
-	response.Data.Starred = starred
+	response := responses.NewStarredResponse(submissionRequest.SubmissionID, starred)
 
-	httputils.SendJSONResponse(w, http.StatusOK, response)
+	httputils.SendJSONDataResponse(w, http.StatusOK, response)
 
 	return nil
 
