@@ -70,7 +70,7 @@ func (r *SQLStarredRepository) GetStarredSubmissions(ctx context.Context, id str
 	if err != nil {
 		return nil, err
 	}
-	return domain.FromSQLGetStarredSubmissionRows(q)
+	return domain.FromSQLGetStarredSubmissionRow(q), nil
 }
 
 func (r *SQLStarredRepository) StarSubmission(ctx context.Context, params domain.StarSubmissionParams) (bool, error) {

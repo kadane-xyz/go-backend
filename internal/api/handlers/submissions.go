@@ -167,7 +167,7 @@ func EvaluateTestResults(testCases []domain.TestCase, responses []judge0.Submiss
 
 			failedSubmission = &domain.Submission{
 				Status:        submissionStatus,
-				Memory:        resp.Memory,
+				Memory:        int32(resp.Memory),
 				Time:          resp.Time,
 				Stdout:        resp.Stdout,
 				Stderr:        resp.Stderr,
@@ -271,7 +271,7 @@ func (h *SubmissionHandler) ProcessSubmission(ctx context.Context, request domai
 	lastResp := submissionResponses[len(submissionResponses)-1]
 
 	// If any test failed, use its details, otherwise use averages
-	memory := totalMemory / count
+	memory := int32(totalMemory / count)
 	avgSubmission := domain.Submission{
 		Status:        sql.SubmissionStatus(lastResp.Status.Description),
 		Memory:        memory,
@@ -377,7 +377,7 @@ func (h *SubmissionHandler) GetSubmission(w http.ResponseWriter, r *http.Request
 		return errors.NewApiError(err, "Invalid submission ID", http.StatusBadRequest)
 	}
 
-	result, err := h.repo.GetSubmissionByID(r.Context(), domain.SubmissionGetParams{
+	result, err := h.repo.GetSubmission(r.Context(), domain.SubmissionGetParams{
 		ID:     pgtype.UUID{Bytes: idUUID, Valid: true},
 		UserID: claims.UserID,
 	})
@@ -527,11 +527,17 @@ func TransformSubmissionResults(submissions []sql.GetSubmissionsByUsernameRow) (
 		err := json.Unmarshal(submission.FailedTestCase, &submissionFailedTestCase)
 		if err != nil {
 			return nil, errors.NewAppError(err, "Failed to unmarshal failed test case", http.StatusInternalServerError)
+
+		}
+
+		stdout := ""
+		if submission.Stdout != nil {
+			stdout = *submission.Stdout
 		}
 
 		submissionResults = append(submissionResults, domain.Submission{
 			Id:              submissionId.String(),
-			Stdout:          submission.Stdout,
+			Stdout:          stdout, 
 			Time:            submission.Time,
 			Memory:          submission.Memory,
 			Stderr:          submission.Stderr,

@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"kadane.xyz/go-backend/v2/internal/api/httputils"
 	"kadane.xyz/go-backend/v2/internal/database/repository"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
@@ -16,10 +15,10 @@ import (
 )
 
 type SolutionsHandler struct {
-	repo *repository.SolutionsRepository
+	repo repository.SolutionsRepository
 }
 
-func NewSolutionsHandler(repo *repository.SolutionsRepository) *SolutionsHandler {
+func NewSolutionsHandler(repo repository.SolutionsRepository) *SolutionsHandler {
 	return &SolutionsHandler{repo: repo}
 }
 
@@ -91,7 +90,7 @@ func (h *SolutionsHandler) GetSolutions(w http.ResponseWriter, r *http.Request) 
 	}
 
 	solutions, err := h.repo.GetSolutions(r.Context(), sql.GetSolutionsPaginatedParams{
-		ProblemID:     pgtype.Int8{Int64: id, Valid: true},
+		ProblemID:     &id,
 		Tags:          tagsArray,
 		Title:         titleSearch,
 		PerPage:       perPage,

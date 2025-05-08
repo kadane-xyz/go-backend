@@ -1,5 +1,5 @@
 -- name: CreateSubmission :one
-INSERT INTO submission (id, stdout, time, memory, stderr, compile_output, message, status, language_id, language_name, account_id, problem_id, submitted_code, submitted_stdin, failed_test_case, passed_test_cases, total_test_cases) VALUES (@id::uuid, @stdout::text, @time::text, @memory::int, @stderr::text, @compile_output::text, @message::text, @status, @language_id, @language_name, @account_id, @problem_id, @submitted_code, @submitted_stdin, @failed_test_case, @passed_test_cases::int, @total_test_cases::int) RETURNING *;
+INSERT INTO submission (id, stdout, time, memory, stderr, compile_output, message, status, language_id, language_name, account_id, problem_id, submitted_code, submitted_stdin, failed_test_case, passed_test_cases, total_test_cases) VALUES (@id::uuid, @stdout::text, @time::time, @memory::int, @stderr::text, @compile_output::text, @message::text, @status, @language_id, @language_name, @account_id, @problem_id, @submitted_code, @submitted_stdin, @failed_test_case, @passed_test_cases::int, @total_test_cases::int) RETURNING *;
 
 -- name: GetSubmission :one
 SELECT 
@@ -50,7 +50,7 @@ WITH user_submissions AS (
         a.username = @username
         -- Filter by problem_id only if not 0
         AND (
-            @problem_id = 0
+            @problem_id::integer = 0
             OR s.problem_id = @problem_id
         )
         -- Filter by status only if not empty string

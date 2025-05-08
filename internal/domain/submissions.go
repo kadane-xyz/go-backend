@@ -4,13 +4,13 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/google/uuid"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
 	"kadane.xyz/go-backend/v2/internal/judge0"
 )
 
 type Submission struct {
-	Id            string               `json:"id"`
-	Token         string               `json:"token"`
+	Id            uuid.UUID            `json:"id"`
 	Stdout        string               `json:"stdout"`
 	Time          string               `json:"time"`
 	Memory        int32                `json:"memory"`
@@ -31,6 +31,26 @@ type Submission struct {
 	TotalTestCases  int32       `json:"totalTestCases"`
 }
 
+type SubmissionCreateParams struct {
+	Id              uuid.UUID
+	Stdout          string
+	Time            time.Time
+	Memory          int32
+	Stderr          string
+	CompileOutput   string
+	Message         string
+	Status          string
+	LanguageId      int32
+	LanguageName    string
+	AccountId       string
+	ProblemId       int32
+	SubmittedCode   string
+	SubmittedStdin  string
+	FailedTestCase  []byte
+	PassedTestCases int32
+	TotalTestCases  int32
+}
+
 type SubmissionRequest struct {
 	Language   string `json:"language"`
 	SourceCode string `json:"sourceCode"`
@@ -42,7 +62,7 @@ type SubmissionGetParams struct {
 	SortDirection sql.SortDirection
 	UserId        string
 	Username      string
-	ProblemID     int64
+	ProblemID     int32
 	Status        sql.SubmissionStatus
 }
 
@@ -89,7 +109,7 @@ func FromSQLGetSubmissionByUsernameRow(row sql.GetSubmissionsByUsernameRow) (*Su
 		totalTestCases = *row.TotalTestCases
 	}
 	return &Submission{
-		Id:            row.ID.String(),
+		Id:            row.ID.Bytes,
 		Stdout:        stdout,
 		Time:          time,
 		Memory:        memory,
@@ -122,4 +142,38 @@ func FromSQLGetSubmissionByUsernameRows(rows []sql.GetSubmissionsByUsernameRow) 
 	}
 
 	return submissions, nil
+}
+
+func FromSQLGetSubmissionRow(row sql.GetSubmissionRow) *Submission {
+	return &Submission{
+		Id: row.ID.Bytes,            
+		Stdout: *row.Stdout,      
+		Time          
+		Memory        
+		Stderr        
+		CompileOutput 
+		Message       
+		Status        
+		Language      
+		// custom fields
+		AccountID       
+		SubmittedCode   
+		SubmittedStdin  
+		ProblemID       
+		CreatedAt       
+		Starred         
+		FailedTestCase  
+		PassedTestCases 
+		TotalTestCases  
+	}
+}
+
+func FromSQLSubmissions(rows []sql.Submission) []*Submission {
+	submissions := []*Submission{}
+
+	for _, row := range rows {
+		submissions = (append(submissions, row))
+	}
+
+	return submissions
 }

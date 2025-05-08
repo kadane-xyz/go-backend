@@ -1,7 +1,7 @@
 CREATE TABLE solution (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id TEXT REFERENCES account(id) ON DELETE CASCADE,
-    problem_id BIGINT,
+    problem_id INT,
     title TEXT NOT NULL,
     body TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

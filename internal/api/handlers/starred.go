@@ -16,10 +16,10 @@ import (
 )
 
 type StarredHandler struct {
-	repo *repository.SQLStarredRepository
+	repo *repository.StarredRepository
 }
 
-func NewStarredHandler(repo *repository.SQLStarredRepository) *StarredHandler {
+func NewStarredHandler(repo *repository.StarredRepository) *StarredHandler {
 	return &StarredHandler{repo: repo}
 }
 
@@ -166,24 +166,24 @@ func (h *SolutionsHandler) PutStarSolution(w http.ResponseWriter, r *http.Reques
 		return err
 	}
 
-	solutionRequest, err := httputils.DecodeJSONRequest[domain.StarSolutionRequest](r)
+	solutionRequest, err := httputils.DecodeJSONRequest[domain.StarredSolution](r)
 	if err != nil {
 		return errors.NewApiError(err, "validation", http.StatusBadRequest)
 	}
 
-	if solutionRequest.SolutionID == 0 {
+	if solutionRequest.Id == 0 {
 		return errors.NewApiError(nil, "Invalid solution ID", http.StatusBadRequest)
 	}
 
 	starred, err := h.repo.PutStarredSolution(r.Context(), sql.PutStarredSolutionParams{
 		UserID:     claims.UserID,
-		SolutionID: solutionRequest.SolutionID,
+		SolutionID: int32(solutionRequest.Id),
 	})
 	if err != nil {
 		return errors.HandleDatabaseError(err, "starred solution")
 	}
 
-	response := responses.NewStarredResponse(solutionRequest.SolutionID, starred)
+	response := responses.NewStarredResponse(solutionRequest.Id, starred)
 
 	httputils.SendJSONResponse(w, http.StatusOK, response)
 
@@ -197,12 +197,12 @@ func (h *SubmissionHandler) PutStarSubmission(w http.ResponseWriter, r *http.Req
 		return err
 	}
 
-	submissionRequest, err := httputils.DecodeJSONRequest[domain.StarSubmissionRequest](r)
+	submissionRequest, err := httputils.DecodeJSONRequest[domain.StarredSubmission](r)
 	if err != nil {
 		return errors.NewApiError(err, "validation", http.StatusBadRequest)
 	}
 
-	if submissionRequest.SubmissionID == "" {
+	if !submissionRequest.Id.Valid {
 		return errors.NewApiError(err, "Invalid submission ID", http.StatusBadRequest)
 	}
 

@@ -119,7 +119,7 @@ func (h *RunHandler) FetchAndValidateProblem(r *http.Request, userId string, run
 
 	// Check if function name is valid
 	if !strings.Contains(runRequest.SourceCode, problem.FunctionName) {
-		return nil, errors.NewApiError(http.StatusBadRequest, "Correct function name: "+problem.FunctionName+" not found in "+runRequest.Language+" source code")
+		return nil, errors.NewApiError(nil, "Correct function name: "+problem.FunctionName+" not found in "+runRequest.Language+" source code", http.StatusBadRequest)
 	}
 
 	return &problem, nil
@@ -297,7 +297,7 @@ func (h *RunHandler) CreateRunRoute(w http.ResponseWriter, r *http.Request) erro
 		return errors.NewApiError(nil, "validation", http.StatusBadRequest)
 	}
 
-	response, err := h.ExecuteCodeRun(r, claims.UserID, body)
+	response, err := h.ExecuteCodeRun(r, claims.UserID, *body)
 	if err != nil {
 		return errors.NewAppError(err, "execute code run", http.StatusInternalServerError)
 	}

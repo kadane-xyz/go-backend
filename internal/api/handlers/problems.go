@@ -16,10 +16,10 @@ import (
 )
 
 type ProblemHandler struct {
-	repo repository.SQLProblemsRepository
+	repo repository.ProblemsRepository
 }
 
-func NewProblemHandler(repo repository.SQLProblemsRepository) *ProblemHandler {
+func NewProblemHandler(repo repository.ProblemsRepository) *ProblemHandler {
 	return &ProblemHandler{repo: repo}
 }
 

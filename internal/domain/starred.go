@@ -30,7 +30,7 @@ type StarredSolution struct {
 	Tags      []string
 	Body      string
 	Votes     int32
-	ProblemId int64
+	ProblemId int32
 	Starred   bool
 }
 
@@ -80,7 +80,7 @@ func FromSQLGetStarredSolutionsRows(rows []sql.GetStarredSolutionsRow) ([]*Starr
 		if row.Votes != nil {
 			votes = *row.Votes
 		}
-		problemId := int64(0)
+		problemId := int32(0)
 		if row.ProblemID != nil {
 			problemId = *row.ProblemID
 		}
@@ -100,4 +100,64 @@ func FromSQLGetStarredSolutionsRows(rows []sql.GetStarredSolutionsRow) ([]*Starr
 	}
 
 	return solutions, nil
+}
+
+func FromSQLGetStarredSubmissionRow(rows []sql.GetStarredSubmissionsRow) []*StarredSubmission {
+	submissions := []*StarredSubmission{}
+	for _, row := range rows {
+		stdout := ""
+		if row.Stdout != nil {
+			stdout = *row.Stdout
+		}
+
+		time := ""
+		if row.Time != nil {
+			time = *row.Time
+		}
+
+		memory := int32(0)
+		if row.Memory != nil {
+			memory = *row.Memory
+		}
+
+		stderr := ""
+		if row.Stderr != nil {
+			stderr = *row.Stderr
+		}
+
+		compileOutput := ""
+		if row.CompileOutput != nil {
+			compileOutput = *row.CompileOutput
+		}
+
+		message := ""
+		if row.Message != nil {
+			message = *row.Message
+		}
+
+		submittedStdin := ""
+		if row.SubmittedStdin != nil {
+			submittedStdin = *row.SubmittedStdin
+		}
+
+		submissions = append(submissions, &StarredSubmission{
+			Id: row.ID,
+			//Token: row.T
+			Stdout:         stdout,
+			Time:           time,
+			Memory:         memory,
+			Stderr:         stderr,
+			CompileOutput:  compileOutput,
+			Message:        message,
+			Status:         row.Status,
+			Language:       row.LanguageName,
+			AccountID:      row.AccountID,
+			SubmittedCode:  row.SubmittedCode,
+			SubmittedStdin: submittedStdin,
+			ProblemID:      row.ProblemID,
+			CreatedAt:      row.CreatedAt.Time,
+			Starred:        row.Starred,
+		})
+	}
+	return submissions
 }
