@@ -16,10 +16,10 @@ import (
 )
 
 type StarredHandler struct {
-	repo *repository.StarredRepository
+	repo repository.StarredRepository
 }
 
-func NewStarredHandler(repo *repository.StarredRepository) *StarredHandler {
+func NewStarredHandler(repo repository.StarredRepository) *StarredHandler {
 	return &StarredHandler{repo: repo}
 }
 
@@ -62,22 +62,7 @@ func (h *SolutionsHandler) GetStarredSolutions(w http.ResponseWriter, r *http.Re
 		return nil
 	}
 
-	var response []domain.StarredSolution
-	for _, solution := range starredSolutions {
-		response = append(response, domain.StarredSolution{
-			Id:        solution.ID,
-			Username:  solution.Username,
-			Title:     solution.Title,
-			Date:      solution.CreatedAt,
-			Tags:      solution.Tags,
-			Body:      solution.Body,
-			Votes:     solution.Votes.Int32,
-			ProblemId: solution.ProblemID.Int64,
-			Starred:   solution.Starred,
-		})
-	}
-
-	httputils.SendJSONDataResponse(w, http.StatusOK, response)
+	httputils.SendJSONDataResponse(w, http.StatusOK, starredSolutions)
 
 	return nil
 }
@@ -134,7 +119,7 @@ func (h *ProblemHandler) PutStarProblem(w http.ResponseWriter, r *http.Request) 
 		return err
 	}
 
-	problemRequest, err := httputils.DecodeJSONRequest[domain.StarProblemRequest](r)
+	problemRequest, err := httputils.DecodeJSONRequest[domain.StarredProblem](r)
 	if err != nil {
 		return errors.NewApiError(err, "validation", http.StatusBadRequest)
 	}

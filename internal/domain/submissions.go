@@ -12,7 +12,7 @@ import (
 type Submission struct {
 	Id            uuid.UUID            `json:"id"`
 	Stdout        string               `json:"stdout"`
-	Time          string               `json:"time"`
+	Time          time.Time            `json:"time"`
 	Memory        int32                `json:"memory"`
 	Stderr        string               `json:"stderr"`
 	CompileOutput string               `json:"compileOutput"`
@@ -71,10 +71,6 @@ func FromSQLGetSubmissionByUsernameRow(row sql.GetSubmissionsByUsernameRow) (*Su
 	if row.Stdout != nil {
 		stdout = *row.Stdout
 	}
-	time := ""
-	if row.Time != nil {
-		time = *row.Time
-	}
 	memory := int32(0)
 	if row.Memory != nil {
 		memory = *row.Memory
@@ -111,7 +107,7 @@ func FromSQLGetSubmissionByUsernameRow(row sql.GetSubmissionsByUsernameRow) (*Su
 	return &Submission{
 		Id:            row.ID.Bytes,
 		Stdout:        stdout,
-		Time:          time,
+		Time:          row.Time.Time,
 		Memory:        memory,
 		Stderr:        stderr,
 		CompileOutput: compileOutput,
@@ -144,36 +140,110 @@ func FromSQLGetSubmissionByUsernameRows(rows []sql.GetSubmissionsByUsernameRow) 
 	return submissions, nil
 }
 
-func FromSQLGetSubmissionRow(row sql.GetSubmissionRow) *Submission {
-	return &Submission{
-		Id: row.ID.Bytes,            
-		Stdout: *row.Stdout,      
-		Time          
-		Memory        
-		Stderr        
-		CompileOutput 
-		Message       
-		Status        
-		Language      
-		// custom fields
-		AccountID       
-		SubmittedCode   
-		SubmittedStdin  
-		ProblemID       
-		CreatedAt       
-		Starred         
-		FailedTestCase  
-		PassedTestCases 
-		TotalTestCases  
+func FromSQLGetSubmissionRow(row sql.GetSubmissionRow) (*Submission, error) {
+	stdout := ""
+	if row.Stdout != nil {
+		stdout = *row.Stdout
 	}
+	memory := int32(0)
+	if row.Memory != nil {
+		memory = *row.Memory
+	}
+	stderr := ""
+	if row.Stderr != nil {
+		stderr = *row.Stderr
+	}
+	stdin := ""
+	if row.SubmittedStdin != nil {
+		stdin = *row.SubmittedStdin
+	}
+	compileOutput := ""
+	if row.CompileOutput != nil {
+		compileOutput = *row.CompileOutput
+	}
+	message := ""
+	if row.Message != nil {
+		message = *row.Message
+	}
+	passedTestCases := int32(0)
+	if row.PassedTestCases != nil {
+		passedTestCases = *row.PassedTestCases
+	}
+	totalTestCases := int32(0)
+	if row.TotalTestCases != nil {
+		totalTestCases = *row.TotalTestCases
+	}
+	failedTestCase := RunTestCase{}
+	if row.FailedTestCase != nil {
+		if err := json.Unmarshal(row.FailedTestCase, &failedTestCase); err != nil {
+			return nil, err
+		}
+	}
+
+	return &Submission{
+		Id:            row.ID.Bytes,
+		Stdout:        stdout,
+		Time:          row.Time.Time,
+		Memory:        memory,
+		Stderr:        stderr,
+		CompileOutput: compileOutput,
+		Message:       message,
+		Status:        row.Status,
+		Language:      judge0.LanguageIDToLanguage(int(row.LanguageID)),
+		// custom fields
+		AccountID:       row.AccountID,
+		SubmittedCode:   row.SubmittedCode,
+		SubmittedStdin:  stdin,
+		ProblemID:       row.ProblemID,
+		CreatedAt:       row.CreatedAt.Time,
+		Starred:         row.Starred,
+		FailedTestCase:  failedTestCase,
+		PassedTestCases: passedTestCases,
+		TotalTestCases:  totalTestCases,
+	}, nil
 }
 
-func FromSQLSubmissions(rows []sql.Submission) []*Submission {
+func FromSQLSubmission(row sql.Submission) (*Submission, error) {
+
+	failedTestCase := RunTestCase{}
+	if row.FailedTestCase != nil {
+		if err := json.Unmarshal(row.FailedTestCase, &failedTestCase); err != nil {
+			return nil, err
+		}
+	}
+
+	return &Submission{
+		Id:            row.ID.Bytes,
+		Stdout:        *row.Stdout,
+		Time:          row.Time.Time,
+		Memory:        *row.Memory,
+		Stderr:        *row.Stderr,
+		CompileOutput: *row.CompileOutput,
+		Message:       *row.Message,
+		Status:        row.Status,
+		Language:      judge0.LanguageIDToLanguage(int(row.LanguageID)),
+		// custom fields
+		AccountID:       row.AccountID,
+		SubmittedCode:   row.SubmittedCode,
+		SubmittedStdin:  *row.SubmittedStdin,
+		ProblemID:       row.ProblemID,
+		CreatedAt:       row.CreatedAt.Time,
+		FailedTestCase:  failedTestCase,
+		PassedTestCases: *row.PassedTestCases,
+		TotalTestCases:  *row.TotalTestCases,
+	}, nil
+}
+
+func FromSQLSubmissions(rows []sql.Submission) ([]*Submission, error) {
 	submissions := []*Submission{}
 
 	for _, row := range rows {
-		submissions = (append(submissions, row))
+		submission, err := FromSQLSubmission(row)
+		if err != nil {
+			return nil, err
+		}
+		submissions = (append(submissions, submission))
 	}
 
-	return submissions
+	return submissions, nil
 }

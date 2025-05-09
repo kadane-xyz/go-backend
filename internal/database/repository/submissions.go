@@ -34,7 +34,7 @@ func (r *SQLSubmissionsRepository) GetSubmissions(ctx context.Context, ids []uui
 	if err != nil {
 		return nil, err
 	}
-	return domain.FromSQLSubmissions(q), nil
+	return domain.FromSQLSubmissions(q)
 }
 
 func (r *SQLSubmissionsRepository) GetSubmission(ctx context.Context, id string) (*domain.Submission, error) {
@@ -42,7 +42,7 @@ func (r *SQLSubmissionsRepository) GetSubmission(ctx context.Context, id string)
 	if err != nil {
 		return nil, err
 	}
-	return domain.FromSQLGetSubmissionRow(q), nil
+	return domain.FromSQLGetSubmissionRow(q)
 }
 
 func (r *SQLSubmissionsRepository) GetSubmissionByUsername(ctx context.Context, params domain.SubmissionGetParams) ([]*domain.Submission, error) {

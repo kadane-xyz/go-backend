@@ -32,34 +32,6 @@ LEFT JOIN (
 ) uv ON s.id = uv.solution_id
 WHERE s.id = @id;
 
--- name: GetSolutions :many
-SELECT 
-    s.*,
-    a.username as user_username,
-    a.avatar_url as user_avatar_url,
-    a.level as user_level,
-    COALESCE(c.comment_count, 0)::int as comments_count,
-    COALESCE(v.vote_count, 0)::int as votes_count,
-    COALESCE(uv.vote, 'none') as user_vote
-FROM solution s
-LEFT JOIN account a ON s.user_id = a.id
-LEFT JOIN (
-    SELECT solution_id, COUNT(*) AS comment_count
-    FROM comment
-    GROUP BY solution_id
-) c ON s.id = c.solution_id
-LEFT JOIN (
-    SELECT solution_id, COUNT(*) AS vote_count
-    FROM solution_user_vote
-    GROUP BY solution_id
-) v ON s.id = v.solution_id
-LEFT JOIN (
-    SELECT solution_id, vote, user_id
-    FROM solution_user_vote suv
-    WHERE suv.user_id = $2
-) uv ON s.id = uv.solution_id
-WHERE s.id = $1;
-
 -- name: GetSolutionsByID :many
 SELECT 
     s.id,
@@ -80,7 +52,7 @@ WHERE problem_id = $1
   AND (@title = '' OR title ILIKE '%' || @title || '%')
   AND (array_length(@tags::text[], 1) IS NULL OR tags && @tags);
 
--- name: GetSolutionsPaginated :many
+-- name: GetSolutions :many
 WITH filtered_solutions AS (
     SELECT s.id
     FROM solution s

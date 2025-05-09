@@ -14,11 +14,11 @@ import (
 )
 
 type CommentHandler struct {
-	repo          *repository.SQLCommentsRepository
-	solutionsRepo *repository.SQLSolutionsRepository
+	repo          repository.CommentsRepository
+	solutionsRepo repository.SolutionsRepository
 }
 
-func NewCommentHandler(repo *repository.SQLCommentsRepository, solutionsRepo *repository.SQLSolutionsRepository) *CommentHandler {
+func NewCommentHandler(repo repository.CommentsRepository, solutionsRepo repository.SolutionsRepository) *CommentHandler {
 	return &CommentHandler{repo: repo, solutionsRepo: solutionsRepo}
 }
 
@@ -37,7 +37,7 @@ func (h *CommentHandler) GetComments(w http.ResponseWriter, r *http.Request) err
 	}
 
 	// Convert solutionId to int64
-	id, err := strconv.ParseInt(solutionId, 10, 64)
+	id, err := strconv.ParseInt(solutionId, 10, 32)
 	if err != nil {
 		return errors.NewApiError(nil, "Invalid solutionId format for comment retrieval", http.StatusBadRequest)
 	}
@@ -86,7 +86,7 @@ func (h *CommentHandler) GetComments(w http.ResponseWriter, r *http.Request) err
 				SolutionId: dbComment.SolutionId,
 				Body:       dbComment.Body,
 				CreatedAt:  dbComment.CreatedAt,
-				Votes:      int32(dbComment.CurrentUserVote),
+				Votes:      dbComment.Votes,
 				Children:   []*domain.Comment{},
 			},
 			CurrentUserVote: dbComment.CurrentUserVote,
@@ -137,7 +137,7 @@ func (h *CommentHandler) CreateComment(w http.ResponseWriter, r *http.Request) e
 	}
 
 	// Check if solution exists
-	_, err = h.solutionsRepo.GetSolutionById(r.Context(), comment.SolutionId)
+	_, err = h.solutionsRepo.GetSolutionById(r.Context(), int32(comment.SolutionId))
 	if err != nil {
 		return errors.HandleDatabaseError(err, "solution")
 	}

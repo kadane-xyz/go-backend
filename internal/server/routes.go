@@ -5,7 +5,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"kadane.xyz/go-backend/v2/internal/api/handlers"
-	"kadane.xyz/go-backend/v2/internal/errors"
 	"kadane.xyz/go-backend/v2/internal/middleware"
 )
 
@@ -17,12 +16,13 @@ func (s *Server) RegisterApiRoutes() {
 
 	s.mux.Route("/v1", func(r chi.Router) {
 		accountsHandler := handlers.NewAccountHandler(s.container.Repositories.AccountRepo, s.container.AWSClient, s.container.Config)
-		adminHandler := handlers.NewAdminHandler(s.container.Repositories.AdminRepo, s.container.Judge0, s.container.APIHandlers.ProblemHandler)
 		commentHandler := handlers.NewCommentHandler(s.container.Repositories.CommentRepo, s.container.Repositories.SolutionRepo)
 		problemHandler := handlers.NewProblemHandler(s.container.Repositories.ProblemRepo)
-		submissionHandler := handlers.NewSubmissionHandler(s.container.Repositories.SubmissionRepo)
+		adminHandler := handlers.NewAdminHandler(s.container.Repositories.AdminRepo, s.container.Repositories.ProblemRepo, s.container.Judge0, s.container.APIHandlers.ProblemHandler)
+		submissionHandler := handlers.NewSubmissionHandler(s.container.Repositories.SubmissionRepo, s.container.Judge0)
 		solutionsHandler := handlers.NewSolutionsHandler(s.container.Repositories.SolutionRepo)
 		starredHandler := handlers.NewStarredHandler(s.container.Repositories.StarredRepo)
+		runHandler := handlers.NewRunHandler(s.container.Repositories.ProblemRepo, s.container.Judge0)
 		friendHandler := handlers.NewFriendHandler(s.container.Repositories.FriendRepo, s.container.Repositories.AccountRepo)
 
 		// solutions
@@ -40,14 +40,14 @@ func (s *Server) RegisterApiRoutes() {
 		})
 		// comments
 		s.mux.Route("/comments", func(r chi.Router) {
-			r.Get("/", commentHandler.GetComments)
-			r.Post("/", commentHandler.CreateComment)
+			r.Get("/", errorMiddleware(commentHandler.GetComments))
+			r.Post("/", errorMiddleware(commentHandler.CreateComment))
 			r.Route("/{commentId}", func(r chi.Router) {
-				r.Get("/", commentHandler.GetComment)
-				r.Put("/", commentHandler.UpdateComment)
-				r.Delete("/", commentHandler.DeleteComment)
+				r.Get("/", errorMiddleware(commentHandler.GetComment))
+				r.Put("/", errorMiddleware(commentHandler.UpdateComment))
+				r.Delete("/", errorMiddleware(commentHandler.DeleteComment))
 				r.Route("/vote", func(r chi.Router) {
-					r.Patch("/", commentHandler.VoteComment)
+					r.Patch("/", errorMiddleware(commentHandler.VoteComment))
 				})
 			})
 		})
@@ -71,24 +71,24 @@ func (s *Server) RegisterApiRoutes() {
 			})
 		})
 		s.mux.Route("/friends", func(r chi.Router) {
-			r.Get("/", friendHandler.GetFriends)
-			r.Post("/", friendHandler.CreateFriendRequest)
-			r.Post("/accept", friendHandler.AcceptFriendRequest)
-			r.Post("/block", friendHandler.BlockFriendRequest)
-			r.Post("/unblock", friendHandler.UnblockFriendRequest)
-			r.Post("/deny", friendHandler.DeleteFriend)
+			r.Get("/", errorMiddleware(friendHandler.GetFriends))
+			r.Post("/", errorMiddleware(friendHandler.CreateFriendRequest))
+			r.Post("/accept", errorMiddleware(friendHandler.AcceptFriendRequest))
+			r.Post("/block", errorMiddleware(friendHandler.BlockFriendRequest))
+			r.Post("/unblock", errorMiddleware(friendHandler.UnblockFriendRequest))
+			r.Post("/deny", errorMiddleware(friendHandler.DeleteFriend))
 			r.Route("/{username}", func(r chi.Router) {
-				r.Delete("/", friendHandler.DeleteFriend)
+				r.Delete("/", errorMiddleware(friendHandler.DeleteFriend))
 			})
 			r.Route("/requests", func(r chi.Router) {
-				r.Get("/sent", friendHandler.GetFriendRequestsSent)
-				r.Get("/received", friendHandler.GetFriendRequestsReceived)
+				r.Get("/sent", errorMiddleware(friendHandler.GetFriendRequestsSent))
+				r.Get("/received", errorMiddleware(friendHandler.GetFriendRequestsReceived))
 				r.Route("/{username}", func(r chi.Router) {
-					r.Delete("/", friendHandler.DeleteFriendRequest)
+					r.Delete("/", errorMiddleware(friendHandler.DeleteFriendRequest))
 				})
 			})
 			r.Route("/username/{username}", func(r chi.Router) {
-				r.Get("/", errorMiddleware(friendHandler.GetFriendByUsername))
+				r.Get("/", errorMiddleware(friendHandler.GetFriendsUsername))
 			})
 		})
 		//problems
@@ -118,43 +118,31 @@ func (s *Server) RegisterApiRoutes() {
 		})*/
 		//runs
 		s.mux.Route("/runs", func(r chi.Router) {
-			r.Post("/", runHandler.CreateRun)
+			r.Post("/", errorMiddleware(runHandler.CreateRun))
 		})
 		//starred
 		s.mux.Route("/starred", func(r chi.Router) {
 			r.Route("/problems", func(r chi.Router) {
-				r.Get("/", starredHandler.GetStarredProblems)
-				r.Put("/", starredHandler.PutStarProblem)
+				r.Get("/", errorMiddleware(starredHandler.GetStarredProblems))
+				r.Put("/", errorMiddleware(starredHandler.PutStarProblem))
 			})
 			r.Route("/solutions", func(r chi.Router) {
-				r.Get("/", starredHandler.GetStarredSolutions)
-				r.Put("/", starredHandler.PutStarSolution)
+				r.Get("/", errorMiddleware(starredHandler.GetStarredSolutions))
+				r.Put("/", errorMiddleware(starredHandler.PutStarSolution))
 			})
 			r.Route("/submissions", func(r chi.Router) {
-				r.Get("/", starredHandler.GetStarredSubmissions)
-				r.Put("/", starredHandler.PutStarSubmission)
+				r.Get("/", errorMiddleware(starredHandler.GetStarredSubmissions))
+				r.Put("/", errorMiddleware(starredHandler.PutStarSubmission))
 			})
 		})
 		s.mux.Route("/admin", func(r chi.Router) {
 			r.Route("/problems", func(r chi.Router) {
-				r.Get("/", adminHandler.GetAdminProblems)
-				r.Post("/", adminHandler.CreateAdminProblem)
-				r.Post("/run", adminHandler.CreateAdminProblemRun)
+				r.Get("/", errorMiddleware(adminHandler.GetAdminProblems))
+				r.Post("/", errorMiddleware(adminHandler.CreateAdminProblem))
+				r.Post("/run", errorMiddleware(adminHandler.CreateAdminProblemRun))
 			})
-			s.mux.Get("/validate", adminHandler.GetAdminValidation)
+			s.mux.Get("/validate", errorMiddleware(adminHandler.GetAdminValidation))
 		})
 	})
 	//generate a route to catch anything not defined and error/block spam
-	s.mux.Get("/*", func(w http.ResponseWriter, r *http.Request) {
-		errors.SendError(w, http.StatusNotFound, "Not Found")
-	})
-	s.mux.Put("/*", func(w http.ResponseWriter, r *http.Request) {
-		errors.SendError(w, http.StatusNotFound, "Not Found")
-	})
-	s.mux.Post("/*", func(w http.ResponseWriter, r *http.Request) {
-		errors.SendError(w, http.StatusNotFound, "Not Found")
-	})
-	s.mux.Delete("/*", func(w http.ResponseWriter, r *http.Request) {
-		errors.SendError(w, http.StatusNotFound, "Not Found")
-	})
 }

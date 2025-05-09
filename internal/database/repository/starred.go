@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
 	"kadane.xyz/go-backend/v2/internal/domain"
 )
@@ -54,10 +55,10 @@ func (r *SQLStarredRepository) GetStarredSolutions(ctx context.Context, id strin
 	return domain.FromSQLGetStarredSolutionsRows(q)
 }
 
-func (r *SQLStarredRepository) StarSolution(ctx context.Context, params domain.StarProblemParams) (bool, error) {
-	q, err := r.queries.PutStarredProblem(ctx, sql.PutStarredProblemParams{
-		UserID:    params.UserId,
-		ProblemID: params.ProblemId,
+func (r *SQLStarredRepository) StarSolution(ctx context.Context, params domain.StarSolutionParams) (bool, error) {
+	q, err := r.queries.PutStarredSolution(ctx, sql.PutStarredSolutionParams{
+		UserID:     params.UserId,
+		SolutionID: params.SolutionId,
 	})
 	if err != nil {
 		return false, err
@@ -65,8 +66,8 @@ func (r *SQLStarredRepository) StarSolution(ctx context.Context, params domain.S
 	return q, nil
 }
 
-func (r *SQLStarredRepository) GetStarredSubmissions(ctx context.Context, id string) ([]*domain.StarredSolution, error) {
-	q, err := r.queries.GetStarredSolutions(ctx, id)
+func (r *SQLStarredRepository) GetStarredSubmissions(ctx context.Context, id string) ([]*domain.StarredSubmission, error) {
+	q, err := r.queries.GetStarredSubmissions(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +77,7 @@ func (r *SQLStarredRepository) GetStarredSubmissions(ctx context.Context, id str
 func (r *SQLStarredRepository) StarSubmission(ctx context.Context, params domain.StarSubmissionParams) (bool, error) {
 	q, err := r.queries.PutStarredSubmission(ctx, sql.PutStarredSubmissionParams{
 		UserID:       params.UserId,
-		SubmissionID: params.SubmissionId,
+		SubmissionID: pgtype.UUID{Bytes: params.SubmissionId, Valid: true},
 	})
 	if err != nil {
 		return false, err

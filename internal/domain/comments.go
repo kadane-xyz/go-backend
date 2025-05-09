@@ -8,7 +8,7 @@ import (
 
 type Comment struct {
 	ID         int64      `json:"id"`
-	SolutionId int64      `json:"solutionId"`
+	SolutionId int32      `json:"solutionId"`
 	Body       string     `json:"body"`
 	CreatedAt  time.Time  `json:"createdAt"`
 	Votes      int32      `json:"votes"`
@@ -26,7 +26,7 @@ type CommentRelation struct {
 }
 
 type CommentCreateRequest struct {
-	SolutionId int64  `json:"solutionId"`
+	SolutionId int32  `json:"solutionId"`
 	Body       string `json:"body"`
 	ParentId   *int64 `json:"parentId,omitempty"`
 }
@@ -34,7 +34,7 @@ type CommentCreateRequest struct {
 type CommentCreateParams struct {
 	UserID     string `json:"userId"`
 	Body       string `json:"body"`
-	SolutionID int64  `json:"solutionId"`
+	SolutionID int32  `json:"solutionId"`
 	ParentID   *int64 `json:"parentId"`
 }
 

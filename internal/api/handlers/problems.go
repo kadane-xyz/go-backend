@@ -23,7 +23,7 @@ func NewProblemHandler(repo repository.ProblemsRepository) *ProblemHandler {
 	return &ProblemHandler{repo: repo}
 }
 
-func (h *ProblemHandler) GetProblemsValidateRequest(w http.ResponseWriter, r *http.Request) (*domain.ProblemRequest, error) {
+func (h *ProblemHandler) GetProblemsValidateRequest(r *http.Request) (*domain.ProblemsGetParams, error) {
 	titleSearch := strings.TrimSpace(r.URL.Query().Get("titleSearch"))
 	sortType := strings.TrimSpace(r.URL.Query().Get("sort"))
 	if sortType == "" {
@@ -67,9 +67,9 @@ func (h *ProblemHandler) GetProblemsValidateRequest(w http.ResponseWriter, r *ht
 		difficulty = ""
 	}
 
-	return &domain.ProblemGetParams{
+	return &domain.ProblemsGetParams{
 		Title:         titleSearch,
-		Difficulty:    difficulty,
+		Difficulty:    sql.ProblemDifficulty(difficulty),
 		Sort:          sql.ProblemSort(sortType),
 		SortDirection: sql.SortDirection(order),
 		PerPage:       perPage,
@@ -78,13 +78,13 @@ func (h *ProblemHandler) GetProblemsValidateRequest(w http.ResponseWriter, r *ht
 }
 
 // GET: /problems
-func (h *ProblemHandler) GetProblems(ctx context.Context, w http.ResponseWriter, r *http.Response, params sql.GetProblemsFilteredPaginatedParams) error {
-	params, err := h.GetProblemsValidateRequest(w, r)
+func (h *ProblemHandler) GetProblems(w http.ResponseWriter, r *http.Request) error {
+	params, err := h.GetProblemsValidateRequest(r)
 	if err != nil {
 		return err
 	}
 
-	problems, err := h.repo.GetProblemsFilteredPaginated(ctx, params)
+	problems, err := h.repo.GetProblemsFilteredPaginated(r.Context(), params)
 	if err != nil {
 		return errors.HandleDatabaseError(err, "get problems")
 	}
@@ -162,7 +162,7 @@ func ValidateGetProblem(r *http.Request) (*domain.ProblemGetParams, error) {
 
 	return &domain.ProblemGetParams{
 		UserId:    claims.UserID,
-		ProblemId: problemIdInt,
+		ProblemId: int32(problemIdInt),
 	}, nil
 }
 
@@ -181,16 +181,11 @@ func (h *ProblemHandler) GetProblem(w http.ResponseWriter, r *http.Request) erro
 	// test cases should not contain visibility on response
 	codeMap := InterfaceToMap(problem.Code)
 
-	description := ""
-	if problem.Description != nil {
-		description = *problem.Description
-	}
-
 	response := domain.Problem{
 		ID:            problem.ID,
 		Title:         problem.Title,
 		FunctionName:  problem.FunctionName,
-		Description:   description,
+		Description:   problem.Description,
 		Tags:          problem.Tags,
 		Difficulty:    problem.Difficulty,
 		Code:          codeMap,

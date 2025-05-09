@@ -9,8 +9,8 @@ import (
 
 type ProblemsRepository interface {
 	GetProblem(ctx context.Context, params *domain.ProblemGetParams) (domain.Problem, error)
-	GetProblemsFilteredPaginated(ctx context.Context, params sql.GetProblemsFilteredPaginatedParams) ([]sql.GetProblemsFilteredPaginatedRow, error)
-	CreateProblem(ctx context.Context, params domain.ProblemCreateParams) (*domain.ProblemCreate, error)
+	GetProblemsFilteredPaginated(ctx context.Context, params *domain.ProblemsGetParams) ([]sql.GetProblemsFilteredPaginatedRow, error)
+	CreateProblem(ctx context.Context, params *domain.ProblemCreateParams) (*domain.ProblemCreate, error)
 }
 
 type SQLProblemsRepository struct {

@@ -26,7 +26,16 @@ type Problem struct {
 
 type ProblemGetParams struct {
 	UserId    string `json:"userId"`
-	ProblemId int64  `json:"problemId"`
+	ProblemId int32  `json:"problemId"`
+}
+
+type ProblemsGetParams struct {
+	Title         string
+	Difficulty    sql.ProblemDifficulty
+	Sort          sql.ProblemSort
+	SortDirection sql.SortDirection
+	PerPage       int32
+	Page          int32
 }
 
 type ProblemRequest struct {

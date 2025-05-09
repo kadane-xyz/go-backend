@@ -105,7 +105,7 @@ WHERE user_id = $1 AND comment_id = $2;
 
 -- name: CreateComment :one
 INSERT INTO comment (user_id, body, solution_id, parent_id)
-VALUES (@user_id::text, @body::text, @solution_id::bigint, sqlc.narg('parent_id')) 
+VALUES (@user_id::text, @body::text, @solution_id::int, sqlc.narg('parent_id')) 
 RETURNING *; 
 
 -- PUT --

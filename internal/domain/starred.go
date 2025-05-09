@@ -3,6 +3,7 @@ package domain
 import (
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
 )
@@ -13,7 +14,7 @@ type Starred struct {
 }
 
 type StarredProblem struct {
-	ID          int
+	ID          int32
 	Title       string
 	Description string
 	Tags        []string
@@ -23,7 +24,7 @@ type StarredProblem struct {
 }
 
 type StarredSolution struct {
-	Id        int64
+	Id        int32
 	Username  string
 	Title     string
 	Date      pgtype.Timestamp
@@ -38,7 +39,7 @@ type StarredSubmission struct {
 	Id            pgtype.UUID
 	Token         string
 	Stdout        string
-	Time          string
+	Time          time.Time
 	Memory        int32
 	Stderr        string
 	CompileOutput string
@@ -65,12 +66,12 @@ type StarProblemParams struct {
 
 type StarSolutionParams struct {
 	UserId     string
-	SolutionId string
+	SolutionId int32
 }
 
 type StarSubmissionParams struct {
 	UserId       string
-	SubmissionId string
+	SubmissionId uuid.UUID
 }
 
 func FromSQLGetStarredSolutionsRows(rows []sql.GetStarredSolutionsRow) ([]*StarredSolution, error) {
@@ -110,11 +111,6 @@ func FromSQLGetStarredSubmissionRow(rows []sql.GetStarredSubmissionsRow) []*Star
 			stdout = *row.Stdout
 		}
 
-		time := ""
-		if row.Time != nil {
-			time = *row.Time
-		}
-
 		memory := int32(0)
 		if row.Memory != nil {
 			memory = *row.Memory
@@ -144,7 +140,7 @@ func FromSQLGetStarredSubmissionRow(rows []sql.GetStarredSubmissionsRow) []*Star
 			Id: row.ID,
 			//Token: row.T
 			Stdout:         stdout,
-			Time:           time,
+			Time:           row.Time.Time,
 			Memory:         memory,
 			Stderr:         stderr,
 			CompileOutput:  compileOutput,

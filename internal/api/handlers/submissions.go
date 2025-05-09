@@ -22,11 +22,11 @@ import (
 )
 
 type SubmissionHandler struct {
-	repo         *repository.SQLSubmissionsRepository
+	repo         repository.SubmissionsRepository
 	judge0client *judge0.Judge0Client
 }
 
-func NewSubmissionHandler(repo *repository.SQLSubmissionsRepository, judge0client *judge0.Judge0Client) *SubmissionHandler {
+func NewSubmissionHandler(repo repository.SubmissionsRepository, judge0client *judge0.Judge0Client) *SubmissionHandler {
 	return &SubmissionHandler{repo: repo, judge0client: judge0client}
 }
 
@@ -54,8 +54,8 @@ func ValidateSubmissionRequest(request domain.SubmissionRequest) *errors.ApiErro
 func (h *SubmissionHandler) FetchProblemAndTestCases(ctx context.Context, problemID int32, userID string) (*domain.Problem, []domain.TestCase, error) {
 	// Get problem details
 	problem, err := h.repo.GetProblem(ctx, domain.ProblemGetParams{
-		ProblemID: problemID,
-		UserID:    userID,
+		ProblemId: problemID,
+		UserId:    userID,
 	})
 	if err != nil {
 		return nil, nil, errors.HandleDatabaseError(err, "get problem")
@@ -537,7 +537,7 @@ func TransformSubmissionResults(submissions []sql.GetSubmissionsByUsernameRow) (
 
 		submissionResults = append(submissionResults, domain.Submission{
 			Id:              submissionId.String(),
-			Stdout:          stdout, 
+			Stdout:          stdout,
 			Time:            submission.Time,
 			Memory:          submission.Memory,
 			Stderr:          submission.Stderr,

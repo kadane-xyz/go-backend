@@ -17,13 +17,13 @@ import (
 )
 
 type AdminHandler struct {
-	repo           *repository.SQLAdminRepository
-	problemRepo    *repository.SQLProblemsRepository
+	repo           repository.AdminRepository
+	problemRepo    repository.ProblemsRepository
 	judge0         *judge0.Judge0Client
 	problemHandler *ProblemHandler
 }
 
-func NewAdminHandler(repo *repository.SQLAdminRepository, problemRepo *repository.SQLProblemsRepository, judge0 *judge0.Judge0Client, problemHandler *ProblemHandler) *AdminHandler {
+func NewAdminHandler(repo repository.AdminRepository, problemRepo repository.ProblemsRepository, judge0 *judge0.Judge0Client, problemHandler *ProblemHandler) *AdminHandler {
 	return &AdminHandler{repo: repo, problemRepo: problemRepo, judge0: judge0, problemHandler: problemHandler}
 }
 
@@ -290,8 +290,8 @@ func (h *AdminHandler) CreateAdminProblem(w http.ResponseWriter, r *http.Request
 	}
 
 	// Create problem in database if all test cases pass
-	problemId, dbErr := h.problemRepo.CreateProblem(r.Context(), request)
-	if dbErr != nil {
+	problemId, err := h.problemRepo.CreateProblem(r.Context(), request)
+	if err != nil {
 		return errors.HandleDatabaseError(nil, "create problem")
 	}
 

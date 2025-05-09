@@ -22,21 +22,15 @@ func NewSolutionsHandler(repo repository.SolutionsRepository) *SolutionsHandler 
 	return &SolutionsHandler{repo: repo}
 }
 
-// GET: /solutions
-func (h *SolutionsHandler) GetSolutions(w http.ResponseWriter, r *http.Request) error {
-	claims, err := middleware.GetClientClaims(r.Context())
-	if err != nil {
-		return err
-	}
-
+func ValidateGetSolutions(r *http.Request, userId string) (*domain.SolutionsGetParams, error) {
 	problemId := r.URL.Query().Get("problemId")
 	if problemId == "" {
-		return errors.NewApiError(nil, "Missing problemId for solutions retrieval", http.StatusBadRequest)
+		return nil, errors.NewApiError(nil, "Missing problemId for solutions retrieval", http.StatusBadRequest)
 	}
 
-	id, err := strconv.ParseInt(problemId, 10, 64)
+	id, err := strconv.ParseInt(problemId, 10, 32)
 	if err != nil {
-		return errors.NewApiError(err, "Invalid problemId format for solutions retrieval", http.StatusBadRequest)
+		return nil, errors.NewApiError(err, "Invalid problemId format for solutions retrieval", http.StatusBadRequest)
 	}
 
 	titleSearch := r.URL.Query().Get("titleSearch")
@@ -89,16 +83,31 @@ func (h *SolutionsHandler) GetSolutions(w http.ResponseWriter, r *http.Request) 
 		order = "DESC"
 	}
 
-	solutions, err := h.repo.GetSolutions(r.Context(), sql.GetSolutionsPaginatedParams{
-		ProblemID:     &id,
+	return &domain.SolutionsGetParams{
+		ProblemId:     int32(id),
 		Tags:          tagsArray,
 		Title:         titleSearch,
-		PerPage:       perPage,
 		Page:          page,
+		PerPage:       perPage,
 		Sort:          sort,
-		SortDirection: order,
-		UserID:        claims.UserID,
-	})
+		SortDirection: sql.SortDirection(order),
+		UserId:        userId,
+	}, nil
+}
+
+// GET: /solutions
+func (h *SolutionsHandler) GetSolutions(w http.ResponseWriter, r *http.Request) error {
+	claims, err := middleware.GetClientClaims(r.Context())
+	if err != nil {
+		return err
+	}
+
+	params, err := ValidateGetSolutions(r, claims.UserID)
+	if err != nil {
+		return err
+	}
+
+	solutions, err := h.repo.GetSolutions(r.Context(), params)
 	if err != nil {
 		httputils.EmptyDataArrayResponse(w) // { data: [] }
 		return nil

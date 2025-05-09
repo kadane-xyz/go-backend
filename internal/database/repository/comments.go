@@ -11,8 +11,8 @@ type CommentsRepository interface {
 	GetComment(ctx context.Context, params sql.GetCommentParams) (domain.CommentRelation, error)
 	GetCommentById(ctx context.Context, id int64) (domain.Comment, error)
 	GetComments(ctx context.Context, params sql.GetCommentsParams) ([]domain.Comment, error)
-	GetCommentsSorted(ctx context.Context, params sql.GetCommentsSortedParams) ([]domain.Comment, error)
-	CreateComment(ctx context.Context, params sql.CreateCommentParams) (domain.Comment, error)
+	GetCommentsSorted(ctx context.Context, params sql.GetCommentsSortedParams) ([]*domain.CommentRelation, error)
+	CreateComment(ctx context.Context, params domain.CommentCreateParams) (domain.Comment, error)
 	UpdateComment(ctx context.Context, params sql.UpdateCommentParams) ([]domain.Comment, error)
 	DeleteComment(ctx context.Context, params sql.DeleteCommentParams) error
 	VoteComment(ctx context.Context, params sql.VoteCommentParams) error

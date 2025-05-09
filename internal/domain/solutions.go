@@ -16,6 +16,13 @@ type Solution struct {
 	ProblemId int64    `json:"problemId"`
 }
 
+type SolutionRelations struct {
+	Solution
+	CommentCount    int32        `json:"commentsCount"`
+	VotesCount      int32        `json:"votesCount"`
+	CurrentUserVote sql.VoteType `json:"currentUserVote"`
+}
+
 type CreateSolutionRequest struct {
 	ProblemId int64    `json:"problemId"`
 	Title     string   `json:"title"`
@@ -29,8 +36,15 @@ type UpdateSolutionRequest struct {
 	Tags  []string `json:"tags"`
 }
 
-type SolutionResponse struct {
-	Data SolutionsData `json:"data"`
+type SolutionsGetParams struct {
+	ProblemId     int32
+	Tags          []string
+	Title         string
+	PerPage       int32
+	Page          int32
+	Sort          string
+	SortDirection sql.SortDirection
+	UserId        string
 }
 
 type SolutionsData struct {
@@ -48,7 +62,10 @@ type SolutionsData struct {
 	Starred         bool             `json:"starred"`
 }
 
-type SolutionsResponse struct {
-	Data       []SolutionsData `json:"data"`
-	Pagination Pagination      `json:"pagination"`
+func FromSQLGetSolutionsRow(rows []sql.GetSolutionRow) ([]*SolutionRelations, error) {
+	solutions := []*SolutionRelations{}
+
+	for _, row := range rows {
+		solution := SolutionRelation{}
+	}
 }

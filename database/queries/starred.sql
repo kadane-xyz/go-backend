@@ -89,7 +89,7 @@ WITH deleted(starred) AS (
 inserted(starred) AS (
     INSERT INTO starred_submission (user_id, submission_id)
     SELECT v.user_id, v.submission_id
-    FROM (VALUES ($1, $2)) AS v(user_id, submission_id)
+    FROM (VALUES (@user_id, @submission_id)) AS v(user_id, submission_id)
     WHERE NOT EXISTS (SELECT 1 FROM deleted)
     RETURNING true AS starred
 )
@@ -110,7 +110,7 @@ WITH deleted(starred) AS (
 inserted(starred) AS (
     INSERT INTO starred_solution (user_id, solution_id)
     SELECT v.user_id, v.solution_id
-    FROM (VALUES ($1, $2)) AS v(user_id, solution_id)
+    FROM (VALUES (@user_id, @solution_id)) AS v(user_id, solution_id)
     WHERE NOT EXISTS (SELECT 1 FROM deleted)
     RETURNING true AS starred
 )

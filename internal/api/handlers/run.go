@@ -110,7 +110,7 @@ func (h *RunHandler) ValidateRunRequest(w http.ResponseWriter, r *http.Request) 
 func (h *RunHandler) FetchAndValidateProblem(r *http.Request, userId string, runRequest domain.RunRequest) (*domain.Problem, error) {
 	// Get problem
 	problem, err := h.repo.GetProblem(r.Context(), &domain.ProblemGetParams{
-		ProblemId: int64(runRequest.ProblemID),
+		ProblemId: runRequest.ProblemID,
 		UserId:    userId,
 	})
 	if err != nil {
@@ -284,7 +284,7 @@ func (h *RunHandler) ExecuteCodeRun(r *http.Request, userId string, runRequest d
 	return &domain.RunResultResponse{Data: runResult}, nil
 }
 
-func (h *RunHandler) CreateRunRoute(w http.ResponseWriter, r *http.Request) error {
+func (h *RunHandler) CreateRun(w http.ResponseWriter, r *http.Request) error {
 	// Get userid from middleware context
 	claims, err := middleware.GetClientClaims(r.Context())
 	if err != nil {

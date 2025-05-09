@@ -10,7 +10,7 @@ import (
 type RunRequest struct {
 	Language   string     `json:"language"`
 	SourceCode string     `json:"sourceCode"`
-	ProblemID  int        `json:"problemId"`
+	ProblemID  int32      `json:"problemId"`
 	TestCases  []TestCase `json:"testCases"`
 }
 
