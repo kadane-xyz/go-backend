@@ -1,6 +1,6 @@
 CREATE TABLE comment (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    solution_id BIGINT NOT NULL, 
+    solution_id INT NOT NULL, 
     user_id TEXT NOT NULL,
     body TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

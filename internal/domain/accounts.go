@@ -145,53 +145,18 @@ func FromSQLListAccountsRow(rows []sql.ListAccountsRow) []Account {
 }
 
 func FromSQLGetAccountAttributes(row sql.AccountAttribute) *AccountAttributes {
-	accountAttributes := AccountAttributes{
-		ID: row.ID,
+	return &AccountAttributes{
+		ID:           row.ID,
+		Bio:          nullHandler(row.Bio),
+		ContactEmail: nullHandler(row.ContactEmail),
+		Location:     nullHandler(row.Location),
+		RealName:     nullHandler(row.RealName),
+		GithubUrl:    nullHandler(row.GithubUrl),
+		LinkedinUrl:  nullHandler(row.LinkedinUrl),
+		FacebookUrl:  nullHandler(row.FacebookUrl),
+		InstagramUrl: nullHandler(row.InstagramUrl),
+		TwitterUrl:   nullHandler(row.TwitterUrl),
+		School:       nullHandler(row.School),
+		WebsiteUrl:   nullHandler(row.WebsiteUrl),
 	}
-
-	if row.Bio != nil {
-		accountAttributes.Bio = *row.Bio
-	}
-
-	if row.ContactEmail != nil {
-		accountAttributes.ContactEmail = *row.ContactEmail
-	}
-
-	if row.Location != nil {
-		accountAttributes.Location = *row.Location
-	}
-
-	if row.RealName != nil {
-		accountAttributes.RealName = *row.RealName
-	}
-
-	if row.GithubUrl != nil {
-		accountAttributes.GithubUrl = *row.GithubUrl
-	}
-
-	if row.LinkedinUrl != nil {
-		accountAttributes.LinkedinUrl = *row.LinkedinUrl
-	}
-
-	if row.FacebookUrl != nil {
-		accountAttributes.FacebookUrl = *row.FacebookUrl
-	}
-
-	if row.InstagramUrl != nil {
-		accountAttributes.InstagramUrl = *row.InstagramUrl
-	}
-
-	if row.TwitterUrl != nil {
-		accountAttributes.TwitterUrl = *row.TwitterUrl
-	}
-
-	if row.School != nil {
-		accountAttributes.School = *row.School
-	}
-
-	if row.WebsiteUrl != nil {
-		accountAttributes.WebsiteUrl = *row.WebsiteUrl
-	}
-
-	return &accountAttributes
 }

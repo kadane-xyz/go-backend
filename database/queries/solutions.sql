@@ -154,4 +154,4 @@ DELETE FROM solution WHERE id = $1 AND user_id = $2;
 -- PATCH --
 
 -- name: VoteSolution :exec
-SELECT set_solution_vote(@user_id::text, @solution_id::bigint, @vote::vote_type);
+SELECT set_solution_vote(@user_id::text, @solution_id::int, @vote::vote_type);

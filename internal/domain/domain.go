@@ -51,10 +51,11 @@ type VoteRequest struct {
 	Vote sql.VoteType `json:"vote"`
 }
 
-func NullStringHandler(s *string) string {
-	if s != nil {
-		return *s
+// ValueOrZero returns *ptr if ptr != nil, otherwise the zero value of T.
+func nullHandler[T any](ptr *T) T {
+	if ptr != nil {
+		return *ptr
 	}
-
-	return ""
+	var zero T
+	return zero
 }

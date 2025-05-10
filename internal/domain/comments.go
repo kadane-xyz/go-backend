@@ -49,12 +49,8 @@ func FromSQLComment(row sql.Comment) *Comment {
 		Body:       row.Body,
 		CreatedAt:  row.CreatedAt.Time,
 		Children:   []*Comment{},
-	}
-	if row.ParentID != nil {
-		comment.ParentId = row.ParentID
-	}
-	if row.Votes != nil {
-		comment.Votes = *row.Votes
+		ParentId:   nullHandler(&row.ParentID),
+		Votes:      nullHandler(row.Votes),
 	}
 	return &comment
 }
@@ -67,21 +63,13 @@ func FromSQLGetCommentRow(row sql.GetCommentRow) (*CommentRelation, error) {
 			Body:       row.Body,
 			CreatedAt:  row.CreatedAt.Time,
 			Children:   []*Comment{},
+			ParentId:   nullHandler(&row.ParentID),
+			Votes:      nullHandler(row.Votes),
 		},
+		AvatarUrl:       nullHandler(row.UserAvatarUrl),
 		Username:        row.UserUsername,
 		Level:           row.UserLevel,
 		CurrentUserVote: row.VotesCount,
-	}
-
-	if row.ParentID != nil {
-		comment.ParentId = row.ParentID
-	}
-
-	if row.Votes != nil {
-		comment.Votes = *row.Votes
-	}
-	if row.UserAvatarUrl != nil {
-		comment.AvatarUrl = *row.UserAvatarUrl
 	}
 
 	return &comment, nil

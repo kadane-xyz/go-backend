@@ -10,6 +10,9 @@ import (
 type SolutionsRepository interface {
 	GetSolutions(ctx context.Context, params *domain.SolutionsGetParams) ([]*domain.Solution, error)
 	GetSolutionById(ctx context.Context, id int32) (int32, error)
+	UpdateSolution(ctx context.Context, params *domain.SolutionsUpdateParams) (*domain.Solution, error)
+	DeleteSolution(ctx context.Context, userid string, id int32) error
+	VoteSolution(ctx context.Context, params *domain.VoteSolutionsParams) error
 }
 
 type SQLSolutionsRepository struct {
@@ -43,4 +46,19 @@ func (r *SQLSolutionsRepository) GetSolutionById(ctx context.Context, id int32) 
 		return 0, err
 	}
 	return q, nil
+}
+
+func (r *SQLSolutionsRepository) DeleteSolution(ctx context.Context, userId string, id int32) error {
+	return r.queries.DeleteSolution(ctx, sql.DeleteSolutionParams{
+		UserID: &userId,
+		ID:     id,
+	})
+}
+
+func (r *SQLSolutionsRepository) VoteSolution(ctx context.Context, params *domain.VoteSolutionsParams) error {
+	return r.queries.VoteSolution(ctx, sql.VoteSolutionParams{
+		UserID:     params.UserId,
+		SolutionID: params.SolutionId,
+		Vote:       params.Vote,
+	})
 }

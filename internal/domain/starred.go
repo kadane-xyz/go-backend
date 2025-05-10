@@ -77,14 +77,6 @@ type StarSubmissionParams struct {
 func FromSQLGetStarredSolutionsRows(rows []sql.GetStarredSolutionsRow) ([]*StarredSolution, error) {
 	solutions := []*StarredSolution{}
 	for _, row := range rows {
-		votes := int32(0)
-		if row.Votes != nil {
-			votes = *row.Votes
-		}
-		problemId := int32(0)
-		if row.ProblemID != nil {
-			problemId = *row.ProblemID
-		}
 		solution := &StarredSolution{
 			Id:        row.ID,
 			Username:  row.Username,
@@ -92,8 +84,8 @@ func FromSQLGetStarredSolutionsRows(rows []sql.GetStarredSolutionsRow) ([]*Starr
 			Date:      row.CreatedAt,
 			Tags:      row.Tags,
 			Body:      row.Body,
-			Votes:     votes,
-			ProblemId: problemId,
+			Votes:     nullHandler(row.Votes),
+			ProblemId: nullHandler(row.ProblemID),
 			Starred:   row.Starred,
 		}
 
@@ -106,50 +98,20 @@ func FromSQLGetStarredSolutionsRows(rows []sql.GetStarredSolutionsRow) ([]*Starr
 func FromSQLGetStarredSubmissionRow(rows []sql.GetStarredSubmissionsRow) []*StarredSubmission {
 	submissions := []*StarredSubmission{}
 	for _, row := range rows {
-		stdout := ""
-		if row.Stdout != nil {
-			stdout = *row.Stdout
-		}
-
-		memory := int32(0)
-		if row.Memory != nil {
-			memory = *row.Memory
-		}
-
-		stderr := ""
-		if row.Stderr != nil {
-			stderr = *row.Stderr
-		}
-
-		compileOutput := ""
-		if row.CompileOutput != nil {
-			compileOutput = *row.CompileOutput
-		}
-
-		message := ""
-		if row.Message != nil {
-			message = *row.Message
-		}
-
-		submittedStdin := ""
-		if row.SubmittedStdin != nil {
-			submittedStdin = *row.SubmittedStdin
-		}
-
 		submissions = append(submissions, &StarredSubmission{
 			Id: row.ID,
 			//Token: row.T
-			Stdout:         stdout,
+			Stdout:         nullHandler(row.Stdout),
 			Time:           row.Time.Time,
-			Memory:         memory,
-			Stderr:         stderr,
-			CompileOutput:  compileOutput,
-			Message:        message,
+			Memory:         nullHandler(row.Memory),
+			Stderr:         nullHandler(row.Stderr),
+			CompileOutput:  nullHandler(row.CompileOutput),
+			Message:        nullHandler(row.Message),
 			Status:         row.Status,
 			Language:       row.LanguageName,
 			AccountID:      row.AccountID,
 			SubmittedCode:  row.SubmittedCode,
-			SubmittedStdin: submittedStdin,
+			SubmittedStdin: nullHandler(row.SubmittedStdin),
 			ProblemID:      row.ProblemID,
 			CreatedAt:      row.CreatedAt.Time,
 			Starred:        row.Starred,

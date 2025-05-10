@@ -159,6 +159,7 @@ func FromSQLCreateProblemRow(row sql.CreateProblemRow) (*ProblemCreate, error) {
 	return &ProblemCreate{
 		Id:             row.ProblemID,
 		Hints:          hints,
+		Codes:          codes,
 		Solutions:      solutions,
 		TestCase:       testCase,
 		TestCaseInputs: testCaseInput,

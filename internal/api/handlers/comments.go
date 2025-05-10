@@ -62,7 +62,7 @@ func (h *CommentHandler) GetComments(w http.ResponseWriter, r *http.Request) err
 	}
 
 	dbComments, err := h.repo.GetCommentsSorted(r.Context(), sql.GetCommentsSortedParams{
-		SolutionID:    id,
+		SolutionID:    int32(id),
 		UserID:        claims.UserID,
 		Sort:          sort,
 		SortDirection: order,
