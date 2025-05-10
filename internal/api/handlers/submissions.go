@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -30,24 +29,28 @@ func NewSubmissionHandler(repo repository.SubmissionsRepository, judge0client *j
 	return &SubmissionHandler{repo: repo, judge0client: judge0client}
 }
 
-// ValidateSubmissionRequest validates a submission request
-func ValidateSubmissionRequest(request domain.SubmissionRequest) *errors.ApiError {
+func ValidateCreateSubmissionRequest(r *http.Request) (*domain.SubmissionCreateParams, error) {
+	request, err := httputils.DecodeJSONRequest[domain.SubmissionRequest](r)
+	if err != nil {
+		return nil, errors.NewApiError(err, "validation", http.StatusBadRequest)
+	}
+
 	problemId := request.ProblemID
 	if problemId == 0 {
-		return errors.NewApiError(http.StatusBadRequest, "Missing problem ID")
+		return nil, errors.NewApiError(http.StatusBadRequest, "Missing problem ID")
 	}
 
 	// Check if language is valid
 	lang := string(sql.ProblemLanguage(request.Language))
 	if request.Language == "" || request.Language != lang {
-		return errors.NewApiError(nil, "Invalid language: "+request.Language, http.StatusBadRequest)
+		return nil, errors.NewApiError(nil, "Invalid language: "+request.Language, http.StatusBadRequest)
 	}
 
 	if request.SourceCode == "" {
-		return errors.NewApiError(http.StatusBadRequest, "Missing source code")
+		return nil, errors.NewApiError(http.StatusBadRequest, "Missing source code")
 	}
 
-	return nil
+	return &domain.SubmissionCreateParams{}, nil
 }
 
 // FetchProblemAndTestCases retrieves problem details and test cases
@@ -66,7 +69,7 @@ func (h *SubmissionHandler) FetchProblemAndTestCases(ctx context.Context, proble
 		ProblemID: problemID,
 	})
 	if err != nil {
-		return nil, nil, errors.NewApiError(http.StatusInternalServerError, "Failed to get problem solution")
+		return nil, nil, errors.NewApiError(nil, "Failed to get problem solution", http.StatusInternalServerError)
 	}
 
 	if len(problemTestCases) == 0 {
@@ -168,7 +171,7 @@ func EvaluateTestResults(testCases []domain.TestCase, responses []judge0.Submiss
 			failedSubmission = &domain.Submission{
 				Status:        submissionStatus,
 				Memory:        int32(resp.Memory),
-				Time:          resp.Time,
+				Time:          resp.Time.Time,
 				Stdout:        resp.Stdout,
 				Stderr:        resp.Stderr,
 				CompileOutput: resp.CompileOutput,
@@ -200,34 +203,15 @@ func EvaluateTestResults(testCases []domain.TestCase, responses []judge0.Submiss
 	return passedTestCases, failedTestCase, failedSubmission, totalMemory, totalTime
 }
 
-// CreateDatabaseSubmission prepares the database record for a submission
-func CreateDatabaseSubmission(userId string, problem sql.GetProblemRow, request domain.SubmissionRequest,
-	submission domain.Submission, failedTestCase domain.RunTestCase,
-	passedTestCases, totalTestCases int32, languageID int32, languageName string,
-	submissionId uuid.UUID) (sql.CreateSubmissionParams, error) {
-	failedTestCaseJson, err := json.Marshal(failedTestCase)
-	if err != nil {
-		return sql.CreateSubmissionParams{}, err
-	}
-
-	return sql.CreateSubmissionParams{
-		ID:              pgtype.UUID{Bytes: submissionId, Valid: true},
-		AccountID:       userId,
-		ProblemID:       problem.ID,
-		SubmittedCode:   request.SourceCode,
-		Status:          submission.Status,
-		Stdout:          submission.Stdout,
-		Time:            submission.Time,
-		Memory:          int32(submission.Memory),
-		Stderr:          submission.Stderr,
-		CompileOutput:   submission.CompileOutput,
-		Message:         submission.Message,
-		LanguageID:      languageID,
-		LanguageName:    languageName,
-		FailedTestCase:  failedTestCaseJson,
-		PassedTestCases: passedTestCases,
-		TotalTestCases:  totalTestCases,
-	}, nil
+type SubmissionCreateParams struct {
+	userId          string
+	problem         *domain.Problem
+	request         domain.SubmissionRequest
+	passedTestCases int32
+	totalTestCases  int32
+	languageId      int32
+	languageName    int32
+	submissionId    uuid.UUID
 }
 
 // ProcessSubmission handles the submission workflow
@@ -272,10 +256,13 @@ func (h *SubmissionHandler) ProcessSubmission(ctx context.Context, request domai
 
 	// If any test failed, use its details, otherwise use averages
 	memory := int32(totalMemory / count)
+	avgTimeRaw := totalTime / float64(count)
+	avgTime := time.Duration(avgTimeRaw * float64(time.Second)).Truncate(time.Millisecond)
+
 	avgSubmission := domain.Submission{
 		Status:        sql.SubmissionStatus(lastResp.Status.Description),
 		Memory:        memory,
-		Time:          fmt.Sprintf("%.3f", totalTime/float64(count)),
+		Time:          avgTime,
 		Stdout:        lastResp.Stdout,
 		Stderr:        lastResp.Stderr,
 		CompileOutput: lastResp.CompileOutput,
@@ -291,16 +278,6 @@ func (h *SubmissionHandler) ProcessSubmission(ctx context.Context, request domai
 	lastLanguageID := int32(lastResp.Language.ID)
 	lastLanguageName := lastResp.Language.Name
 
-	// Create database record
-	submissionId := uuid.New()
-	dbSubmission, err := CreateDatabaseSubmission(
-		userId, problem, request, avgSubmission,
-		failedTestCase, passedTestCases, totalTestCases,
-		lastLanguageID, lastLanguageName, submissionId)
-	if err != nil {
-		return nil, errors.HandleDatabaseError(err, "Failed to create submission")
-	}
-
 	// Save to database
 	_, err = h.repo.CreateSubmission(ctx, dbSubmission)
 	if err != nil {
@@ -311,7 +288,7 @@ func (h *SubmissionHandler) ProcessSubmission(ctx context.Context, request domai
 	language := judge0.LanguageIDToLanguage(int(lastLanguageID))
 
 	response := domain.Submission{
-		Id:              submissionId.String(),
+		Id:              submissionId,
 		Stdout:          avgSubmission.Stdout,
 		Time:            avgSubmission.Time,
 		Memory:          avgSubmission.Memory,
@@ -338,11 +315,6 @@ func (h *SubmissionHandler) CreateSubmissionRoute(w http.ResponseWriter, r *http
 	claims, err := middleware.GetClientClaims(r.Context())
 	if err != nil {
 		return err
-	}
-
-	request, err := httputils.DecodeJSONRequest[domain.SubmissionRequest](r)
-	if err != nil {
-		return errors.NewApiError(err, "validation", http.StatusBadRequest)
 	}
 
 	err = ValidateSubmissionRequest(request)

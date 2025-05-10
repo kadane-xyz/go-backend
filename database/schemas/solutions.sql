@@ -5,7 +5,7 @@ CREATE TABLE solution (
     title TEXT NOT NULL,
     body TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    votes INTEGER DEFAULT 0,
+    votes INT DEFAULT 0,
     tags TEXT[],
     UNIQUE (user_id, id)
 );

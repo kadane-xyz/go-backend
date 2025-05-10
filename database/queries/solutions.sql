@@ -2,7 +2,7 @@
 
 -- name: GetSolution :one
 SELECT 
-    s.*,
+    sqlc.embed(s),
     a.username as user_username,
     a.avatar_url as user_avatar_url,
     a.level as user_level,
@@ -67,7 +67,7 @@ WITH filtered_solutions AS (
     GROUP BY s.id, sp.solution_id
 )
 SELECT
-    s.*,
+    sqlc.embed(s),
     a.username as user_username,
     a.avatar_url as user_avatar_url,
     a.level as user_level,

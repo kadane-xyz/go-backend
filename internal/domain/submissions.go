@@ -12,7 +12,7 @@ import (
 type Submission struct {
 	Id            uuid.UUID            `json:"id"`
 	Stdout        string               `json:"stdout"`
-	Time          time.Time            `json:"time"`
+	Time          time.Duration        `json:"time"`
 	Memory        int32                `json:"memory"`
 	Stderr        string               `json:"stderr"`
 	CompileOutput string               `json:"compileOutput"`

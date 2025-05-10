@@ -124,56 +124,51 @@ func (h *SolutionsHandler) GetSolutions(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Prepare response
-	var solutionsData []domain.SolutionRelations
-	for _, solution := range solutions {
+	for i, solution := range solutions {
 		// If tags is nil, set it to an empty array
 		if solution.Tags == nil {
-			solution.Tags = []string{}
-		}
-
-		solutionData := domain.SolutionRelations{
-			Solution: domain.Solution{
-				Id:            solution.Id,
-				Body:          solution.Body,
-				CommentsCount: solution.CommentsCount,
-				Date:          solution.CreatedAt,
-				Tags:          solution.Tags,
-				Title:         solution.Title,
-				Username:      solution.UserUsername,
-				Level:         solution.UserLevel,
-			},
-			AvatarUrl:       solution.UserAvatarUrl.String,
-			Votes:           solution.VotesCount,
-			CurrentUserVote: solution.UserVote,
-			Starred:         solution.Starred,
+			solutions[i].Tags = []string{}
 		}
 
 		// If preview is not true, include the body
 		if r.URL.Query().Get("preview") != "true" {
-			solutionData.Body = solution.Body
+			solutions[i].Body = solution.Body
 		}
-
-		solutionsData = append(solutionsData, solutionData)
 	}
 
 	// Calculate last page
-	lastPage := (totalCount + perPage - 1) / perPage
-
-	// Final response
-	response := domain.SolutionsResponse{
-		Data: solutionsData,
-		Pagination: domain.Pagination{
-			Page:      page,       // Current page
-			PerPage:   perPage,    // Items per page
-			DataCount: totalCount, // Total items
-			LastPage:  lastPage,   // Last page
-		},
-	}
+	lastPage := (totalCount + params.PerPage - 1) / params.PerPage
 
 	// Write solutionsJSON to response
-	httputils.SendJSONResponse(w, http.StatusOK, response)
+	httputils.SendJSONPaginatedResponse(w, http.StatusOK,
+		solutions, domain.Pagination{
+			Page:      params.Page,
+			PerPage:   params.PerPage,
+			DataCount: totalCount,
+			LastPage:  lastPage,
+		},
+	)
 
 	return nil
+}
+
+func validateCreateSolutionRequest(r *http.Request, userId string) (*domain.SolutionsCreateParams, error) {
+	solution, err := httputils.DecodeJSONRequest[domain.SolutionsCreateParams](r)
+	if err != nil {
+		return nil, err
+	}
+
+	if solution.Title == "" || solution.Body == "" || solution.ProblemId <= 0 {
+		return nil, errors.NewApiError(nil, "Missing required fields for solution creation", http.StatusBadRequest)
+	}
+
+	return &domain.SolutionsCreateParams{
+		UserId:    userId,
+		Title:     solution.Title,
+		Tags:      solution.Tags,
+		Body:      solution.Body,
+		ProblemId: solution.ProblemId,
+	}, nil
 }
 
 // POST: /
@@ -183,23 +178,13 @@ func (h *SolutionsHandler) CreateSolution(w http.ResponseWriter, r *http.Request
 		return err
 	}
 
-	solution, err := httputils.DecodeJSONRequest[domain.CreateSolutionRequest](r)
+	params, err := validateCreateSolutionRequest(r, claims.UserID)
 	if err != nil {
 		return err
 	}
 
-	if solution.Title == "" || solution.Body == "" || solution.ProblemId <= 0 {
-		return errors.NewApiError(nil, "Missing required fields for solution creation", http.StatusBadRequest)
-	}
-
 	// Insert solution into db
-	_, err = h.repo.CreateSolution(r.Context(), sql.CreateSolutionParams{
-		UserID:    &claims.UserID,
-		Title:     solution.Title,
-		Tags:      solution.Tags,
-		Body:      solution.Body,
-		ProblemID: &solution.ProblemId,
-	})
+	_, err = h.repo.CreateSolution(r.Context(), params)
 	if err != nil {
 		return errors.HandleDatabaseError(err, "create solution")
 	}
@@ -210,20 +195,20 @@ func (h *SolutionsHandler) CreateSolution(w http.ResponseWriter, r *http.Request
 	return nil
 }
 
-func validateGetSolutionParams(r *http.Request, userId int32) (*domain.SolutionGetParams, error) {
+func validateGetSolutionRequest(r *http.Request, userId string) (*domain.SolutionGetParams, error) {
 	solutionId := chi.URLParam(r, "solutionId")
 	if solutionId == "" {
-		return errors.NewApiError(nil, "Missing solutionId for solution retrieval", http.StatusBadRequest)
+		return nil, errors.NewApiError(nil, "Missing solutionId for solution retrieval", http.StatusBadRequest)
 	}
 
 	id, err := strconv.ParseInt(solutionId, 10, 32)
 	if err != nil {
-		return errors.NewApiError(err, "Invalid solutionId format for solution retrieval", http.StatusBadRequest)
+		return nil, errors.NewApiError(err, "Invalid solutionId format for solution retrieval", http.StatusBadRequest)
 	}
 
-	return &domain.Solution{
-		SolutionId: int32(id),
-		UserId:     userId,
+	return &domain.SolutionGetParams{
+		Id:     int32(id),
+		UserId: userId,
 	}, nil
 }
 
@@ -234,19 +219,16 @@ func (h *SolutionsHandler) GetSolution(w http.ResponseWriter, r *http.Request) e
 		return err
 	}
 
+	params, err := validateGetSolutionRequest(r, claims.UserID)
+	if err != nil {
+		return err
+	}
+
 	// Get solutions from db by idPg
-	solution, err := h.repo.GetSolution(r.Context(), sql.GetSolutionParams{
-		ID:     int32(id),
-		UserID: claims.UserID,
-	})
+	solution, err := h.repo.GetSolution(r.Context(), params)
 	if err != nil {
 		httputils.EmptyDataResponse(w) // { data: {} }
 		return nil
-	}
-
-	// If tags is nil, set it to an empty array
-	if solution.Tags == nil {
-		solution.Tags = []string{}
 	}
 
 	// Write solutionsJSON to response

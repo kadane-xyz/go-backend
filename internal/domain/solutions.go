@@ -1,30 +1,41 @@
 package domain
 
 import (
+	"time"
+
 	"kadane.xyz/go-backend/v2/internal/database/sql"
 )
 
 type Solution struct {
-	Id        int64    `json:"id"`
-	Username  string   `json:"username"`
-	Title     string   `json:"title"`
-	Date      string   `json:"date"`
-	Tags      []string `json:"tags"`
-	Body      string   `json:"body"`
-	Votes     int      `json:"votes"`
-	ProblemId int64    `json:"problemId"`
+	Id        int32     `json:"id"`
+	Title     string    `json:"title"`
+	Date      time.Time `json:"date"`
+	Tags      []string  `json:"tags"`
+	Body      string    `json:"body"`
+	Votes     int32     `json:"votes"`
+	ProblemId int32     `json:"problemId"`
 }
 
+// GetSolution
 type SolutionRelations struct {
 	Solution
+	Username        string       `json:"username"`
+	AvatarUrl       string       `json:"avatarUrl"`
+	Level           int32        `json:"level"`
 	CommentCount    int32        `json:"commentsCount"`
 	VotesCount      int32        `json:"votesCount"`
 	CurrentUserVote sql.VoteType `json:"currentUserVote"`
 	Starred         bool         `json:"starred"`
 }
 
+// GetSolutions
+type SolutionsRelations struct {
+	SolutionRelations
+	TotalCount int32 `json:"totalCount"`
+}
+
 type CreateSolutionRequest struct {
-	ProblemId int64    `json:"problemId"`
+	ProblemId int32    `json:"problemId"`
 	Title     string   `json:"title"`
 	Tags      []string `json:"tags"`
 	Body      string   `json:"body"`
@@ -36,15 +47,28 @@ type UpdateSolutionRequest struct {
 	Tags  []string `json:"tags"`
 }
 
+type SolutionGetParams struct {
+	Id     int32  `json:"id"`
+	UserId string `json:"userId"`
+}
+
 type SolutionsGetParams struct {
 	ProblemId     int32
 	Tags          []string
 	Title         string
-	PerPage       int32
+	UserId        string
 	Page          int32
+	PerPage       int32
 	Sort          string
 	SortDirection sql.SortDirection
-	UserId        string
+}
+
+type SolutionsCreateParams struct {
+	UserId    string
+	Title     string
+	Tags      []string
+	Body      string
+	ProblemId *int32
 }
 
 type SolutionsUpdateParams struct {
@@ -61,10 +85,53 @@ type VoteSolutionsParams struct {
 	Vote       sql.VoteType
 }
 
-func FromSQLGetSolutionsRow(rows []sql.GetSolutionRow) ([]*SolutionRelations, error) {
-	solutions := []*SolutionRelations{}
-
-	for _, row := range rows {
-		solution := SolutionRelation{}
+func FromSQLGetSolutionRow(row sql.GetSolutionRow) *SolutionRelations {
+	return &SolutionRelations{
+		Solution: Solution{
+			Id:        row.Solution.ID,
+			Title:     row.Solution.Title,
+			Date:      row.Solution.CreatedAt.Time,
+			Tags:      row.Solution.Tags,
+			Body:      row.Solution.Body,
+			Votes:     nullHandler(row.Solution.Votes),
+			ProblemId: nullHandler(row.Solution.ProblemID),
+		},
+		Username:        row.UserUsername,
+		AvatarUrl:       nullHandler(row.UserAvatarUrl),
+		Level:           row.UserLevel,
+		CommentCount:    row.CommentsCount,
+		VotesCount:      row.VotesCount,
+		CurrentUserVote: row.UserVote,
+		Starred:         row.Starred,
 	}
+}
+
+func FromSQLGetSolutionsRow(rows []sql.GetSolutionsRow) []*SolutionsRelations {
+	solutions := []*SolutionsRelations{}
+
+	for i, row := range rows {
+		solutions[i] = &SolutionsRelations{
+			SolutionRelations: SolutionRelations{
+				Solution: Solution{
+					Id:        row.Solution.ID,
+					Title:     row.Solution.Title,
+					Date:      row.Solution.CreatedAt.Time,
+					Tags:      row.Solution.Tags,
+					Body:      row.Solution.Body,
+					Votes:     nullHandler(row.Solution.Votes),
+					ProblemId: nullHandler(row.Solution.ProblemID),
+				},
+				Username:        row.UserUsername,
+				AvatarUrl:       nullHandler(row.UserAvatarUrl),
+				Level:           row.UserLevel,
+				CommentCount:    row.CommentsCount,
+				VotesCount:      row.VotesCount,
+				CurrentUserVote: row.UserVote,
+				Starred:         row.Starred,
+			},
+			TotalCount: row.TotalCount,
+		}
+	}
+
+	return solutions
 }
