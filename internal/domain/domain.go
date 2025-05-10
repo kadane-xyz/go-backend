@@ -50,3 +50,11 @@ const (
 type VoteRequest struct {
 	Vote sql.VoteType `json:"vote"`
 }
+
+func NullStringHandler(s *string) string {
+	if s != nil {
+		return *s
+	}
+
+	return ""
+}
