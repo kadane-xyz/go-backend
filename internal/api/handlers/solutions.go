@@ -158,7 +158,7 @@ func validateCreateSolutionRequest(r *http.Request, userId string) (*domain.Solu
 		return nil, err
 	}
 
-	if solution.Title == "" || solution.Body == "" || solution.ProblemId <= 0 {
+	if solution.Title == "" || solution.Body == "" || *solution.ProblemId <= 0 {
 		return nil, errors.NewApiError(nil, "Missing required fields for solution creation", http.StatusBadRequest)
 	}
 

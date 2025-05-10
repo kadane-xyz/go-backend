@@ -29,8 +29,8 @@ func NewSubmissionHandler(repo repository.SubmissionsRepository, judge0client *j
 	return &SubmissionHandler{repo: repo, judge0client: judge0client}
 }
 
-func ValidateCreateSubmissionRequest(r *http.Request) (*domain.SubmissionCreateParams, error) {
-	request, err := httputils.DecodeJSONRequest[domain.SubmissionRequest](r)
+func validateCreateSubmissionRequest(r *http.Request, userId string) (*domain.SubmissionCreateRequest, error) {
+	request, err := httputils.DecodeJSONRequest[domain.SubmissionCreateRequest](r)
 	if err != nil {
 		return nil, errors.NewApiError(err, "validation", http.StatusBadRequest)
 	}
@@ -50,7 +50,11 @@ func ValidateCreateSubmissionRequest(r *http.Request) (*domain.SubmissionCreateP
 		return nil, errors.NewApiError(http.StatusBadRequest, "Missing source code")
 	}
 
-	return &domain.SubmissionCreateParams{}, nil
+	return &domain.SubmissionCreateRequest{
+		Language:   request.Language,
+		SourceCode: request.SourceCode,
+		ProblemID:  request.ProblemID,
+	}, nil
 }
 
 // FetchProblemAndTestCases retrieves problem details and test cases
@@ -228,9 +232,6 @@ func (h *SubmissionHandler) ProcessSubmission(ctx context.Context, request domai
 		return nil, apiErr
 	}
 
-	// Total test cases count
-	totalTestCases := int32(len(testCases))
-
 	// Submit to judge0
 	submissionResponses, err := h.judge0client.CreateSubmissionBatchAndWait(submissions)
 	if err != nil {
@@ -244,6 +245,9 @@ func (h *SubmissionHandler) ProcessSubmission(ctx context.Context, request domai
 	// Evaluate the test results
 	passedTestCases, failedTestCase, failedSubmission, totalMemory, totalTime :=
 		EvaluateTestResults(testCases, submissionResponses)
+
+	// Total test cases count
+	totalTestCases := int32(len(testCases))
 
 	// Verify passed test cases count
 	if passedTestCases > totalTestCases {
@@ -317,7 +321,7 @@ func (h *SubmissionHandler) CreateSubmissionRoute(w http.ResponseWriter, r *http
 		return err
 	}
 
-	err = ValidateSubmissionRequest(request)
+	request, err := validateCreateSubmissionRequest(r, claims.UserID)
 	if err != nil {
 		return errors.NewApiError(err, "validation", http.StatusBadRequest)
 	}

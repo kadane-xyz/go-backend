@@ -51,7 +51,7 @@ type SubmissionCreateParams struct {
 	TotalTestCases  int32
 }
 
-type SubmissionRequest struct {
+type SubmissionCreateRequest struct {
 	Language   string `json:"language"`
 	SourceCode string `json:"sourceCode"`
 	ProblemID  int32  `json:"problemId"`
