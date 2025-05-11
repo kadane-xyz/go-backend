@@ -8,9 +8,10 @@ import (
 )
 
 type ProblemsRepository interface {
-	GetProblem(ctx context.Context, params *domain.ProblemGetParams) (domain.Problem, error)
+	GetProblem(ctx context.Context, params *domain.ProblemGetParams) (*domain.Problem, error)
 	GetProblemsFilteredPaginated(ctx context.Context, params *domain.ProblemsGetParams) ([]sql.GetProblemsFilteredPaginatedRow, error)
 	CreateProblem(ctx context.Context, params *domain.ProblemCreateParams) (*domain.ProblemCreate, error)
+	GetProblemTestCases(ctx context.Context, problemId int32) ([]*domain.TestCase, error)
 }
 
 type SQLProblemsRepository struct {
@@ -53,4 +54,8 @@ func (r *SQLProblemsRepository) CreateProblem(ctx context.Context, params *domai
 		return nil, err
 	}
 	return domain.FromSQLCreateProblemRow(q)
+}
+
+func (r *SQLProblemsRepository) GetProblemTestCases(ctx context.Context, problemId int32) ([]*domain.TestCase, error) {
+
 }

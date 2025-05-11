@@ -2,10 +2,12 @@ package domain
 
 import (
 	"encoding/json"
+	"net/http"
 	"time"
 
 	"github.com/google/uuid"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
+	"kadane.xyz/go-backend/v2/internal/errors"
 	"kadane.xyz/go-backend/v2/internal/judge0"
 )
 
@@ -58,12 +60,62 @@ type SubmissionCreateRequest struct {
 }
 
 type SubmissionGetParams struct {
-	Sort          sql.ProblemSort
-	SortDirection sql.SortDirection
-	UserId        string
-	Username      string
-	ProblemID     int32
-	Status        sql.SubmissionStatus
+	SubmissionId uuid.UUID
+	UserId       string
+}
+
+type SubmissionsGetByUsernameParams struct {
+	Username  string
+	ProblemId int32
+	Status    sql.SubmissionStatus
+	Sort      sql.ProblemSort
+	Order     sql.SortDirection
+	Page      int32
+	PerPage   int32
+}
+
+// TransformSubmissionResults converts database results to API response format
+func TransformSubmissionResults(submissions []sql.GetSubmissionsByUsernameRow) ([]domain.Submission, error) {
+	submissionResults := make([]domain.Submission, 0, len(submissions))
+
+	for _, submission := range submissions {
+		submissionId := uuid.UUID(submission.ID.Bytes)
+		submissionFailedTestCase := domain.RunTestCase{}
+
+		err := json.Unmarshal(submission.FailedTestCase, &submissionFailedTestCase)
+		if err != nil {
+			return nil, errors.NewAppError(err, "Failed to unmarshal failed test case", http.StatusInternalServerError)
+
+		}
+
+		stdout := ""
+		if submission.Stdout != nil {
+			stdout = *submission.Stdout
+		}
+
+		submissionResults = append(submissionResults, domain.Submission{
+			Id:              submissionId.String(),
+			Stdout:          stdout,
+			Time:            submission.Time,
+			Memory:          submission.Memory,
+			Stderr:          submission.Stderr,
+			CompileOutput:   submission.CompileOutput,
+			Message:         submission.Message,
+			Status:          submission.Status,
+			Language:        judge0.LanguageIDToLanguage(int(submission.LanguageID)),
+			AccountID:       submission.AccountID,
+			SubmittedCode:   submission.SubmittedCode,
+			SubmittedStdin:  submission.SubmittedStdin,
+			ProblemID:       submission.ProblemID,
+			CreatedAt:       submission.CreatedAt.Time,
+			Starred:         submission.Starred,
+			FailedTestCase:  submissionFailedTestCase,
+			PassedTestCases: submission.PassedTestCases,
+			TotalTestCases:  submission.TotalTestCases,
+		})
+	}
+
+	return submissionResults, nil
 }
 
 func FromSQLGetSubmissionByUsernameRow(row sql.GetSubmissionsByUsernameRow) (*Submission, error) {
@@ -107,7 +159,7 @@ func FromSQLGetSubmissionByUsernameRow(row sql.GetSubmissionsByUsernameRow) (*Su
 	return &Submission{
 		Id:            row.ID.Bytes,
 		Stdout:        stdout,
-		Time:          row.Time.Time,
+		Time:          row.Time.Duration,
 		Memory:        memory,
 		Stderr:        stderr,
 		CompileOutput: compileOutput,

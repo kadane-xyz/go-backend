@@ -93,7 +93,7 @@ func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
 	commentHandler := handlers.NewCommentHandler(commentsRepo, solutionsRepo)
 	friendHandler := handlers.NewFriendHandler(friendsRepo, accountsRepo)
 	runHandler := handlers.NewRunHandler(problemsRepo, judge0Client)
-	submissionHandler := handlers.NewSubmissionHandler(submissionsRepo)
+	submissionHandler := handlers.NewSubmissionHandler(submissionsRepo, problemsRepo, judge0Client)
 	solutionsHandler := handlers.NewSolutionsHandler(solutionsRepo)
 	starredHandler := handlers.NewStarredHandler(starredRepo)
 

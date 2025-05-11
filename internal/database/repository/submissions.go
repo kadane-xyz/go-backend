@@ -10,9 +10,9 @@ import (
 )
 
 type SubmissionsRepository interface {
+	GetSubmission(ctx context.Context, params *domain.SubmissionGetParams) (*domain.Submission, error)
 	GetSubmissions(ctx context.Context, ids []uuid.UUID) ([]*domain.Submission, error)
-	GetSubmission(ctx context.Context, id string) (*domain.Submission, error)
-	GetSubmissionByUserName(ctx context.Context, params domain.SubmissionGetParams) ([]*domain.Submission, error)
+	GetSubmissionsByUsername(ctx context.Context, params *domain.SubmissionsGetByUsernameParams) ([]*domain.Submission, error)
 	CreateSubmission(ctx context.Context, params domain.SubmissionCreateParams) error
 }
 
@@ -45,14 +45,15 @@ func (r *SQLSubmissionsRepository) GetSubmission(ctx context.Context, id string)
 	return domain.FromSQLGetSubmissionRow(q)
 }
 
-func (r *SQLSubmissionsRepository) GetSubmissionByUsername(ctx context.Context, params domain.SubmissionGetParams) ([]*domain.Submission, error) {
+func (r *SQLSubmissionsRepository) GetSubmissionByUsername(ctx context.Context, params *domain.SubmissionsGetByUsernameParams) ([]*domain.Submission, error) {
 	q, err := r.queries.GetSubmissionsByUsername(ctx, sql.GetSubmissionsByUsernameParams{
-		Sort:          params.Sort,
-		SortDirection: params.SortDirection,
-		UserID:        params.UserId,
 		Username:      params.Username,
 		ProblemID:     params.ProblemID,
 		Status:        params.Status,
+		Sort:          params.Sort,
+		SortDirection: params.Order,
+		Page:          params.Page,
+		PerPage:       params.PerPage,
 	})
 	if err != nil {
 		return nil, err

@@ -122,7 +122,7 @@ func (h *RunHandler) FetchAndValidateProblem(r *http.Request, userId string, run
 		return nil, errors.NewApiError(nil, "Correct function name: "+problem.FunctionName+" not found in "+runRequest.Language+" source code", http.StatusBadRequest)
 	}
 
-	return &problem, nil
+	return problem, nil
 }
 
 // PrepareJudge0Submissions creates submissions for Judge0 from test cases

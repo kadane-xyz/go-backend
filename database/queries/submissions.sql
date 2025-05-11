@@ -3,10 +3,10 @@ INSERT INTO submission (id, stdout, time, memory, stderr, compile_output, messag
 
 -- name: GetSubmission :one
 SELECT 
-    *,
+    sqlc.embed(s),
     CASE WHEN EXISTS (SELECT 1 FROM starred_submission WHERE submission_id = s.id AND starred_submission.user_id = @user_id) THEN true ELSE false END AS starred
 FROM submission s
-WHERE s.id = @user_id;
+WHERE s.id = @submission_id;
 
 -- name: GetSubmissions :many
 SELECT * FROM submission WHERE id = ANY(@ids::uuid[]);
@@ -128,4 +128,6 @@ ORDER BY
 
     -- 5) Fallback ordering for stability
     submission_id DESC
-NULLS LAST;
+NULLS LAST
+LIMIT @per_page::int
+OFFSET ((@page::int) - 1) * @per_page::int;

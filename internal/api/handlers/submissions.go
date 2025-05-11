@@ -2,14 +2,12 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	"kadane.xyz/go-backend/v2/internal/api/httputils"
 	"kadane.xyz/go-backend/v2/internal/database/repository"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
@@ -22,11 +20,12 @@ import (
 
 type SubmissionHandler struct {
 	repo         repository.SubmissionsRepository
+	problemsRepo repository.ProblemsRepository
 	judge0client *judge0.Judge0Client
 }
 
-func NewSubmissionHandler(repo repository.SubmissionsRepository, judge0client *judge0.Judge0Client) *SubmissionHandler {
-	return &SubmissionHandler{repo: repo, judge0client: judge0client}
+func NewSubmissionHandler(repo repository.SubmissionsRepository, problemsRepo repository.ProblemsRepository, judge0client *judge0.Judge0Client) *SubmissionHandler {
+	return &SubmissionHandler{repo: repo, problemsRepo: problemsRepo, judge0client: judge0client}
 }
 
 func validateCreateSubmissionRequest(r *http.Request, userId string) (*domain.SubmissionCreateRequest, error) {
@@ -60,7 +59,7 @@ func validateCreateSubmissionRequest(r *http.Request, userId string) (*domain.Su
 // FetchProblemAndTestCases retrieves problem details and test cases
 func (h *SubmissionHandler) FetchProblemAndTestCases(ctx context.Context, problemID int32, userID string) (*domain.Problem, []domain.TestCase, error) {
 	// Get problem details
-	problem, err := h.repo.GetProblem(ctx, domain.ProblemGetParams{
+	problem, err := h.problemsRepo.GetProblem(ctx, &domain.ProblemGetParams{
 		ProblemId: problemID,
 		UserId:    userID,
 	})
@@ -336,6 +335,23 @@ func (h *SubmissionHandler) CreateSubmissionRoute(w http.ResponseWriter, r *http
 	return nil
 }
 
+func validateGetSubmissionRequest(r *http.Request, userId string) (*domain.SubmissionGetParams, error) {
+	token := chi.URLParam(r, "token")
+	if token == "" {
+		return nil, errors.NewApiError(nil, "Missing submission ID", http.StatusBadRequest)
+	}
+
+	idUUID, err := uuid.Parse(token)
+	if err != nil {
+		return nil, errors.NewApiError(err, "Invalid submission ID", http.StatusBadRequest)
+	}
+
+	return &domain.SubmissionGetParams{
+		UserId:       userId,
+		SubmissionId: idUUID,
+	}, nil
+}
+
 func (h *SubmissionHandler) GetSubmission(w http.ResponseWriter, r *http.Request) error {
 	// Get userid from middleware context
 	claims, err := middleware.GetClientClaims(r.Context())
@@ -343,20 +359,12 @@ func (h *SubmissionHandler) GetSubmission(w http.ResponseWriter, r *http.Request
 		return err
 	}
 
-	token := chi.URLParam(r, "token")
-	if token == "" {
-		return errors.NewApiError(nil, "Missing submission ID", http.StatusBadRequest)
-	}
-
-	idUUID, err := uuid.Parse(token)
+	params, err := validateGetSubmissionRequest(r, claims.UserID)
 	if err != nil {
-		return errors.NewApiError(err, "Invalid submission ID", http.StatusBadRequest)
+		return err
 	}
 
-	result, err := h.repo.GetSubmission(r.Context(), domain.SubmissionGetParams{
-		ID:     pgtype.UUID{Bytes: idUUID, Valid: true},
-		UserID: claims.UserID,
-	})
+	result, err := h.repo.GetSubmission(r.Context(), params)
 	if err != nil {
 		httputils.EmptyDataResponse(w) // { data: {} }
 		return nil
@@ -368,44 +376,19 @@ func (h *SubmissionHandler) GetSubmission(w http.ResponseWriter, r *http.Request
 }
 
 func (h *SubmissionHandler) GetSubmissionsByUsername(w http.ResponseWriter, r *http.Request) error {
-	// Get userid from middleware context
-	claims, err := middleware.GetClientClaims(r.Context())
-	if err != nil {
-		return err
-	}
-
-	username := chi.URLParam(r, "username")
-	if username == "" {
-		return errors.NewApiError(nil, "Missing username", http.StatusBadRequest)
-	}
-
-	// Extract and validate query parameters
-	queryParams, err := ExtractSubmissionQueryParams(r)
+	params, err := validateGetSubmissionsByUsernameRequest(r)
 	if err != nil {
 		return errors.NewApiError(err, "validation", http.StatusBadRequest)
 	}
 
 	// Get submissions from database
-	submissions, err := h.repo.GetSubmissionByUsername(r.Context(), domain.SubmissionGetParams{
-		Username:      username,
-		ProblemID:     queryParams.problemId,
-		Sort:          sql.ProblemSort(queryParams.sort),
-		SortDirection: sql.SortDirection(queryParams.order),
-		Status:        sql.SubmissionStatus(queryParams.status),
-		UserId:        claims.UserID,
-	})
+	submissions, err := h.repo.GetSubmissionsByUsername(r.Context(), params)
 	if err != nil {
 		httputils.EmptyDataArrayResponse(w) // { data: [] }
 		return nil
 	}
 
-	// Transform database results to API response
-	submissionResults, err := TransformSubmissionResults(submissions)
-	if err != nil {
-		return errors.NewAppError(err, "submission result error", http.StatusInternalServerError)
-	}
-
-	httputils.SendJSONResponse(w, http.StatusOK, submissionResults)
+	httputils.SendJSONResponse(w, http.StatusOK, submissions)
 
 	return nil
 }
@@ -420,17 +403,24 @@ type SubmissionQueryParams struct {
 
 // ExtractSubmissionQueryParams processes and validates query parameters
 // New helper function for FetchSubmissionsByUsername
-func ExtractSubmissionQueryParams(r *http.Request) (SubmissionQueryParams, error) {
-	result := SubmissionQueryParams{}
+func validateGetSubmissionsByUsernameRequest(r *http.Request) (*domain.SubmissionsGetByUsernameParams, error) {
+	username := chi.URLParam(r, "username")
+	if username == "" {
+		return nil, errors.NewApiError(nil, "Missing username", http.StatusBadRequest)
+	}
 
 	// Process problem ID
 	id := r.URL.Query().Get("problemId")
+	var problemId int32
 	if id != "" {
-		problemId, err := strconv.Atoi(id)
+		i, err := strconv.ParseInt(id, 10, 32)
 		if err != nil {
-			return result, errors.NewApiError(nil, "Invalid problem ID", http.StatusBadRequest)
+			return nil, err
 		}
-		result.problemId = problemId
+		if i < 1 {
+			return nil, errors.NewAppError(nil, "page number is less than 1", http.StatusBadRequest)
+		}
+		problemId = int32(i)
 	}
 
 	// Process status
@@ -461,77 +451,66 @@ func ExtractSubmissionQueryParams(r *http.Request) (SubmissionQueryParams, error
 		}
 
 		if !isValid {
-			return result, errors.NewApiError(nil, "Invalid status parameter", http.StatusBadRequest)
+			return nil, errors.NewApiError(nil, "Invalid status parameter", http.StatusBadRequest)
 		}
-		result.status = status
 	}
 
 	// Process order
 	order := r.URL.Query().Get("order")
 	if order == "" {
-		result.order = "DESC"
+		order = "DESC"
 	} else if order == "asc" {
-		result.order = "ASC"
+		order = "ASC"
 	} else if order == "desc" {
-		result.order = "DESC"
+		order = "DESC"
 	} else {
-		result.order = "DESC" // Default
+		order = "DESC" // Default
 	}
 
 	sort := r.URL.Query().Get("sort")
 	if sort == "runtime" {
-		result.sort = "time"
+		sort = "time"
 	} else if sort == "memory" {
-		result.sort = "memory"
+		sort = "memory"
 	} else if sort == "created" {
-		result.sort = "created_at"
+		sort = "created_at"
 	} else {
-		result.sort = "created_at" // Default to sorting by creation time
+		sort = "created_at" // Default to sorting by creation time
 	}
 
-	return result, nil
-}
-
-// TransformSubmissionResults converts database results to API response format
-func TransformSubmissionResults(submissions []sql.GetSubmissionsByUsernameRow) ([]domain.Submission, error) {
-	submissionResults := make([]domain.Submission, 0, len(submissions))
-
-	for _, submission := range submissions {
-		submissionId := uuid.UUID(submission.ID.Bytes)
-		submissionFailedTestCase := domain.RunTestCase{}
-
-		err := json.Unmarshal(submission.FailedTestCase, &submissionFailedTestCase)
+	page := r.URL.Query().Get("page")
+	var pageInt int32
+	if page != "" {
+		p, err := strconv.ParseInt(page, 10, 32)
 		if err != nil {
-			return nil, errors.NewAppError(err, "Failed to unmarshal failed test case", http.StatusInternalServerError)
-
+			return nil, err
 		}
-
-		stdout := ""
-		if submission.Stdout != nil {
-			stdout = *submission.Stdout
+		if p < 1 {
+			return nil, errors.NewAppError(nil, "page number is less than 1", http.StatusBadRequest)
 		}
-
-		submissionResults = append(submissionResults, domain.Submission{
-			Id:              submissionId.String(),
-			Stdout:          stdout,
-			Time:            submission.Time,
-			Memory:          submission.Memory,
-			Stderr:          submission.Stderr,
-			CompileOutput:   submission.CompileOutput,
-			Message:         submission.Message,
-			Status:          submission.Status,
-			Language:        judge0.LanguageIDToLanguage(int(submission.LanguageID)),
-			AccountID:       submission.AccountID,
-			SubmittedCode:   submission.SubmittedCode,
-			SubmittedStdin:  submission.SubmittedStdin,
-			ProblemID:       submission.ProblemID,
-			CreatedAt:       submission.CreatedAt.Time,
-			Starred:         submission.Starred,
-			FailedTestCase:  submissionFailedTestCase,
-			PassedTestCases: submission.PassedTestCases,
-			TotalTestCases:  submission.TotalTestCases,
-		})
+		pageInt = int32(p)
 	}
 
-	return submissionResults, nil
+	perPage := r.URL.Query().Get("perPage")
+	var perPageInt int32
+	if page != "" {
+		pp, err := strconv.ParseInt(perPage, 10, 32)
+		if err != nil {
+			return nil, err
+		}
+		if pp < 1 {
+			return nil, errors.NewAppError(nil, "page number is less than 1", http.StatusBadRequest)
+		}
+		perPageInt = int32(pp)
+	}
+
+	return &domain.SubmissionsGetByUsernameParams{
+		Username:  username,
+		ProblemId: problemId,
+		Status:    sql.SubmissionStatus(status),
+		Sort:      sql.ProblemSort(sort),
+		Order:     sql.SortDirection(order),
+		Page:      pageInt,
+		PerPage:   perPageInt,
+	}, nil
 }
