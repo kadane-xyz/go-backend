@@ -1,11 +1,11 @@
 package responses
 
 type StarredResponse struct {
-	Id      int32
+	Id      any
 	Starred bool
 }
 
-func NewStarredResponse(id int32, starred bool) *StarredResponse {
+func NewStarredResponse(id any, starred bool) *StarredResponse {
 	return &StarredResponse{
 		Id:      id,
 		Starred: starred,

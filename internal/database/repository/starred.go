@@ -11,13 +11,13 @@ import (
 type StarredRepository interface {
 	// Starred problems
 	GetStarredProblems(ctx context.Context, id string) ([]*domain.StarredProblem, error)
-	StarProblem(ctx context.Context, params domain.StarProblemParams) error
+	StarProblem(ctx context.Context, params *domain.StarProblemParams) (bool, error)
 	// Starred solutions
 	GetStarredSolutions(ctx context.Context, id string) ([]*domain.StarredSolution, error)
-	StarSolution(ctx context.Context, params domain.StarSolutionParams) error
+	StarSolution(ctx context.Context, params *domain.StarSolutionParams) (bool, error)
 	// Starred submissions
 	GetStarredSubmissions(ctx context.Context, id string) ([]*domain.StarredSubmission, error)
-	StarSubmission(ctx context.Context, params domain.StarSubmissionParams) error
+	StarSubmission(ctx context.Context, params *domain.StarSubmissionParams) (bool, error)
 }
 
 type SQLStarredRepository struct {
@@ -28,7 +28,7 @@ func NewSQLStarredRepository(queries *sql.Queries) *SQLStarredRepository {
 	return &SQLStarredRepository{queries: queries}
 }
 
-func (r *SQLStarredRepository) GetStarredProblems(ctx context.Context, id string) ([]*domain.Problem, error) {
+func (r *SQLStarredRepository) GetStarredProblems(ctx context.Context, id string) ([]*domain.StarredProblem, error) {
 	q, err := r.queries.GetStarredProblems(ctx, id)
 	if err != nil {
 		return nil, err
@@ -36,7 +36,7 @@ func (r *SQLStarredRepository) GetStarredProblems(ctx context.Context, id string
 	return domain.FromSQLGetStarredProblemsRow(q), nil
 }
 
-func (r *SQLStarredRepository) StarProblem(ctx context.Context, params domain.StarProblemParams) (bool, error) {
+func (r *SQLStarredRepository) StarProblem(ctx context.Context, params *domain.StarProblemParams) (bool, error) {
 	q, err := r.queries.PutStarredProblem(ctx, sql.PutStarredProblemParams{
 		UserID:    params.UserId,
 		ProblemID: params.ProblemId,
@@ -55,7 +55,7 @@ func (r *SQLStarredRepository) GetStarredSolutions(ctx context.Context, id strin
 	return domain.FromSQLGetStarredSolutionsRows(q)
 }
 
-func (r *SQLStarredRepository) StarSolution(ctx context.Context, params domain.StarSolutionParams) (bool, error) {
+func (r *SQLStarredRepository) StarSolution(ctx context.Context, params *domain.StarSolutionParams) (bool, error) {
 	q, err := r.queries.PutStarredSolution(ctx, sql.PutStarredSolutionParams{
 		UserID:     params.UserId,
 		SolutionID: params.SolutionId,
@@ -74,7 +74,7 @@ func (r *SQLStarredRepository) GetStarredSubmissions(ctx context.Context, id str
 	return domain.FromSQLGetStarredSubmissionRow(q), nil
 }
 
-func (r *SQLStarredRepository) StarSubmission(ctx context.Context, params domain.StarSubmissionParams) (bool, error) {
+func (r *SQLStarredRepository) StarSubmission(ctx context.Context, params *domain.StarSubmissionParams) (bool, error) {
 	q, err := r.queries.PutStarredSubmission(ctx, sql.PutStarredSubmissionParams{
 		UserID:       params.UserId,
 		SubmissionID: pgtype.UUID{Bytes: params.SubmissionId, Valid: true},

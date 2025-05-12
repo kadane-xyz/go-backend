@@ -9,9 +9,9 @@ import (
 
 type ProblemsRepository interface {
 	GetProblem(ctx context.Context, params *domain.ProblemGetParams) (*domain.Problem, error)
-	GetProblemsFilteredPaginated(ctx context.Context, params *domain.ProblemsGetParams) ([]sql.GetProblemsFilteredPaginatedRow, error)
+	GetProblems(ctx context.Context, params *domain.ProblemsGetParams) ([]*domain.Problem, error)
 	CreateProblem(ctx context.Context, params *domain.ProblemCreateParams) (*domain.ProblemCreate, error)
-	GetProblemTestCases(ctx context.Context, problemId int32) ([]*domain.TestCase, error)
+	GetProblemTestCases(ctx context.Context, params *domain.ProblemTestCasesGetParams) ([]*domain.ProblemTestCase, error)
 }
 
 type SQLProblemsRepository struct {
@@ -22,23 +22,31 @@ func NewSQLProblemsRepository(queries *sql.Queries) *SQLProblemsRepository {
 	return &SQLProblemsRepository{queries: queries}
 }
 
-func (r *SQLProblemsRepository) GetProblem(ctx context.Context, params *domain.ProblemGetParams) (sql.GetProblemRow, error) {
+func (r *SQLProblemsRepository) GetProblem(ctx context.Context, params *domain.ProblemGetParams) (*domain.Problem, error) {
 	q, err := r.queries.GetProblem(ctx, sql.GetProblemParams{
 		UserID:    params.UserId,
 		ProblemID: int32(params.ProblemId),
 	})
 	if err != nil {
-		return sql.GetProblemRow{}, err
+		return nil, err
 	}
-	return q, nil
+	return domain.FromSQLGetProblemRow(q)
 }
 
-func (r *SQLProblemsRepository) GetProblemsFilteredPaginated(ctx context.Context, params sql.GetProblemsFilteredPaginatedParams) ([]sql.GetProblemsFilteredPaginatedRow, error) {
-	q, err := r.queries.GetProblemsFilteredPaginated(ctx, params)
+func (r *SQLProblemsRepository) GetProblems(ctx context.Context, params domain.ProblemsGetParams) ([]*domain.Problem, error) {
+	q, err := r.queries.GetProblemsFilteredPaginated(ctx, sql.GetProblemsFilteredPaginatedParams{
+		UserID:        params.UserId,
+		Title:         params.Title,
+		Difficulty:    string(params.Difficulty),
+		Sort:          params.Sort,
+		SortDirection: params.Order,
+		Page:          params.Page,
+		PerPage:       params.PerPage,
+	})
 	if err != nil {
 		return nil, err
 	}
-	return q, nil
+	return FromSQLGetProblemsFilteredPaginated(q), nil
 }
 
 func (r *SQLProblemsRepository) CreateProblem(ctx context.Context, params *domain.ProblemCreateParams) (*domain.ProblemCreate, error) {
@@ -56,6 +64,13 @@ func (r *SQLProblemsRepository) CreateProblem(ctx context.Context, params *domai
 	return domain.FromSQLCreateProblemRow(q)
 }
 
-func (r *SQLProblemsRepository) GetProblemTestCases(ctx context.Context, problemId int32) ([]*domain.TestCase, error) {
-
+func (r *SQLProblemsRepository) GetProblemTestCases(ctx context.Context, params *domain.ProblemTestCasesGetParams) ([]*domain.ProblemTestCase, error) {
+	q, err := r.queries.GetProblemTestCases(ctx, sql.GetProblemTestCasesParams{
+		ProblemID:  params.ProblemId,
+		Visibility: string(params.Visibility),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return domain.FromSQLGetProblemTestCases(q)
 }

@@ -84,7 +84,7 @@ func (h *ProblemHandler) GetProblems(w http.ResponseWriter, r *http.Request) err
 		return err
 	}
 
-	problems, err := h.repo.GetProblemsFilteredPaginated(r.Context(), params)
+	problems, err := h.repo.GetProblems(r.Context(), params)
 	if err != nil {
 		return errors.HandleDatabaseError(err, "get problems")
 	}

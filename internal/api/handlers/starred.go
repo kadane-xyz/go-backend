@@ -4,14 +4,11 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	"kadane.xyz/go-backend/v2/internal/api/httputils"
 	"kadane.xyz/go-backend/v2/internal/api/responses"
 	"kadane.xyz/go-backend/v2/internal/database/repository"
-	"kadane.xyz/go-backend/v2/internal/database/sql"
 	"kadane.xyz/go-backend/v2/internal/domain"
 	"kadane.xyz/go-backend/v2/internal/errors"
-	"kadane.xyz/go-backend/v2/internal/judge0"
 	"kadane.xyz/go-backend/v2/internal/middleware"
 )
 
@@ -46,7 +43,7 @@ func (h *StarredHandler) GetStarredProblems(w http.ResponseWriter, r *http.Reque
 }
 
 // GET: /starred/solutions
-func (h *SolutionsHandler) GetStarredSolutions(w http.ResponseWriter, r *http.Request) error {
+func (h *StarredHandler) GetStarredSolutions(w http.ResponseWriter, r *http.Request) error {
 	claims, err := middleware.GetClientClaims(r.Context())
 	if err != nil {
 		return err
@@ -68,7 +65,7 @@ func (h *SolutionsHandler) GetStarredSolutions(w http.ResponseWriter, r *http.Re
 }
 
 // GET: /starred/submissions
-func (h *SubmissionHandler) GetStarredSubmissions(w http.ResponseWriter, r *http.Request) error {
+func (h *StarredHandler) GetStarredSubmissions(w http.ResponseWriter, r *http.Request) error {
 	claims, err := middleware.GetClientClaims(r.Context())
 	if err != nil {
 		return err
@@ -84,28 +81,7 @@ func (h *SubmissionHandler) GetStarredSubmissions(w http.ResponseWriter, r *http
 		return nil
 	}
 
-	var response []domain.StarredSubmission
-	for _, submission := range starredSubmissions {
-		response = append(response, domain.StarredSubmission{
-			Id:             submission.ID,
-			Stdout:         submission.Stdout.String,
-			Time:           submission.Time.String,
-			Memory:         submission.Memory.Int32,
-			Stderr:         submission.Stderr.String,
-			CompileOutput:  submission.CompileOutput.String,
-			Message:        submission.Message.String,
-			Status:         submission.Status,
-			Language:       judge0.LanguageIDToLanguage(int(submission.LanguageID)),
-			AccountID:      submission.AccountID,
-			SubmittedCode:  submission.SubmittedCode,
-			SubmittedStdin: submission.SubmittedStdin.String,
-			ProblemID:      submission.ProblemID,
-			CreatedAt:      submission.CreatedAt.Time,
-			Starred:        submission.Starred,
-		})
-	}
-
-	httputils.SendJSONDataResponse(w, http.StatusOK, response)
+	httputils.SendJSONDataResponse(w, http.StatusOK, starredSubmissions)
 
 	return nil
 }
@@ -113,31 +89,31 @@ func (h *SubmissionHandler) GetStarredSubmissions(w http.ResponseWriter, r *http
 // PUT
 
 // PUT: /starred/problems
-func (h *ProblemHandler) PutStarProblem(w http.ResponseWriter, r *http.Request) error {
+func (h *StarredHandler) PutStarProblem(w http.ResponseWriter, r *http.Request) error {
 	claims, err := middleware.GetClientClaims(r.Context())
 	if err != nil {
 		return err
 	}
 
-	problemRequest, err := httputils.DecodeJSONRequest[domain.StarredProblem](r)
+	problemRequest, err := httputils.DecodeJSONRequest[domain.StarredRequest](r)
 	if err != nil {
 		return errors.NewApiError(err, "validation", http.StatusBadRequest)
 	}
 
-	if problemRequest.ProblemID == 0 {
+	if problemRequest.ID == 0 {
 		return errors.NewApiError(err, "invalid problem id", http.StatusBadRequest)
 	}
 
-	starred, err := h.repo.PutStarredProblem(r.Context(), sql.PutStarredProblemParams{
-		UserID:    claims.UserID,
-		ProblemID: problemRequest.ProblemID,
+	starred, err := h.repo.StarProblem(r.Context(), &domain.StarProblemParams{
+		UserId:    claims.UserID,
+		ProblemId: problemRequest.ID.(int32),
 	})
 	if err != nil {
 		//SendError(w, http.StatusInternalServerError, "Failed to star problem")
 		return errors.HandleDatabaseError(err, "starred problem")
 	}
 
-	response := responses.NewStarredResponse(problemRequest.ProblemID, starred)
+	response := responses.NewStarredResponse(problemRequest.ID, starred)
 
 	httputils.SendJSONResponse(w, http.StatusOK, response)
 
@@ -145,7 +121,7 @@ func (h *ProblemHandler) PutStarProblem(w http.ResponseWriter, r *http.Request) 
 }
 
 // PUT: /starred/solutions
-func (h *SolutionsHandler) PutStarSolution(w http.ResponseWriter, r *http.Request) error {
+func (h *StarredHandler) PutStarSolution(w http.ResponseWriter, r *http.Request) error {
 	claims, err := middleware.GetClientClaims(r.Context())
 	if err != nil {
 		return err
@@ -160,9 +136,9 @@ func (h *SolutionsHandler) PutStarSolution(w http.ResponseWriter, r *http.Reques
 		return errors.NewApiError(nil, "Invalid solution ID", http.StatusBadRequest)
 	}
 
-	starred, err := h.repo.PutStarredSolution(r.Context(), sql.PutStarredSolutionParams{
-		UserID:     claims.UserID,
-		SolutionID: int32(solutionRequest.Id),
+	starred, err := h.repo.StarSolution(r.Context(), &domain.StarSolutionParams{
+		UserId:     claims.UserID,
+		SolutionId: int32(solutionRequest.Id),
 	})
 	if err != nil {
 		return errors.HandleDatabaseError(err, "starred solution")
@@ -175,38 +151,45 @@ func (h *SolutionsHandler) PutStarSolution(w http.ResponseWriter, r *http.Reques
 	return nil
 }
 
+func validateStarSubmissionRequest(r *http.Request, userId string) (*domain.StarSubmissionParams, error) {
+	submissionRequest, err := httputils.DecodeJSONRequest[domain.StarredSubmission](r)
+	if err != nil {
+		return nil, errors.NewApiError(err, "validation", http.StatusBadRequest)
+	}
+
+	if !submissionRequest.Id.Valid {
+		return nil, errors.NewApiError(err, "Invalid submission ID", http.StatusBadRequest)
+	}
+
+	idUUID, err := uuid.Parse(submissionRequest.Id.String())
+	if err != nil {
+		return nil, errors.NewApiError(err, "Invalid submission ID", http.StatusBadRequest)
+	}
+
+	return &domain.StarSubmissionParams{
+		UserId:       userId,
+		SubmissionId: idUUID,
+	}, nil
+}
+
 // PUT: /starred/submissions
-func (h *SubmissionHandler) PutStarSubmission(w http.ResponseWriter, r *http.Request) error {
+func (h *StarredHandler) PutStarSubmission(w http.ResponseWriter, r *http.Request) error {
 	claims, err := middleware.GetClientClaims(r.Context())
 	if err != nil {
 		return err
 	}
 
-	submissionRequest, err := httputils.DecodeJSONRequest[domain.StarredSubmission](r)
+	params, err := validateStarSubmissionRequest(r, claims.UserID)
 	if err != nil {
-		return errors.NewApiError(err, "validation", http.StatusBadRequest)
+		return err
 	}
 
-	if !submissionRequest.Id.Valid {
-		return errors.NewApiError(err, "Invalid submission ID", http.StatusBadRequest)
-	}
-
-	idUUID, err := uuid.Parse(submissionRequest.SubmissionID)
-	if err != nil {
-		return errors.NewApiError(err, "Invalid submission ID", http.StatusBadRequest)
-	}
-
-	submissionID := pgtype.UUID{Bytes: idUUID, Valid: true}
-
-	starred, err := h.repo.PutStarredSubmission(r.Context(), sql.PutStarredSubmissionParams{
-		UserID:       claims.UserID,
-		SubmissionID: submissionID,
-	})
+	starred, err := h.repo.StarSubmission(r.Context(), params)
 	if err != nil {
 		return errors.HandleDatabaseError(err, "starred solution")
 	}
 
-	response := responses.NewStarredResponse(submissionRequest.SubmissionID, starred)
+	response := responses.NewStarredResponse(params.SubmissionId.String(), starred)
 
 	httputils.SendJSONDataResponse(w, http.StatusOK, response)
 

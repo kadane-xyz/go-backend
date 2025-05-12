@@ -68,8 +68,8 @@ func (h *SubmissionHandler) FetchProblemAndTestCases(ctx context.Context, proble
 	}
 
 	// Get problem test cases
-	problemTestCases, err := h.repo.GetProblemTestCases(ctx, sql.GetProblemTestCasesParams{
-		ProblemID: problemID,
+	problemTestCases, err := h.problemsRepo.GetProblemTestCases(ctx, &domain.ProblemTestCasesGetParams{
+		ProblemId: problemID,
 	})
 	if err != nil {
 		return nil, nil, errors.NewApiError(nil, "Failed to get problem solution", http.StatusInternalServerError)

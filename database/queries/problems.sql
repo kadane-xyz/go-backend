@@ -172,8 +172,6 @@ WITH filtered_problems AS (
         (@title::text = '' OR p.title ILIKE '%' || @title::text || '%')
         AND (@difficulty::text = '' OR p.difficulty = @difficulty::problem_difficulty)
     GROUP BY p.id, sp.problem_id
-
-    -- No ORDER BY / LIMIT / OFFSET here: this is the "full" matching set
 )
 SELECT
     p.*,
@@ -379,9 +377,9 @@ SELECT
   (SELECT row_to_json(itco) FROM inserted_test_case_output itco) AS test_case_output;
 
 -- name: GetProblemTestCases :many
-SELECT ptc.*,
-    (
-        SELECT COALESCE(json_agg(
+SELECT 
+    ptc.*,
+    (SELECT COALESCE(json_agg(
             json_build_object(
                 'type', pti.type,
                 'value', pti.value,
@@ -391,9 +389,7 @@ SELECT ptc.*,
         FROM problem_test_case_input pti 
         WHERE pti.problem_test_case_id = ptc.id
     ) AS input,
-    (
-        SELECT COALESCE(value,'') FROM problem_test_case_output pto WHERE pto.problem_test_case_id = ptc.id
-    ) AS output
+    (SELECT COALESCE(value,'') FROM problem_test_case_output pto WHERE pto.problem_test_case_id = ptc.id) AS output
 FROM problem_test_case ptc
 WHERE ptc.problem_id = @problem_id::int 
     AND (@visibility::text = '' OR ptc.visibility = @visibility::visibility);

@@ -2,13 +2,15 @@ package domain
 
 import (
 	"encoding/json"
+	"time"
 
 	"kadane.xyz/go-backend/v2/internal/database/sql"
 )
 
 type Problem struct {
-	ID            int32                 `json:"id"`
+	Id            int32                 `json:"id"`
 	Title         string                `json:"title"`
+	CreatedAt     time.Time             `json:"createdAt"`
 	Description   string                `json:"description"`
 	FunctionName  string                `json:"functionName"`
 	Tags          []string              `json:"tags"`
@@ -24,18 +26,34 @@ type Problem struct {
 	TotalCorrect  int32                 `json:"totalCorrect"`
 }
 
+type ProblemTestCase struct {
+	Id          int32
+	ProblemId   int32
+	Description string
+	CreatedAt   time.Time
+	Visibility  sql.Visibility
+	Input       TestCaseInput
+	Output      string
+}
+
 type ProblemGetParams struct {
 	UserId    string `json:"userId"`
 	ProblemId int32  `json:"problemId"`
 }
 
 type ProblemsGetParams struct {
-	Title         string
-	Difficulty    sql.ProblemDifficulty
-	Sort          sql.ProblemSort
-	SortDirection sql.SortDirection
-	PerPage       int32
-	Page          int32
+	UserId     string
+	Title      string
+	Difficulty sql.ProblemDifficulty
+	Sort       sql.ProblemSort
+	Order      sql.SortDirection
+	PerPage    int32
+	Page       int32
+}
+
+type ProblemTestCasesGetParams struct {
+	ProblemId  int32
+	Visibility sql.Visibility
 }
 
 type ProblemRequest struct {
@@ -108,11 +126,71 @@ type CreateProblemData struct {
 	ProblemID string `json:"problemId"`
 }
 
-func FromSQLGetStarredProblemsRow(rows []sql.GetStarredProblemsRow) []*Problem {
+func FromSQLGetProblemRow(row sql.GetProblemRow) (*Problem, error) {
+	hints := []ProblemHint{}
+	err := json.Unmarshal(row.Hints.([]byte), &hints)
+	if err != nil {
+		return nil, err
+	}
+
+	codes := []ProblemCode{}
+	err = json.Unmarshal(row.Code.([]byte), &codes)
+	if err != nil {
+		return nil, err
+	}
+
+	solutions := []Solution{}
+	err = json.Unmarshal(row.Solutions.([]byte), &solutions)
+	if err != nil {
+		return nil, err
+	}
+
+	testCase := []TestCase{}
+	err = json.Unmarshal(row.TestCases.([]byte), &testCase)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Problem{
+		Id:            row.ID,
+		Title:         row.Title,
+		Description:   nullHandler(row.Description),
+		FunctionName:  row.FunctionName,
+		Points:        row.Points,
+		CreatedAt:     row.CreatedAt.Time,
+		Difficulty:    row.Difficulty,
+		Tags:          row.Tags,
+		Code:          codes,
+		Hints:         hints,
+		TestCases:     testCase,
+		Solution:      solutions,
+		Starred:       row.Starred,
+		Solved:        row.Solved,
+		TotalAttempts: row.TotalAttempts,
+		TotalCorrect:  row.TotalCorrect,
+	}, nil
+}
+
+func FromSQLGetProblemsFilteredPaginated(rows []sql.GetProblemsFilteredPaginatedRow) ([]*Problem, error) {
 	problems := []*Problem{}
 
+	for i, row := range rows {
+		problem, err := FromSQLGetProblemRow(sql.GetProblemRow(row))
+		if err != nil {
+			return nil, err
+		}
+
+		problems[i] = problem
+	}
+
+	return problems, nil
+}
+
+func FromSQLGetStarredProblemsRow(rows []sql.GetStarredProblemsRow) []*StarredProblem {
+	problems := []*StarredProblem{}
+
 	for i, row := range problems {
-		problem := Problem(*row)
+		problem := StarredProblem(*row)
 		problems[i] = &problem
 	}
 
@@ -165,4 +243,30 @@ func FromSQLCreateProblemRow(row sql.CreateProblemRow) (*ProblemCreate, error) {
 		TestCaseInputs: testCaseInput,
 		TestCaseOutput: testCaseOutput,
 	}, nil
+}
+
+func FromSQLGetProblemTestCases(rows []sql.GetProblemTestCasesRow) ([]*ProblemTestCase, error) {
+	testCases := []*ProblemTestCase{}
+
+	for i, row := range rows {
+		input := TestCaseInput{}
+		if row.Input != nil {
+			err := json.Unmarshal(row.Input.([]byte), &input)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		testCases[i] = &ProblemTestCase{
+			Id:          row.ID,
+			ProblemId:   nullHandler(row.ProblemID),
+			Description: row.Description,
+			CreatedAt:   row.CreatedAt.Time,
+			Visibility:  sql.Visibility(row.Visibility),
+			Input:       input,
+			Output:      row.Output,
+		}
+	}
+
+	return testCases, nil
 }
