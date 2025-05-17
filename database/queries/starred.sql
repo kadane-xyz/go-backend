@@ -83,7 +83,7 @@ LIMIT 1;
 -- name: PutStarredSubmission :one
 WITH deleted(starred) AS (
     DELETE FROM starred_submission AS ss
-    WHERE ss.user_id = $1 AND ss.submission_id = $2
+    WHERE ss.user_id = @user_id AND ss.submission_id = @submission_id
     RETURNING false AS starred
 ),
 inserted(starred) AS (
@@ -103,8 +103,8 @@ LIMIT 1;
 -- name: PutStarredSolution :one
 WITH deleted(starred) AS (
     DELETE FROM starred_solution AS ss
-    WHERE ss.user_id = $1 
-      AND ss.solution_id = $2
+    WHERE ss.user_id = @user_id 
+      AND ss.solution_id = @solution_id 
     RETURNING false AS starred
 ),
 inserted(starred) AS (
