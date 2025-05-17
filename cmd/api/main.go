@@ -20,7 +20,7 @@ func main() {
 	// Load the application configuration to be able to initialize Sentry as soon as possible
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		log.Fatal("Failed to load configuration: %v", err)
+		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
 	// Set up signal handling for graceful shutdowns
@@ -30,7 +30,7 @@ func main() {
 	// Create the service container
 	container, err := container.NewContainer(ctx, cfg)
 	if err != nil {
-		log.Fatal("Failed to create the service container: %v", err)
+		log.Fatalf("Failed to create the service container: %v", err)
 	}
 	defer func() {
 		container.Close()
@@ -39,7 +39,7 @@ func main() {
 	// Create the server using the service container
 	httpServer := server.New(container)
 	if err != nil {
-		log.Fatal("Failed to create the server: %v", err)
+		log.Fatalf("Failed to create the server: %v", err)
 	}
 
 	// Start the server with the signal-aware context
@@ -47,7 +47,7 @@ func main() {
 
 	// Determine if this was a clean shutdown or an error
 	if err != nil && err != context.Canceled {
-		log.Fatal("Server error: %v", err)
+		log.Fatalf("Server error: %v", err)
 	}
 
 	log.Println("Server has shut down")

@@ -11,9 +11,9 @@ import (
 type Environment string
 
 const (
-	Production  Environment = "production"
-	Staging     Environment = "staging"
-	Development Environment = "development"
+	Production  Environment = "prod"
+	Staging     Environment = "stage"
+	Development Environment = "dev"
 	Test        Environment = "test"
 )
 
@@ -57,14 +57,31 @@ type Config struct {
 	Judge0 Judge0Config
 }
 
-// Validate the environment
-func isValidEnvironment(environment Environment) bool {
-	switch environment {
-	case Development, Staging, Production, Test:
+// IsValid reports whether e is one of the known Environments.
+func (e Environment) IsValid() bool {
+	switch e {
+	case Production, Staging, Development, Test:
 		return true
-	default:
-		return false
 	}
+	return false
+}
+
+// ParseEnvironment turns a raw string into an Environment, or returns an error.
+func ParseEnvironment(s string) (Environment, error) {
+	e := Environment(s)
+	if !e.IsValid() {
+		return "", fmt.Errorf("%q is not a valid environment (allowed: prod, stage, dev, test)", s)
+	}
+	return e, nil
+}
+
+// LoadEnvironment reads ENV from the OS, parses it, and returns a valid Environment.
+func LoadEnvironment() (Environment, error) {
+	raw := os.Getenv("ENV")
+	if raw == "" {
+		return "", fmt.Errorf("ENV is not set")
+	}
+	return ParseEnvironment(raw)
 }
 
 // Fetch environment variables
@@ -76,13 +93,9 @@ func LoadConfig() (*Config, error) {
 		return nil, fmt.Errorf("error loading .env file: %v", err)
 	}
 
-	environment := os.Getenv("ENVIRONMENT")
-	if environment == "" {
-		return nil, fmt.Errorf("ENVIRONMENT is not set")
-	}
-	var env Environment
-	if !isValidEnvironment(env) {
-		return nil, fmt.Errorf("ENVIRONMENT is not valid")
+	environment, err := LoadEnvironment()
+	if err != nil {
+		return nil, err
 	}
 
 	port := os.Getenv("PORT")
@@ -159,7 +172,7 @@ func LoadConfig() (*Config, error) {
 	// Return the configuration by fetching environment variables
 	config := &Config{
 		Debug:       debug,
-		Environment: env,
+		Environment: environment,
 		//Postgres
 		Postgres: PostgresConfig{
 			Url:      postgresUrl,
