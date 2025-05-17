@@ -133,18 +133,15 @@ WHERE user_id = $1 AND solution_id = $2;
 
 -- POST --
 
--- name: CreateSolution :one
-INSERT INTO solution (user_id, title, body, problem_id, tags)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING *;
+-- name: CreateSolution :exec
+INSERT INTO solution (user_id, title, body, problem_id, tags) VALUES ($1, $2, $3, $4, $5);
 
 -- PUT --
 
--- name: UpdateSolution :one
+-- name: UpdateSolution :exec
 UPDATE solution
 SET title = $1, body = $2, tags = $3
-WHERE id = $4 AND user_id = $5
-RETURNING *;
+WHERE id = $4 AND user_id = $5;
 
 -- DELETE --
 

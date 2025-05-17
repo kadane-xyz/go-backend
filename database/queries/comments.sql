@@ -25,8 +25,12 @@ LEFT JOIN (
 ) uv ON c.id = uv.comment_id
 WHERE c.id = @id;
 
--- name: GetCommentById :one
-SELECT 1 FROM comment WHERE id = @id;
+-- name: GetCommentByID :one
+SELECT EXISTS (
+    SELECT 1
+    FROM comment 
+    WHERE id = @id
+) AS exists;
 
 -- name: GetComments :many
 SELECT 

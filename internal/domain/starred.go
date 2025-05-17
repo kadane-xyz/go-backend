@@ -13,33 +13,29 @@ type Starred struct {
 	Starred bool
 }
 
+// GetStarredProblem
 type StarredProblem struct {
-	ID          int32
-	Title       string
-	Description string
-	Tags        []string
-	Difficulty  string
-	Points      int
-	Starred     bool
+	Problem
+	Starred bool
 }
 
 type StarredSolution struct {
-	Id        int32
+	ID        int32
 	Username  string
 	Title     string
 	Date      pgtype.Timestamp
 	Tags      []string
 	Body      string
 	Votes     int32
-	ProblemId int32
+	ProblemID int32
 	Starred   bool
 }
 
 type StarredSubmission struct {
-	Id            pgtype.UUID
+	ID            pgtype.UUID
 	Token         string
 	Stdout        string
-	Time          time.Time
+	Time          string
 	Memory        int32
 	Stderr        string
 	CompileOutput string
@@ -78,14 +74,14 @@ func FromSQLGetStarredSolutionsRows(rows []sql.GetStarredSolutionsRow) ([]*Starr
 	solutions := []*StarredSolution{}
 	for _, row := range rows {
 		solution := &StarredSolution{
-			Id:        row.ID,
+			ID:        row.ID,
 			Username:  row.Username,
 			Title:     row.Title,
 			Date:      row.CreatedAt,
 			Tags:      row.Tags,
 			Body:      row.Body,
 			Votes:     nullHandler(row.Votes),
-			ProblemId: nullHandler(row.ProblemID),
+			ProblemID: nullHandler(row.ProblemID),
 			Starred:   row.Starred,
 		}
 
@@ -97,12 +93,12 @@ func FromSQLGetStarredSolutionsRows(rows []sql.GetStarredSolutionsRow) ([]*Starr
 
 func FromSQLGetStarredSubmissionRow(rows []sql.GetStarredSubmissionsRow) []*StarredSubmission {
 	submissions := []*StarredSubmission{}
-	for _, row := range rows {
-		submissions = append(submissions, &StarredSubmission{
-			Id: row.ID,
+	for i, row := range rows {
+		submissions[i] = &StarredSubmission{
+			ID: row.ID,
 			//Token: row.T
 			Stdout:         nullHandler(row.Stdout),
-			Time:           row.Time.Time,
+			Time:           nullHandler(row.Time),
 			Memory:         nullHandler(row.Memory),
 			Stderr:         nullHandler(row.Stderr),
 			CompileOutput:  nullHandler(row.CompileOutput),
@@ -115,7 +111,28 @@ func FromSQLGetStarredSubmissionRow(rows []sql.GetStarredSubmissionsRow) []*Star
 			ProblemID:      row.ProblemID,
 			CreatedAt:      row.CreatedAt.Time,
 			Starred:        row.Starred,
-		})
+		}
 	}
 	return submissions
+}
+
+func FromSQLGetStarredProblemsRow(rows []sql.GetStarredProblemsRow) []*StarredProblem {
+	problems := []*StarredProblem{}
+	for i, row := range rows {
+		problems[i] = &StarredProblem{
+			Problem: Problem{
+				ID:           row.Problem.ID,
+				Title:        row.Problem.Title,
+				Description:  nullHandler(row.Problem.Description),
+				FunctionName: row.Problem.FunctionName,
+				Points:       row.Problem.Points,
+				CreatedAt:    row.Problem.CreatedAt.Time,
+				Difficulty:   row.Problem.Difficulty,
+				Tags:         row.Problem.Tags,
+			},
+			Starred: row.Starred,
+		}
+	}
+
+	return problems
 }

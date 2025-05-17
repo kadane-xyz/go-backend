@@ -17,18 +17,17 @@ import (
 )
 
 type AdminHandler struct {
-	repo           repository.AdminRepository
-	problemRepo    repository.ProblemsRepository
-	judge0         *judge0.Judge0Client
-	problemHandler *ProblemHandler
+	repo        repository.AdminRepository
+	problemRepo repository.ProblemsRepository
+	judge0      *judge0.Judge0Client
 }
 
-func NewAdminHandler(repo repository.AdminRepository, problemRepo repository.ProblemsRepository, judge0 *judge0.Judge0Client, problemHandler *ProblemHandler) *AdminHandler {
-	return &AdminHandler{repo: repo, problemRepo: problemRepo, judge0: judge0, problemHandler: problemHandler}
+func NewAdminHandler(repo repository.AdminRepository, problemRepo repository.ProblemsRepository, judge0 *judge0.Judge0Client) *AdminHandler {
+	return &AdminHandler{repo: repo, problemRepo: problemRepo, judge0: judge0}
 }
 
 func (h *AdminHandler) ProblemRun(runRequest domain.AdminProblemRunRequest) (*domain.AdminProblemData, error) {
-	solutionRuns := make(map[string][]judge0.Submission) // Store all judge0 submission inputs for each language
+	solutionRuns := make(map[string][]*judge0.Submission) // Store all judge0 submission inputs for each language
 
 	// Create judge0 submission inputs by combining test case handling and template creation.
 	for language, sourceCode := range runRequest.Solutions {
@@ -39,7 +38,7 @@ func (h *AdminHandler) ProblemRun(runRequest domain.AdminProblemRunRequest) (*do
 			FunctionName: runRequest.FunctionName,
 			TestCase:     runRequest.TestCase,
 		})
-		solutionRuns[language] = append(solutionRuns[language], solutionRun)
+		solutionRuns[language] = append(solutionRuns[language], &solutionRun)
 	}
 
 	// Validate submissions before sending
@@ -57,7 +56,7 @@ func (h *AdminHandler) ProblemRun(runRequest domain.AdminProblemRunRequest) (*do
 	// Create submissions for each language
 	for language := range solutionRuns {
 		wg.Add(1)
-		go func(language string, submissions []judge0.Submission) {
+		go func(language string, submissions []*judge0.Submission) {
 			defer wg.Done()
 			runResponses, _ := h.judge0.CreateSubmissionBatchAndWait(submissions)
 			/*if err != nil {
@@ -296,7 +295,7 @@ func (h *AdminHandler) CreateAdminProblem(w http.ResponseWriter, r *http.Request
 	}
 
 	response := domain.CreateAdminProblemData{
-		ProblemID: problemId.Id,
+		ProblemID: problemId.ID,
 	}
 
 	httputils.SendJSONResponse(w, http.StatusCreated, response)

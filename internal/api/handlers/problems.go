@@ -68,12 +68,12 @@ func (h *ProblemHandler) GetProblemsValidateRequest(r *http.Request) (*domain.Pr
 	}
 
 	return &domain.ProblemsGetParams{
-		Title:         titleSearch,
-		Difficulty:    sql.ProblemDifficulty(difficulty),
-		Sort:          sql.ProblemSort(sortType),
-		SortDirection: sql.SortDirection(order),
-		PerPage:       perPage,
-		Page:          page,
+		Title:      titleSearch,
+		Difficulty: sql.ProblemDifficulty(difficulty),
+		Sort:       sql.ProblemSort(sortType),
+		Order:      sql.SortDirection(order),
+		PerPage:    perPage,
+		Page:       page,
 	}, nil
 }
 
@@ -109,34 +109,15 @@ func (h *ProblemHandler) GetProblems(w http.ResponseWriter, r *http.Request) err
 		return errors.NewApiError(nil, "Page out of bounds", http.StatusBadRequest)
 	}
 
-	responseData := []domain.Problem{}
-
-	for i, problem := range problems {
+	// convert code to map format
+	for _, problem := range problems {
 		codeMap := InterfaceToMap(problem.Code)
-		responseData[i] = domain.Problem{
-			ID:            problem.ID,
-			Title:         problem.Title,
-			FunctionName:  problem.FunctionName,
-			Tags:          problem.Tags,
-			Difficulty:    problem.Difficulty,
-			Code:          codeMap,
-			Hints:         problem.Hints,
-			Points:        problem.Points,
-			Solution:      problem.Solutions,
-			TestCases:     problem.TestCases,
-			Starred:       problem.Starred,
-			Solved:        problem.Solved,
-			TotalAttempts: problem.TotalAttempts,
-			TotalCorrect:  problem.TotalCorrect,
-		}
-		if problem.Description != nil {
-			responseData[i].Description = *problem.Description
-		}
+		problem.Code = codeMap
 	}
 
 	// Return an empty array if no matches (status 200)
 	httputils.SendJSONPaginatedResponse(w, http.StatusOK,
-		responseData,
+		problems,
 		domain.Pagination{
 			Page:      params.Page,
 			PerPage:   params.PerPage,
@@ -161,8 +142,8 @@ func ValidateGetProblem(r *http.Request) (*domain.ProblemGetParams, error) {
 	}
 
 	return &domain.ProblemGetParams{
-		UserId:    claims.UserID,
-		ProblemId: int32(problemIdInt),
+		UserID:    claims.UserID,
+		ProblemID: int32(problemIdInt),
 	}, nil
 }
 
@@ -178,27 +159,11 @@ func (h *ProblemHandler) GetProblem(w http.ResponseWriter, r *http.Request) erro
 		return errors.HandleDatabaseError(err, "get problem")
 	}
 
-	// test cases should not contain visibility on response
+	// convert code to map format
 	codeMap := InterfaceToMap(problem.Code)
+	problem.Code = codeMap
 
-	response := domain.Problem{
-		ID:            problem.ID,
-		Title:         problem.Title,
-		FunctionName:  problem.FunctionName,
-		Description:   problem.Description,
-		Tags:          problem.Tags,
-		Difficulty:    problem.Difficulty,
-		Code:          codeMap,
-		Hints:         problem.Hints,
-		Points:        problem.Points,
-		TestCases:     problem.TestCases,
-		Starred:       problem.Starred,
-		Solved:        problem.Solved,
-		TotalAttempts: problem.TotalAttempts,
-		TotalCorrect:  problem.TotalCorrect,
-	}
-
-	httputils.SendJSONResponse(w, http.StatusOK, response)
+	httputils.SendJSONResponse(w, http.StatusOK, problem)
 
 	return nil
 }

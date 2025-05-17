@@ -84,7 +84,7 @@ func ValidateGetSolutions(r *http.Request, userId string) (*domain.SolutionsGetP
 	}
 
 	return &domain.SolutionsGetParams{
-		ProblemId:     int32(id),
+		ProblemID:     int32(id),
 		Tags:          tagsArray,
 		Title:         titleSearch,
 		Page:          page,
@@ -158,16 +158,16 @@ func validateCreateSolutionRequest(r *http.Request, userId string) (*domain.Solu
 		return nil, err
 	}
 
-	if solution.Title == "" || solution.Body == "" || *solution.ProblemId <= 0 {
+	if solution.Title == "" || solution.Body == "" || *solution.ProblemID <= 0 {
 		return nil, errors.NewApiError(nil, "Missing required fields for solution creation", http.StatusBadRequest)
 	}
 
 	return &domain.SolutionsCreateParams{
-		UserId:    userId,
+		UserID:    userId,
 		Title:     solution.Title,
 		Tags:      solution.Tags,
 		Body:      solution.Body,
-		ProblemId: solution.ProblemId,
+		ProblemID: solution.ProblemID,
 	}, nil
 }
 
@@ -184,7 +184,7 @@ func (h *SolutionsHandler) CreateSolution(w http.ResponseWriter, r *http.Request
 	}
 
 	// Insert solution into db
-	_, err = h.repo.CreateSolution(r.Context(), params)
+	err = h.repo.CreateSolution(r.Context(), params)
 	if err != nil {
 		return errors.HandleDatabaseError(err, "create solution")
 	}
@@ -207,8 +207,8 @@ func validateGetSolutionRequest(r *http.Request, userId string) (*domain.Solutio
 	}
 
 	return &domain.SolutionGetParams{
-		Id:     int32(id),
-		UserId: userId,
+		ID:     int32(id),
+		UserID: userId,
 	}, nil
 }
 
@@ -237,7 +237,7 @@ func (h *SolutionsHandler) GetSolution(w http.ResponseWriter, r *http.Request) e
 	return nil
 }
 
-func validateUpdateSolutionRequest(r *http.Request, userId string) (*domain.SolutionsUpdateParams, error) {
+func validateUpdateSolutionRequest(r *http.Request, userID string) (*domain.SolutionsUpdateParams, error) {
 	// Handle problemId query parameter
 	solutionId := chi.URLParam(r, "solutionId")
 	// If problemId is empty, set idPg as NULL
@@ -249,6 +249,7 @@ func validateUpdateSolutionRequest(r *http.Request, userId string) (*domain.Solu
 	if err != nil {
 		return nil, errors.NewApiError(err, "solutionId must be an integer", http.StatusBadRequest)
 	}
+	solutionID := int32(id)
 
 	solutionRequest, err := httputils.DecodeJSONRequest[domain.UpdateSolutionRequest](r)
 	if err != nil {
@@ -260,11 +261,11 @@ func validateUpdateSolutionRequest(r *http.Request, userId string) (*domain.Solu
 	}
 
 	return &domain.SolutionsUpdateParams{
-		ID:     int32(id),
-		UserID: userId,
-		Title:  solutionRequest.Title,
-		Body:   solutionRequest.Body,
-		Tags:   solutionRequest.Tags,
+		SolutionID: &solutionID,
+		UserID:     userID,
+		Title:      solutionRequest.Title,
+		Body:       solutionRequest.Body,
+		Tags:       solutionRequest.Tags,
 	}, nil
 }
 
@@ -282,7 +283,7 @@ func (h *SolutionsHandler) UpdateSolution(w http.ResponseWriter, r *http.Request
 	}
 
 	// Get solutions from db by idPg
-	_, err = h.repo.UpdateSolution(r.Context(), params)
+	err = h.repo.UpdateSolution(r.Context(), params)
 	if err != nil {
 		return errors.HandleDatabaseError(err, "update solution")
 	}

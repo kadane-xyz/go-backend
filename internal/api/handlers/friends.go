@@ -111,23 +111,7 @@ func (h *FriendHandler) GetFriendRequestsSent(w http.ResponseWriter, r *http.Req
 		return err
 	}
 
-	friendRequestsResponseData := []domain.FriendRequest{}
-	for _, friendRequest := range friendRequests {
-		friendRequestsResponseData = append(friendRequestsResponseData, domain.FriendRequest{
-			FriendId:   friendRequest.FriendId,
-			FriendName: friendRequest.FriendName,
-			AvatarUrl:  friendRequest.AvatarUrl,
-			Level:      friendRequest.Level,
-			CreatedAt:  friendRequest.CreatedAt,
-			Location:   friendRequest.Location,
-		})
-	}
-
-	friendRequestsResponse := domain.FriendRequestsResponse{
-		Data: friendRequestsResponseData,
-	}
-
-	httputils.SendJSONResponse(w, http.StatusOK, friendRequestsResponse)
+	httputils.SendJSONResponse(w, http.StatusOK, friendRequests)
 
 	return nil
 }

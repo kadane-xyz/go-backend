@@ -132,19 +132,19 @@ func (h *StarredHandler) PutStarSolution(w http.ResponseWriter, r *http.Request)
 		return errors.NewApiError(err, "validation", http.StatusBadRequest)
 	}
 
-	if solutionRequest.Id == 0 {
+	if solutionRequest.ID == 0 {
 		return errors.NewApiError(nil, "Invalid solution ID", http.StatusBadRequest)
 	}
 
 	starred, err := h.repo.StarSolution(r.Context(), &domain.StarSolutionParams{
 		UserId:     claims.UserID,
-		SolutionId: int32(solutionRequest.Id),
+		SolutionId: int32(solutionRequest.ID),
 	})
 	if err != nil {
 		return errors.HandleDatabaseError(err, "starred solution")
 	}
 
-	response := responses.NewStarredResponse(solutionRequest.Id, starred)
+	response := responses.NewStarredResponse(solutionRequest.ID, starred)
 
 	httputils.SendJSONResponse(w, http.StatusOK, response)
 
@@ -157,11 +157,11 @@ func validateStarSubmissionRequest(r *http.Request, userId string) (*domain.Star
 		return nil, errors.NewApiError(err, "validation", http.StatusBadRequest)
 	}
 
-	if !submissionRequest.Id.Valid {
+	if !submissionRequest.ID.Valid {
 		return nil, errors.NewApiError(err, "Invalid submission ID", http.StatusBadRequest)
 	}
 
-	idUUID, err := uuid.Parse(submissionRequest.Id.String())
+	idUUID, err := uuid.Parse(submissionRequest.ID.String())
 	if err != nil {
 		return nil, errors.NewApiError(err, "Invalid submission ID", http.StatusBadRequest)
 	}

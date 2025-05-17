@@ -1,6 +1,10 @@
 package domain
 
-import "kadane.xyz/go-backend/v2/internal/database/sql"
+import (
+	"encoding/json"
+
+	"kadane.xyz/go-backend/v2/internal/database/sql"
+)
 
 type Pagination struct {
 	Page      int32 `json:"page"`
@@ -37,8 +41,6 @@ type TestCase struct {
 	Visibility  sql.Visibility  `json:"visibility"`
 }
 
-type FriendshipStatus string
-
 const (
 	FriendshipStatusNone            FriendshipStatus = "none"
 	FriendshipStatusFriend          FriendshipStatus = "friend"
@@ -51,11 +53,38 @@ type VoteRequest struct {
 	Vote sql.VoteType `json:"vote"`
 }
 
-// ValueOrZero returns *ptr if ptr != nil, otherwise the zero value of T.
+// nullHandler returns *ptr if ptr != nil, otherwise the zero value of T.
 func nullHandler[T any](ptr *T) T {
 	if ptr != nil {
 		return *ptr
 	}
 	var zero T
 	return zero
+}
+
+// jsonArrayHandler returns []*T for handling interface{} types
+func jsonArrayHandler[T any](raw []byte) ([]*T, error) {
+	var hs []T
+	err := json.Unmarshal(raw, &hs)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]*T, len(hs))
+	for i := range hs {
+		out[i] = &hs[i]
+	}
+
+	return out, nil
+}
+
+// jsonHandler returns *T for handling interface{} types
+func jsonHandler[T any](raw []byte) (*T, error) {
+	var hs T
+	err := json.Unmarshal(raw, &hs)
+	if err != nil {
+		return nil, err
+	}
+
+	return &hs, nil
 }

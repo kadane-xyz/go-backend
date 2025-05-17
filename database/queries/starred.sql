@@ -6,7 +6,7 @@ WHERE starred_problem.user_id = $1
 
 -- name: GetStarredProblems :many
 SELECT 
-    p.*,
+    sqlc.embed(p),
     EXISTS (
         SELECT 1 
         FROM starred_problem sp

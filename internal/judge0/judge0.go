@@ -90,9 +90,9 @@ func NewJudge0Client(cfg *config.Config) *Judge0Client {
 	}
 }
 
-func (c *Judge0Client) CreateSubmissionBatchAndWait(submissions []Submission) ([]SubmissionResult, error) {
+func (c *Judge0Client) CreateSubmissionBatchAndWait(submissions []*Submission) ([]*SubmissionResult, error) {
 	var wg sync.WaitGroup
-	results := make([]SubmissionResult, len(submissions))
+	results := make([]*SubmissionResult, len(submissions))
 	errors := make(chan error, len(submissions))
 
 	for i, submission := range submissions {
@@ -104,8 +104,8 @@ func (c *Judge0Client) CreateSubmissionBatchAndWait(submissions []Submission) ([
 				errors <- fmt.Errorf("submission %d error: %s", i, err.Error())
 				return
 			}
-			results[i] = *resp
-		}(i, submission)
+			results[i] = resp
+		}(i, *submission)
 	}
 
 	wg.Wait()

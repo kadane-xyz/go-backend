@@ -11,7 +11,7 @@ type ProblemsRepository interface {
 	GetProblem(ctx context.Context, params *domain.ProblemGetParams) (*domain.Problem, error)
 	GetProblems(ctx context.Context, params *domain.ProblemsGetParams) ([]*domain.Problem, error)
 	CreateProblem(ctx context.Context, params *domain.ProblemCreateParams) (*domain.ProblemCreate, error)
-	GetProblemTestCases(ctx context.Context, params *domain.ProblemTestCasesGetParams) ([]*domain.ProblemTestCase, error)
+	GetProblemTestCases(ctx context.Context, params *domain.ProblemTestCasesGetParams) ([]*domain.TestCase, error)
 }
 
 type SQLProblemsRepository struct {
@@ -24,8 +24,8 @@ func NewSQLProblemsRepository(queries *sql.Queries) *SQLProblemsRepository {
 
 func (r *SQLProblemsRepository) GetProblem(ctx context.Context, params *domain.ProblemGetParams) (*domain.Problem, error) {
 	q, err := r.queries.GetProblem(ctx, sql.GetProblemParams{
-		UserID:    params.UserId,
-		ProblemID: int32(params.ProblemId),
+		UserID:    params.UserID,
+		ProblemID: int32(params.ProblemID),
 	})
 	if err != nil {
 		return nil, err
@@ -33,9 +33,9 @@ func (r *SQLProblemsRepository) GetProblem(ctx context.Context, params *domain.P
 	return domain.FromSQLGetProblemRow(q)
 }
 
-func (r *SQLProblemsRepository) GetProblems(ctx context.Context, params domain.ProblemsGetParams) ([]*domain.Problem, error) {
-	q, err := r.queries.GetProblemsFilteredPaginated(ctx, sql.GetProblemsFilteredPaginatedParams{
-		UserID:        params.UserId,
+func (r *SQLProblemsRepository) GetProblems(ctx context.Context, params *domain.ProblemsGetParams) ([]*domain.Problem, error) {
+	q, err := r.queries.GetProblems(ctx, sql.GetProblemsParams{
+		UserID:        params.UserID,
 		Title:         params.Title,
 		Difficulty:    string(params.Difficulty),
 		Sort:          params.Sort,
@@ -46,7 +46,7 @@ func (r *SQLProblemsRepository) GetProblems(ctx context.Context, params domain.P
 	if err != nil {
 		return nil, err
 	}
-	return FromSQLGetProblemsFilteredPaginated(q), nil
+	return domain.FromSQLGetProblemsRow(q)
 }
 
 func (r *SQLProblemsRepository) CreateProblem(ctx context.Context, params *domain.ProblemCreateParams) (*domain.ProblemCreate, error) {
@@ -64,9 +64,9 @@ func (r *SQLProblemsRepository) CreateProblem(ctx context.Context, params *domai
 	return domain.FromSQLCreateProblemRow(q)
 }
 
-func (r *SQLProblemsRepository) GetProblemTestCases(ctx context.Context, params *domain.ProblemTestCasesGetParams) ([]*domain.ProblemTestCase, error) {
+func (r *SQLProblemsRepository) GetProblemTestCases(ctx context.Context, params *domain.ProblemTestCasesGetParams) ([]*domain.TestCase, error) {
 	q, err := r.queries.GetProblemTestCases(ctx, sql.GetProblemTestCasesParams{
-		ProblemID:  params.ProblemId,
+		ProblemID:  params.ProblemID,
 		Visibility: string(params.Visibility),
 	})
 	if err != nil {

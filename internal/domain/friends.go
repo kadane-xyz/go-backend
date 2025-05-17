@@ -7,7 +7,7 @@ import (
 )
 
 type Friend struct {
-	Id         string    `json:"id"`
+	ID         string    `json:"id"`
 	Username   string    `json:"username"`
 	AvatarUrl  string    `json:"avatarUrl"`
 	Location   string    `json:"location"`
@@ -19,16 +19,8 @@ type FriendRequestRequest struct {
 	FriendName string `json:"friendName"`
 }
 
-type FriendsResponse struct {
-	Data []Friend `json:"data"`
-}
-
-type FriendRequestsResponse struct {
-	Data []FriendRequest `json:"data"`
-}
-
 type FriendRequest struct {
-	FriendId   string    `json:"friendId"`
+	FriendID   string    `json:"friendId"`
 	FriendName string    `json:"friendName"`
 	AvatarUrl  string    `json:"avatarUrl"`
 	Level      int32     `json:"level"`
@@ -36,11 +28,13 @@ type FriendRequest struct {
 	Location   string    `json:"location"`
 }
 
+type FriendshipStatus = sql.FriendshipStatus
+
 func FromSQLFriendsByUsernameRows(rows []sql.GetFriendsByUsernameRow) []*Friend {
 	friends := []*Friend{}
 	for i, row := range rows {
 		friends[i] = &Friend{
-			Id:         row.FriendID,
+			ID:         row.FriendID,
 			Username:   row.FriendUsername,
 			AvatarUrl:  row.AvatarUrl,
 			Level:      row.Level,
@@ -55,7 +49,7 @@ func FromSQLGetFriendRequestsReceivedRows(rows []sql.GetFriendRequestsReceivedRo
 	friends := []*FriendRequest{}
 	for i, row := range rows {
 		friends[i] = &FriendRequest{
-			FriendId:   row.FriendID,
+			FriendID:   row.FriendID,
 			FriendName: row.FriendUsername,
 			AvatarUrl:  row.AvatarUrl,
 			Level:      row.Level,

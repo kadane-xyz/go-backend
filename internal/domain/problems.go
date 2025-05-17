@@ -8,41 +8,32 @@ import (
 )
 
 type Problem struct {
-	Id            int32                 `json:"id"`
+	ID            int32                 `json:"id"`
 	Title         string                `json:"title"`
-	CreatedAt     time.Time             `json:"createdAt"`
 	Description   string                `json:"description"`
 	FunctionName  string                `json:"functionName"`
-	Tags          []string              `json:"tags"`
+	Points        int32                 `json:"points"`
+	CreatedAt     time.Time             `json:"createdAt"`
 	Difficulty    sql.ProblemDifficulty `json:"difficulty"`
+	Tags          []string              `json:"tags"`
 	Code          any                   `json:"code"`
 	Hints         any                   `json:"hints"`
-	Points        int32                 `json:"points"`
 	Solution      any                   `json:"solution,omitempty"`
 	TestCases     any                   `json:"testCases"`
 	Starred       bool                  `json:"starred"`
 	Solved        bool                  `json:"solved"`
 	TotalAttempts int32                 `json:"totalAttempts"`
 	TotalCorrect  int32                 `json:"totalCorrect"`
-}
-
-type ProblemTestCase struct {
-	Id          int32
-	ProblemId   int32
-	Description string
-	CreatedAt   time.Time
-	Visibility  sql.Visibility
-	Input       TestCaseInput
-	Output      string
+	TotalCount    int32                 `json:"totalCount"`
 }
 
 type ProblemGetParams struct {
-	UserId    string `json:"userId"`
-	ProblemId int32  `json:"problemId"`
+	UserID    string `json:"userId"`
+	ProblemID int32  `json:"problemId"`
 }
 
 type ProblemsGetParams struct {
-	UserId     string
+	UserID     string
 	Title      string
 	Difficulty sql.ProblemDifficulty
 	Sort       sql.ProblemSort
@@ -52,7 +43,7 @@ type ProblemsGetParams struct {
 }
 
 type ProblemTestCasesGetParams struct {
-	ProblemId  int32
+	ProblemID  int32
 	Visibility sql.Visibility
 }
 
@@ -83,7 +74,7 @@ type ProblemCreateRequest struct {
 }
 
 type ProblemCreate struct {
-	Id             int32           `json:"id"`
+	ID             int32           `json:"id"`
 	Hints          []ProblemHint   `json:"hints"`
 	Codes          []ProblemCode   `json:"problemCode"`
 	Solutions      []Solution      `json:"solution"`
@@ -115,6 +106,8 @@ type ProblemCode struct {
 	Code     string `json:"code"`
 }
 
+type ProblemSolution = ProblemCode
+
 type ProblemRequestHint struct {
 	Description string `json:"description"`
 	Answer      string `json:"answer"`
@@ -126,33 +119,62 @@ type CreateProblemData struct {
 	ProblemID string `json:"problemId"`
 }
 
+func FromSQLProblem(row sql.Problem) *Problem {
+	return &Problem{
+		ID:           row.ID,
+		Title:        row.Title,
+		Description:  nullHandler(row.Description),
+		FunctionName: row.FunctionName,
+		Points:       row.Points,
+		CreatedAt:    row.CreatedAt.Time,
+		Difficulty:   row.Difficulty,
+		Tags:         row.Tags,
+	}
+}
+
+// handles problem hints interface{} type
+func hintsHandler(hints any) ([]*ProblemHint, error) {
+	return jsonArrayHandler[ProblemHint](hints.([]byte))
+}
+
+// handles problem codes interface{} type
+func codesHandler(codes any) ([]*ProblemCode, error) {
+	return jsonArrayHandler[ProblemCode](codes.([]byte))
+}
+
+// handles problem solutions interface{} type
+func solutionsHandler(solutions any) ([]*ProblemSolution, error) {
+	return jsonArrayHandler[ProblemSolution](solutions.([]byte))
+}
+
+// handles problem testCases interface{} type
+func testCaseHandler(testCases any) ([]*TestCase, error) {
+	return jsonArrayHandler[TestCase](testCases.([]byte))
+}
+
 func FromSQLGetProblemRow(row sql.GetProblemRow) (*Problem, error) {
-	hints := []ProblemHint{}
-	err := json.Unmarshal(row.Hints.([]byte), &hints)
+	hints, err := hintsHandler(row.Hints)
 	if err != nil {
 		return nil, err
 	}
 
-	codes := []ProblemCode{}
-	err = json.Unmarshal(row.Code.([]byte), &codes)
+	codes, err := codesHandler(row.Code)
 	if err != nil {
 		return nil, err
 	}
 
-	solutions := []Solution{}
-	err = json.Unmarshal(row.Solutions.([]byte), &solutions)
+	solutions, err := solutionsHandler(row.Solutions)
 	if err != nil {
 		return nil, err
 	}
 
-	testCase := []TestCase{}
-	err = json.Unmarshal(row.TestCases.([]byte), &testCase)
+	testCase, err := testCaseHandler(row.TestCases)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Problem{
-		Id:            row.ID,
+		ID:            row.ID,
 		Title:         row.Title,
 		Description:   nullHandler(row.Description),
 		FunctionName:  row.FunctionName,
@@ -171,30 +193,52 @@ func FromSQLGetProblemRow(row sql.GetProblemRow) (*Problem, error) {
 	}, nil
 }
 
-func FromSQLGetProblemsFilteredPaginated(rows []sql.GetProblemsFilteredPaginatedRow) ([]*Problem, error) {
+func FromSQLGetProblemsRow(rows []sql.GetProblemsRow) ([]*Problem, error) {
 	problems := []*Problem{}
 
 	for i, row := range rows {
-		problem, err := FromSQLGetProblemRow(sql.GetProblemRow(row))
+		hints, err := hintsHandler(row.Hints)
 		if err != nil {
 			return nil, err
 		}
 
-		problems[i] = problem
+		codes, err := codesHandler(row.Code)
+		if err != nil {
+			return nil, err
+		}
+
+		solutions, err := solutionsHandler(row.Solutions)
+		if err != nil {
+			return nil, err
+		}
+
+		testCase, err := testCaseHandler(row.TestCases)
+		if err != nil {
+			return nil, err
+		}
+
+		problems[i] = &Problem{
+			ID:            row.ID,
+			Title:         row.Title,
+			Description:   nullHandler(row.Description),
+			FunctionName:  row.FunctionName,
+			Points:        row.Points,
+			CreatedAt:     row.CreatedAt.Time,
+			Difficulty:    row.Difficulty,
+			Tags:          row.Tags,
+			Code:          codes,
+			Hints:         hints,
+			TestCases:     testCase,
+			Solution:      solutions,
+			Starred:       row.Starred,
+			Solved:        row.Solved,
+			TotalAttempts: row.TotalAttempts,
+			TotalCorrect:  row.TotalCorrect,
+			TotalCount:    row.TotalCount,
+		}
 	}
 
 	return problems, nil
-}
-
-func FromSQLGetStarredProblemsRow(rows []sql.GetStarredProblemsRow) []*StarredProblem {
-	problems := []*StarredProblem{}
-
-	for i, row := range problems {
-		problem := StarredProblem(*row)
-		problems[i] = &problem
-	}
-
-	return problems
 }
 
 func FromSQLCreateProblemRow(row sql.CreateProblemRow) (*ProblemCreate, error) {
@@ -235,7 +279,7 @@ func FromSQLCreateProblemRow(row sql.CreateProblemRow) (*ProblemCreate, error) {
 	}
 
 	return &ProblemCreate{
-		Id:             row.ProblemID,
+		ID:             row.ProblemID,
 		Hints:          hints,
 		Codes:          codes,
 		Solutions:      solutions,
@@ -245,8 +289,8 @@ func FromSQLCreateProblemRow(row sql.CreateProblemRow) (*ProblemCreate, error) {
 	}, nil
 }
 
-func FromSQLGetProblemTestCases(rows []sql.GetProblemTestCasesRow) ([]*ProblemTestCase, error) {
-	testCases := []*ProblemTestCase{}
+func FromSQLGetProblemTestCases(rows []sql.GetProblemTestCasesRow) ([]*TestCase, error) {
+	testCases := []*TestCase{}
 
 	for i, row := range rows {
 		input := TestCaseInput{}
@@ -257,13 +301,10 @@ func FromSQLGetProblemTestCases(rows []sql.GetProblemTestCasesRow) ([]*ProblemTe
 			}
 		}
 
-		testCases[i] = &ProblemTestCase{
-			Id:          row.ID,
-			ProblemId:   nullHandler(row.ProblemID),
+		testCases[i] = &TestCase{
 			Description: row.Description,
-			CreatedAt:   row.CreatedAt.Time,
 			Visibility:  sql.Visibility(row.Visibility),
-			Input:       input,
+			Input:       []TestCaseInput{input},
 			Output:      row.Output,
 		}
 	}

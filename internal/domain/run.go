@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"kadane.xyz/go-backend/v2/internal/database/sql"
-	"kadane.xyz/go-backend/v2/internal/judge0"
 )
 
 type RunRequest struct {
@@ -12,10 +11,6 @@ type RunRequest struct {
 	SourceCode string     `json:"sourceCode"`
 	ProblemID  int32      `json:"problemId"`
 	TestCases  []TestCase `json:"testCases"`
-}
-
-type RunResponse struct {
-	Data *judge0.SubmissionResponse `json:"data"`
 }
 
 type RunTestCase struct {
@@ -29,7 +24,7 @@ type RunTestCase struct {
 }
 
 type RunResult struct {
-	Id        string               `json:"id,omitempty"`
+	ID        string               `json:"id,omitempty"`
 	Language  string               `json:"language"`
 	Time      string               `json:"time"`
 	Memory    int32                `json:"memory"`
@@ -39,12 +34,4 @@ type RunResult struct {
 	AccountID string    `json:"accountId"`
 	ProblemID int32     `json:"problemId"`
 	CreatedAt time.Time `json:"createdAt"`
-}
-
-type RunResultResponse struct {
-	Data *RunResult `json:"data"`
-}
-
-type RunsResponse struct {
-	Data []RunResult `json:"data"`
 }

@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"context"
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"time"
@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"kadane.xyz/go-backend/v2/internal/api/httputils"
+	"kadane.xyz/go-backend/v2/internal/api/responses"
 	"kadane.xyz/go-backend/v2/internal/database/repository"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
 	"kadane.xyz/go-backend/v2/internal/domain"
@@ -36,7 +37,7 @@ func validateCreateSubmissionRequest(r *http.Request, userId string) (*domain.Su
 
 	problemId := request.ProblemID
 	if problemId == 0 {
-		return nil, errors.NewApiError(http.StatusBadRequest, "Missing problem ID")
+		return nil, errors.NewApiError(nil, "Missing problem ID", http.StatusBadRequest)
 	}
 
 	// Check if language is valid
@@ -56,111 +57,29 @@ func validateCreateSubmissionRequest(r *http.Request, userId string) (*domain.Su
 	}, nil
 }
 
-// FetchProblemAndTestCases retrieves problem details and test cases
-func (h *SubmissionHandler) FetchProblemAndTestCases(ctx context.Context, problemID int32, userID string) (*domain.Problem, []domain.TestCase, error) {
-	// Get problem details
-	problem, err := h.problemsRepo.GetProblem(ctx, &domain.ProblemGetParams{
-		ProblemId: problemID,
-		UserId:    userID,
-	})
-	if err != nil {
-		return nil, nil, errors.HandleDatabaseError(err, "get problem")
-	}
-
-	// Get problem test cases
-	problemTestCases, err := h.problemsRepo.GetProblemTestCases(ctx, &domain.ProblemTestCasesGetParams{
-		ProblemId: problemID,
-	})
-	if err != nil {
-		return nil, nil, errors.NewApiError(nil, "Failed to get problem solution", http.StatusInternalServerError)
-	}
-
-	if len(problemTestCases) == 0 {
-		return nil, nil, errors.NewApiError(nil, "No test cases found", http.StatusBadRequest)
-	}
-
-	// Convert database test cases to our internal format
-	var testCases []domain.TestCase
-	for _, testCase := range problemTestCases {
-		var testCaseInput []domain.TestCaseInput
-
-		// Handle both empty array and populated array cases
-		switch input := testCase.Input.(type) {
-		case []any:
-			for _, item := range input {
-				inputMap := item.(map[string]any)
-				testCaseInput = append(testCaseInput, domain.TestCaseInput{
-					Name:  inputMap["name"].(string),
-					Value: inputMap["value"].(string),
-					Type:  domain.TestCaseType(inputMap["type"].(string)),
-				})
-			}
-		default:
-			// Empty array or null case - use empty slice
-			testCaseInput = []domain.TestCaseInput{}
-		}
-
-		testCases = append(testCases, domain.TestCase{
-			Input:  testCaseInput,
-			Output: testCase.Output,
-		})
-	}
-
-	if len(testCases) == 0 {
-		return nil, nil, errors.NewApiError(nil, "No test cases found", http.StatusBadRequest)
-	}
-
-	return problem, testCases, nil
-}
-
-// PrepareSubmissions creates Judge0 submissions for each test case
-func (h *SubmissionHandler) PrepareSubmissions(request domain.SubmissionRequest, testCases []domain.TestCase, problem sql.GetProblemRow) ([]judge0.Submission, error) {
-	var submissions []judge0.Submission
-
-	for _, testCase := range testCases {
-		description := ""
-		if problem.Description != nil {
-			description = *problem.Description
-		}
-		submissionRun := judge0tmpl.TemplateCreate(judge0tmpl.TemplateInput{
-			Language:     request.Language,
-			SourceCode:   request.SourceCode,
-			FunctionName: problem.FunctionName,
-			TestCase:     testCase,
-			Problem: domain.Problem{
-				Title:       problem.Title,
-				Description: description,
-				Tags:        problem.Tags,
-				Difficulty:  problem.Difficulty,
-				Hints:       problem.Hints,
-				Points:      problem.Points,
-				Solved:      problem.Solved,
-			},
-		})
-		submissions = append(submissions, submissionRun)
-	}
-
-	if len(submissions) == 0 {
-		return nil, errors.NewApiError(nil, "Failed to create submissions", http.StatusInternalServerError)
-	}
-
-	return submissions, nil
+type testResults struct {
+	passedTestCases  int32
+	failedTestCase   *domain.RunTestCase
+	failedSubmission *domain.Submission
+	totalMemory      int32
+	totalTime        time.Duration
 }
 
 // EvaluateTestResults processes judge0 responses and finds any failures
-func EvaluateTestResults(testCases []domain.TestCase, responses []judge0.SubmissionResult) (int32, domain.RunTestCase, *domain.Submission, int, float64) {
-	var totalMemory int
-	var totalTime float64
-	var failedSubmission *domain.Submission
-	var passedTestCases int32
-	var failedTestCase domain.RunTestCase
-
+func EvaluateTestResults(testCases []*domain.TestCase, responses []*judge0.SubmissionResult) (*testResults, error) {
+	var testResults testResults
 	for i, resp := range responses {
 		language := judge0.LanguageIDToLanguage(int(resp.Language.ID))
 
 		// Normalize outputs before comparison
-		actualOutput := NormalizeOutput(resp.Stdout)
-		expectedOutput := NormalizeOutput(testCases[i].Output)
+		actualOutput := resp.Stdout
+		expectedOutput := testCases[i].Output
+
+		// handle time as time.Duration
+		time, err := time.ParseDuration(resp.Time)
+		if err != nil {
+			return nil, err
+		}
 
 		// Check for failures
 		if actualOutput == "" || actualOutput != expectedOutput || resp.CompileOutput != "" {
@@ -171,10 +90,10 @@ func EvaluateTestResults(testCases []domain.TestCase, responses []judge0.Submiss
 				submissionStatus = sql.SubmissionStatusWrongAnswer
 			}
 
-			failedSubmission = &domain.Submission{
+			testResults.failedSubmission = &domain.Submission{
 				Status:        submissionStatus,
 				Memory:        int32(resp.Memory),
-				Time:          resp.Time.Time,
+				Time:          string(time),
 				Stdout:        resp.Stdout,
 				Stderr:        resp.Stderr,
 				CompileOutput: resp.CompileOutput,
@@ -182,7 +101,7 @@ func EvaluateTestResults(testCases []domain.TestCase, responses []judge0.Submiss
 				Language:      language,
 			}
 
-			failedTestCase = domain.RunTestCase{
+			testResults.failedTestCase = &domain.RunTestCase{
 				Time:           resp.Time,
 				Memory:         resp.Memory,
 				Status:         submissionStatus,
@@ -195,21 +114,19 @@ func EvaluateTestResults(testCases []domain.TestCase, responses []judge0.Submiss
 			break
 		}
 
-		passedTestCases++
+		testResults.passedTestCases++
 
-		totalMemory += resp.Memory
-		if timeVal, err := strconv.ParseFloat(resp.Time, 64); err == nil {
-			totalTime += timeVal
-		}
+		testResults.totalMemory += int32(resp.Memory)
+		testResults.totalTime += time
 	}
 
-	return passedTestCases, failedTestCase, failedSubmission, totalMemory, totalTime
+	return &testResults, nil
 }
 
 type SubmissionCreateParams struct {
 	userId          string
 	problem         *domain.Problem
-	request         domain.SubmissionRequest
+	request         *domain.SubmissionCreateRequest
 	passedTestCases int32
 	totalTestCases  int32
 	languageId      int32
@@ -217,103 +134,7 @@ type SubmissionCreateParams struct {
 	submissionId    uuid.UUID
 }
 
-// ProcessSubmission handles the submission workflow
-func (h *SubmissionHandler) ProcessSubmission(ctx context.Context, request domain.SubmissionRequest, userId string) (*domain.SubmissionResponse, error) {
-	// Fetch problem and test cases
-	problem, testCases, apiErr := h.FetchProblemAndTestCases(ctx, request.ProblemID, userId)
-	if apiErr != nil {
-		return nil, apiErr
-	}
-
-	// Prepare submissions for judge0
-	submissions, apiErr := h.PrepareSubmissions(request, testCases, problem)
-	if apiErr != nil {
-		return nil, apiErr
-	}
-
-	// Submit to judge0
-	submissionResponses, err := h.judge0client.CreateSubmissionBatchAndWait(submissions)
-	if err != nil {
-		return nil, errors.NewAppError(err, "Failed to create submission", http.StatusInternalServerError)
-	}
-
-	if len(submissionResponses) == 0 {
-		return nil, errors.NewApiError(nil, "Failed to create submissions", http.StatusBadRequest)
-	}
-
-	// Evaluate the test results
-	passedTestCases, failedTestCase, failedSubmission, totalMemory, totalTime :=
-		EvaluateTestResults(testCases, submissionResponses)
-
-	// Total test cases count
-	totalTestCases := int32(len(testCases))
-
-	// Verify passed test cases count
-	if passedTestCases > totalTestCases {
-		return nil, errors.NewAppError(nil, "Passed test cases greater than total test cases", http.StatusInternalServerError)
-	}
-
-	// Create the averaged submission
-	count := len(submissionResponses)
-	lastResp := submissionResponses[len(submissionResponses)-1]
-
-	// If any test failed, use its details, otherwise use averages
-	memory := int32(totalMemory / count)
-	avgTimeRaw := totalTime / float64(count)
-	avgTime := time.Duration(avgTimeRaw * float64(time.Second)).Truncate(time.Millisecond)
-
-	avgSubmission := domain.Submission{
-		Status:        sql.SubmissionStatus(lastResp.Status.Description),
-		Memory:        memory,
-		Time:          avgTime,
-		Stdout:        lastResp.Stdout,
-		Stderr:        lastResp.Stderr,
-		CompileOutput: lastResp.CompileOutput,
-		Message:       lastResp.Message,
-	}
-
-	// Use failed submission if available
-	if failedSubmission != nil {
-		avgSubmission = *failedSubmission
-	}
-
-	// Store language ID and name for db
-	lastLanguageID := int32(lastResp.Language.ID)
-	lastLanguageName := lastResp.Language.Name
-
-	// Save to database
-	_, err = h.repo.CreateSubmission(ctx, dbSubmission)
-	if err != nil {
-		return nil, errors.HandleDatabaseError(err, "create submission")
-	}
-
-	// Prepare response
-	language := judge0.LanguageIDToLanguage(int(lastLanguageID))
-
-	response := domain.Submission{
-		Id:              submissionId,
-		Stdout:          avgSubmission.Stdout,
-		Time:            avgSubmission.Time,
-		Memory:          avgSubmission.Memory,
-		Stderr:          avgSubmission.Stderr,
-		CompileOutput:   avgSubmission.CompileOutput,
-		Message:         avgSubmission.Message,
-		Status:          avgSubmission.Status,
-		Language:        language,
-		AccountID:       userId,
-		SubmittedCode:   request.SourceCode,
-		SubmittedStdin:  "",
-		ProblemID:       request.ProblemID,
-		CreatedAt:       time.Now(),
-		FailedTestCase:  failedTestCase,
-		PassedTestCases: passedTestCases,
-		TotalTestCases:  totalTestCases,
-	}
-
-	return &response, nil
-}
-
-func (h *SubmissionHandler) CreateSubmissionRoute(w http.ResponseWriter, r *http.Request) error {
+func (h *SubmissionHandler) CreateSubmission(w http.ResponseWriter, r *http.Request) error {
 	// Get userid from middleware context
 	claims, err := middleware.GetClientClaims(r.Context())
 	if err != nil {
@@ -325,9 +146,116 @@ func (h *SubmissionHandler) CreateSubmissionRoute(w http.ResponseWriter, r *http
 		return errors.NewApiError(err, "validation", http.StatusBadRequest)
 	}
 
-	response, apiErr := h.ProcessSubmission(r.Context(), request, claims.UserID)
-	if apiErr != nil {
-		return errors.NewAppError(err, "process submission", http.StatusInternalServerError)
+	// get problem
+	problem, err := h.problemsRepo.GetProblem(r.Context(), &domain.ProblemGetParams{
+		ProblemID: request.ProblemID,
+		UserID:    claims.UserID,
+	})
+	if err != nil {
+		return errors.HandleDatabaseError(err, "get problem")
+	}
+
+	// get problem test cases all visibilities
+	problemTestCases, err := h.problemsRepo.GetProblemTestCases(r.Context(), &domain.ProblemTestCasesGetParams{
+		ProblemID: request.ProblemID,
+	})
+	if err != nil {
+		return errors.HandleDatabaseError(err, "get problem test cases")
+	}
+
+	// return error if no problem test cases returned
+	if len(problemTestCases) == 0 {
+		return errors.NewApiError(nil, "No test cases found", http.StatusBadRequest)
+	}
+
+	var submissions []*judge0.Submission
+	for i, testCase := range problemTestCases {
+		submission := judge0tmpl.TemplateCreate(judge0tmpl.TemplateInput{
+			Language:     request.Language,
+			SourceCode:   request.SourceCode,
+			FunctionName: problem.FunctionName,
+			TestCase:     *testCase,
+			Problem:      *problem,
+		})
+		submissions[i] = &submission
+	}
+
+	if len(submissions) == 0 {
+		return errors.NewApiError(nil, "Failed to create submissions", http.StatusInternalServerError)
+	}
+
+	// Submit to judge0
+	submissionResponses, err := h.judge0client.CreateSubmissionBatchAndWait(submissions)
+	if err != nil {
+		return errors.NewAppError(err, "Failed to create submission", http.StatusInternalServerError)
+	}
+
+	if len(submissionResponses) == 0 {
+		return errors.NewApiError(nil, "Failed to create submissions", http.StatusBadRequest)
+	}
+
+	// Evaluate the test results
+	testResults, err := EvaluateTestResults(problemTestCases, submissionResponses)
+	if err != nil {
+		return err
+	}
+
+	// Verify passed test cases count
+	if testResults.passedTestCases > int32(len(problemTestCases)) {
+		return errors.NewAppError(nil, "Passed test cases greater than total test cases", http.StatusInternalServerError)
+	}
+
+	// Create the averaged submission
+	count := int32(len(submissionResponses))
+	lastResp := submissionResponses[len(submissionResponses)-1]
+
+	// If any test failed, use its details, otherwise use averages
+	memory := int32(testResults.totalMemory / count)
+	avgDuration := testResults.totalTime / time.Duration(count)
+	avgDuration = avgDuration.Truncate(time.Millisecond)
+
+	// store averaged results to save to database
+	submissionCreateID := uuid.New()
+
+	var failedTestCaseByte []byte
+
+	// convert failedSubmission to []byte if exists
+	if testResults.failedSubmission != nil {
+		failedTestCaseByte, err = json.Marshal(testResults.failedTestCase)
+		if err != nil {
+			return err
+		}
+	}
+
+	submissionCreateParams := domain.SubmissionCreateParams{
+		ID:              submissionCreateID,
+		Status:          lastResp.Status.Description,
+		Memory:          memory,
+		Time:            string(avgDuration),
+		Stdout:          lastResp.Stdout,
+		Stderr:          lastResp.Stderr,
+		CompileOutput:   lastResp.CompileOutput,
+		Message:         lastResp.Message,
+		LanguageID:      int32(lastResp.Language.ID),
+		LanguageName:    lastResp.Language.Name,
+		AccountID:       claims.UserID,
+		ProblemID:       request.ProblemID,
+		SubmittedCode:   request.SourceCode,
+		FailedTestCase:  failedTestCaseByte,
+		PassedTestCases: testResults.passedTestCases,
+		TotalTestCases:  int32(len(problemTestCases)),
+	}
+
+	// Save to database
+	err = h.repo.CreateSubmission(r.Context(), &domain.SubmissionCreateParams{})
+	if err != nil {
+		return errors.HandleDatabaseError(err, "create submission")
+	}
+
+	// Prepare response
+	response, err := responses.FromDomainSubmissionCreateParamsToApiSubmissionResponse(&submissionCreateParams)
+	if err != nil {
+		return err
 	}
 
 	httputils.SendJSONResponse(w, http.StatusOK, response)
@@ -347,8 +275,8 @@ func validateGetSubmissionRequest(r *http.Request, userId string) (*domain.Submi
 	}
 
 	return &domain.SubmissionGetParams{
-		UserId:       userId,
-		SubmissionId: idUUID,
+		UserID:       userId,
+		SubmissionID: idUUID,
 	}, nil
 }
 
@@ -411,7 +339,7 @@ func validateGetSubmissionsByUsernameRequest(r *http.Request) (*domain.Submissio
 
 	// Process problem ID
 	id := r.URL.Query().Get("problemId")
-	var problemId int32
+	var problemID int32
 	if id != "" {
 		i, err := strconv.ParseInt(id, 10, 32)
 		if err != nil {
@@ -420,7 +348,7 @@ func validateGetSubmissionsByUsernameRequest(r *http.Request) (*domain.Submissio
 		if i < 1 {
 			return nil, errors.NewAppError(nil, "page number is less than 1", http.StatusBadRequest)
 		}
-		problemId = int32(i)
+		problemID = int32(i)
 	}
 
 	// Process status
@@ -506,7 +434,7 @@ func validateGetSubmissionsByUsernameRequest(r *http.Request) (*domain.Submissio
 
 	return &domain.SubmissionsGetByUsernameParams{
 		Username:  username,
-		ProblemId: problemId,
+		ProblemID: problemID,
 		Status:    sql.SubmissionStatus(status),
 		Sort:      sql.ProblemSort(sort),
 		Order:     sql.SortDirection(order),

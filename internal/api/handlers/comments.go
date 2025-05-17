@@ -73,22 +73,20 @@ func (h *CommentHandler) GetComments(w http.ResponseWriter, r *http.Request) err
 	}
 
 	// Create a map to hold all comments by ID
-	commentMap := make(map[int64]*domain.CommentRelation, len(dbComments))
+	commentMap := make(map[int64]*domain.Comment, len(dbComments))
 
 	// Create a slice to maintain the order of top-level comments
-	var topLevelComments []*domain.CommentRelation
+	var topLevelComments []*domain.Comment
 
 	// First pass: Create CommentsData objects
 	for _, dbComment := range dbComments {
-		comment := &domain.CommentRelation{
-			Comment: domain.Comment{
-				ID:         dbComment.ID,
-				SolutionId: dbComment.SolutionId,
-				Body:       dbComment.Body,
-				CreatedAt:  dbComment.CreatedAt,
-				Votes:      dbComment.Votes,
-				Children:   []*domain.Comment{},
-			},
+		comment := &domain.Comment{
+			ID:              dbComment.ID,
+			SolutionID:      dbComment.SolutionID,
+			Body:            dbComment.Body,
+			CreatedAt:       dbComment.CreatedAt,
+			Votes:           dbComment.Votes,
+			Children:        []*domain.Comment{},
 			CurrentUserVote: dbComment.CurrentUserVote,
 			Username:        dbComment.Username,
 			AvatarUrl:       dbComment.AvatarUrl,
@@ -96,15 +94,15 @@ func (h *CommentHandler) GetComments(w http.ResponseWriter, r *http.Request) err
 		}
 		commentMap[comment.ID] = comment
 
-		if dbComment.ParentId != nil {
+		if dbComment.ParentID != nil {
 			topLevelComments = append(topLevelComments, comment)
 		}
 	}
 
 	// Second pass: Build the comment tree
 	for _, dbComment := range dbComments {
-		if dbComment.ParentId != nil {
-			parentId := dbComment.ParentId
+		if dbComment.ParentID != nil {
+			parentId := dbComment.ParentID
 			if parent, exists := commentMap[*parentId]; exists {
 				parent.Children = append(parent.Children, commentMap[dbComment.ID])
 			}
@@ -132,20 +130,20 @@ func (h *CommentHandler) CreateComment(w http.ResponseWriter, r *http.Request) e
 	}
 
 	// Validate input
-	if comment.SolutionId == 0 || comment.Body == "" {
+	if comment.SolutionID == 0 || comment.Body == "" {
 		return errors.NewApiError(nil, "missing required fields for comment creation", http.StatusBadRequest)
 	}
 
 	// Check if solution exists
-	_, err = h.solutionsRepo.GetSolutionById(r.Context(), int32(comment.SolutionId))
+	_, err = h.solutionsRepo.GetSolutionById(r.Context(), int32(comment.SolutionID))
 	if err != nil {
 		return errors.HandleDatabaseError(err, "solution")
 	}
 
 	// create comment
-	_, err = h.repo.CreateComment(r.Context(), domain.CommentCreateParams{
-		SolutionID: comment.SolutionId,
-		ParentID:   comment.ParentId,
+	_, err = h.repo.CreateComment(r.Context(), &domain.CommentCreateParams{
+		SolutionID: comment.SolutionID,
+		ParentID:   comment.ParentID,
 		UserID:     claims.UserID,
 		Body:       comment.Body,
 	})
@@ -293,7 +291,7 @@ func (h *CommentHandler) VoteComment(w http.ResponseWriter, r *http.Request) err
 	}
 
 	// Check if the comment exists
-	_, err = h.repo.GetCommentById(r.Context(), id)
+	_, err = h.repo.GetCommentByID(r.Context(), id)
 	if err != nil {
 		return errors.HandleDatabaseError(err, "comment")
 	}

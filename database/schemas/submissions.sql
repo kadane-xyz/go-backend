@@ -18,7 +18,7 @@ CREATE TYPE submission_status AS ENUM (
 CREATE TABLE submission (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     stdout TEXT,
-    time TIMESTAMP,
+    time TEXT,
     memory INTEGER,
     stderr TEXT,
     compile_output TEXT,

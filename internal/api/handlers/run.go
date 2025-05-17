@@ -28,7 +28,7 @@ func NewRunHandler(repo repository.ProblemsRepository, judge0Client *judge0.Judg
 
 // AggregateTestResults aggregates the results of multiple test runs
 // Renamed from SummarizeRunResponses to better reflect its purpose
-func (h *RunHandler) AggregateTestResults(userId string, problemId int32, sourceCode string, expectedOutput []string, submissionResponses []judge0.SubmissionResult) (domain.RunResult, error) {
+func (h *RunHandler) AggregateTestResults(userId string, problemId int32, sourceCode string, expectedOutput []string, submissionResponses []*judge0.SubmissionResult) (domain.RunResult, error) {
 	// Initialize the result structure
 	runResult := domain.RunResult{
 		AccountID: userId,
@@ -110,8 +110,8 @@ func (h *RunHandler) ValidateRunRequest(w http.ResponseWriter, r *http.Request) 
 func (h *RunHandler) FetchAndValidateProblem(r *http.Request, userId string, runRequest domain.RunRequest) (*domain.Problem, error) {
 	// Get problem
 	problem, err := h.repo.GetProblem(r.Context(), &domain.ProblemGetParams{
-		ProblemId: runRequest.ProblemID,
-		UserId:    userId,
+		ProblemID: runRequest.ProblemID,
+		UserID:    userId,
 	})
 	if err != nil {
 		return nil, errors.HandleDatabaseError(err, "get problem")
@@ -126,8 +126,8 @@ func (h *RunHandler) FetchAndValidateProblem(r *http.Request, userId string, run
 }
 
 // PrepareJudge0Submissions creates submissions for Judge0 from test cases
-func (h *RunHandler) PrepareJudge0Submissions(runRequest domain.RunRequest, testCases []domain.TestCase, problem *domain.Problem) ([]judge0.Submission, error) {
-	var judge0Submissions []judge0.Submission // submissions for judge0 to run
+func (h *RunHandler) PrepareJudge0Submissions(runRequest domain.RunRequest, testCases []domain.TestCase, problem *domain.Problem) ([]*judge0.Submission, error) {
+	var judge0Submissions []*judge0.Submission // submissions for judge0 to run
 
 	for _, testCase := range testCases {
 		description := ""
@@ -146,7 +146,7 @@ func (h *RunHandler) PrepareJudge0Submissions(runRequest domain.RunRequest, test
 				Solved:      problem.Solved,
 			},
 		})
-		judge0Submissions = append(judge0Submissions, solutionRun)
+		judge0Submissions = append(judge0Submissions, &solutionRun)
 	}
 
 	// Validate submissions before sending
@@ -158,7 +158,7 @@ func (h *RunHandler) PrepareJudge0Submissions(runRequest domain.RunRequest, test
 }
 
 // ProcessTestCaseResults processes each test case result and determines overall status
-func (h *RunHandler) ProcessTestCaseResults(testCases []domain.TestCase, judge0Responses []judge0.SubmissionResult) ([]domain.RunTestCase, map[string]int, []string) {
+func (h *RunHandler) ProcessTestCaseResults(testCases []domain.TestCase, judge0Responses []*judge0.SubmissionResult) ([]domain.RunTestCase, map[string]int, []string) {
 	testCaseResults := make([]domain.RunTestCase, len(judge0Responses))
 	statusMap := make(map[string]int)
 	expectedOutput := make([]string, len(testCases))
@@ -189,7 +189,7 @@ func (h *RunHandler) ProcessTestCaseResults(testCases []domain.TestCase, judge0R
 }
 
 // DetermineTestCaseStatus determines the status of a single test case
-func (h *RunHandler) DetermineTestCaseStatus(response judge0.SubmissionResult, actualOutput, expectedOutput string) sql.SubmissionStatus {
+func (h *RunHandler) DetermineTestCaseStatus(response *judge0.SubmissionResult, actualOutput, expectedOutput string) sql.SubmissionStatus {
 	if response.Status.Description != "Accepted" {
 		return sql.SubmissionStatus(response.Status.Description)
 	}
@@ -217,7 +217,7 @@ func (h *RunHandler) NormalizeOutput(output string) string {
 }
 
 // EvaluateRunResults processes judge0 responses and creates final result
-func (h *RunHandler) EvaluateRunResults(userId string, runRequest domain.RunRequest, testCases []domain.TestCase, judge0Responses []judge0.SubmissionResult) (*domain.RunResult, error) {
+func (h *RunHandler) EvaluateRunResults(userId string, runRequest domain.RunRequest, testCases []domain.TestCase, judge0Responses []*judge0.SubmissionResult) (*domain.RunResult, error) {
 	// Process each test case
 	testCaseResults, statusMap, expectedOutput := h.ProcessTestCaseResults(testCases, judge0Responses)
 
@@ -256,7 +256,7 @@ func (h *RunHandler) DetermineOverallStatus(statusMap map[string]int, totalTestC
 }
 
 // ExecuteCodeRun processes a code run request end-to-end
-func (h *RunHandler) ExecuteCodeRun(r *http.Request, userId string, runRequest domain.RunRequest) (*domain.RunResultResponse, error) {
+func (h *RunHandler) ExecuteCodeRun(r *http.Request, userId string, runRequest domain.RunRequest) (*domain.RunResult, error) {
 	// Get problem
 	problem, err := h.FetchAndValidateProblem(r, userId, runRequest)
 	if err != nil {
@@ -281,7 +281,7 @@ func (h *RunHandler) ExecuteCodeRun(r *http.Request, userId string, runRequest d
 		return nil, err
 	}
 
-	return &domain.RunResultResponse{Data: runResult}, nil
+	return runResult, nil
 }
 
 func (h *RunHandler) CreateRun(w http.ResponseWriter, r *http.Request) error {

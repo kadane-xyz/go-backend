@@ -1,8 +1,10 @@
 package responses
 
 import (
+	"encoding/json"
 	"time"
 
+	"kadane.xyz/go-backend/v2/internal/database/sql"
 	"kadane.xyz/go-backend/v2/internal/domain"
 	"kadane.xyz/go-backend/v2/internal/judge0"
 )
@@ -11,30 +13,35 @@ type SubmissionResponse struct {
 	domain.Submission
 }
 
-func FromDomainSubmissionToApiSubmissionResponse(submission *domain.Submission) *SubmissionResponse {
-	language := judge0.LanguageIDToLanguage(int(lastLanguageID))
+func FromDomainSubmissionCreateParamsToApiSubmissionResponse(submission *domain.SubmissionCreateParams) (*SubmissionResponse, error) {
+	language := judge0.LanguageIDToLanguage(int(submission.LanguageID))
+
+	var failedTestCase domain.RunTestCase
+	if submission.FailedTestCase != nil {
+		if err := json.Unmarshal(submission.FailedTestCase, &failedTestCase); err != nil {
+			return nil, err
+		}
+	}
 
 	return &SubmissionResponse{
 		domain.Submission{
-			Id:              submissionId,
-			Stdout:          avgSubmission.Stdout,
-			Time:            avgSubmission.Time,
-			Memory:          avgSubmission.Memory,
-			Stderr:          avgSubmission.Stderr,
-			CompileOutput:   avgSubmission.CompileOutput,
-			Message:         avgSubmission.Message,
-			Status:          avgSubmission.Status,
+			ID:              submission.ID,
+			Stdout:          submission.Stdout,
+			Time:            submission.Time,
+			Memory:          submission.Memory,
+			Stderr:          submission.Stderr,
+			CompileOutput:   submission.CompileOutput,
+			Message:         submission.Message,
+			Status:          sql.SubmissionStatus(submission.Status),
 			Language:        language,
-			AccountID:       userId,
-			SubmittedCode:   request.SourceCode,
+			AccountID:       submission.AccountID,
+			SubmittedCode:   submission.SubmittedCode,
 			SubmittedStdin:  "",
-			ProblemID:       request.ProblemID,
+			ProblemID:       submission.ProblemID,
 			CreatedAt:       time.Now(),
 			FailedTestCase:  failedTestCase,
-			PassedTestCases: passedTestCases,
-			TotalTestCases:  totalTestCases,
+			PassedTestCases: submission.PassedTestCases,
+			TotalTestCases:  submission.TotalTestCases,
 		},
-	}
+	}, nil
 }
-
-// Prepare response
