@@ -30,6 +30,34 @@ type FriendRequest struct {
 
 type FriendshipStatus = sql.FriendshipStatus
 
+type FriendParams struct {
+	FriendName string `json:"friendName"`
+	UserID     string `json:"userId"`
+}
+
+type FriendRequesStatusParams = FriendParams
+type FriendRequestCreateParams = FriendParams
+type FriendRequestAcceptParams = FriendParams
+type FriendBlockParams = FriendParams
+type FriendUnblockParams = FriendParams
+type FriendshipDeleteParams = FriendParams
+
+func FromSQLFromSQLGetFriendsRow(rows []sql.GetFriendsRow) []*Friend {
+	var friends []*Friend
+	for i, row := range rows {
+		friends[i] = &Friend{
+			ID:         row.FriendID,
+			Username:   row.FriendUsername,
+			AvatarUrl:  row.AvatarUrl,
+			Level:      row.Level,
+			Location:   row.Location,
+			AcceptedAt: row.AcceptedAt.Time,
+		}
+	}
+
+	return friends
+}
+
 func FromSQLFriendsByUsernameRows(rows []sql.GetFriendsByUsernameRow) []*Friend {
 	friends := []*Friend{}
 	for i, row := range rows {
@@ -45,17 +73,30 @@ func FromSQLFriendsByUsernameRows(rows []sql.GetFriendsByUsernameRow) []*Friend 
 	return friends
 }
 
+// sql.GetFriendRequestRow shared by Get FriendRequest routes
+func FromSQLGetFriendRequestRow(row sql.GetFriendRequestsReceivedRow) *FriendRequest {
+	return &FriendRequest{
+		FriendID:   row.FriendID,
+		FriendName: row.FriendUsername,
+		AvatarUrl:  row.AvatarUrl,
+		Level:      row.Level,
+		Location:   row.Location,
+		CreatedAt:  row.CreatedAt.Time,
+	}
+}
+
+func FromSQLGetFriendRequestsSentRows(rows []sql.GetFriendRequestsSentRow) []*FriendRequest {
+	friends := []*FriendRequest{}
+	for i, row := range rows {
+		friends[i] = FromSQLGetFriendRequestRow(sql.GetFriendRequestsReceivedRow(row))
+	}
+	return friends
+}
+
 func FromSQLGetFriendRequestsReceivedRows(rows []sql.GetFriendRequestsReceivedRow) []*FriendRequest {
 	friends := []*FriendRequest{}
 	for i, row := range rows {
-		friends[i] = &FriendRequest{
-			FriendID:   row.FriendID,
-			FriendName: row.FriendUsername,
-			AvatarUrl:  row.AvatarUrl,
-			Level:      row.Level,
-			CreatedAt:  row.CreatedAt.Time,
-			Location:   row.Location,
-		}
+		friends[i] = FromSQLGetFriendRequestRow(row)
 	}
 	return friends
 }

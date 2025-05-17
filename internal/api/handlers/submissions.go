@@ -47,7 +47,7 @@ func validateCreateSubmissionRequest(r *http.Request, userId string) (*domain.Su
 	}
 
 	if request.SourceCode == "" {
-		return nil, errors.NewApiError(http.StatusBadRequest, "Missing source code")
+		return nil, errors.NewApiError(nil, "Missing source code", http.StatusBadRequest)
 	}
 
 	return &domain.SubmissionCreateRequest{

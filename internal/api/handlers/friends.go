@@ -76,7 +76,7 @@ func (h *FriendHandler) CreateFriendRequest(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Check if the friend request already exists
-	friendRequestStatus, err := h.repo.GetFriendRequestStatus(r.Context(), sql.GetFriendRequestStatusParams{
+	friendRequestStatus, err := h.repo.GetFriendRequestStatus(r.Context(), &domain.FriendRequesStatusParams{
 		UserID:     claims.UserID,
 		FriendName: friendRequest.FriendName,
 	})
@@ -84,7 +84,7 @@ func (h *FriendHandler) CreateFriendRequest(w http.ResponseWriter, r *http.Reque
 		return errors.NewApiError(err, "Friend relationship already exists", http.StatusBadRequest)
 	}
 
-	err = h.repo.CreateFriendRequest(r.Context(), sql.CreateFriendRequestParams{
+	err = h.repo.CreateFriendRequest(r.Context(), &domain.FriendBlockParams{
 		UserID:     claims.UserID,
 		FriendName: friendRequest.FriendName,
 	})
@@ -148,7 +148,7 @@ func (h *FriendHandler) AcceptFriendRequest(w http.ResponseWriter, r *http.Reque
 		return errors.NewApiError(err, "validation", http.StatusBadRequest)
 	}
 
-	err = h.repo.AcceptFriendRequest(r.Context(), sql.AcceptFriendRequestParams{
+	err = h.repo.AcceptFriendRequest(r.Context(), &domain.FriendBlockParams{
 		UserID:     claims.UserID,
 		FriendName: friendRequest.FriendName,
 	})
@@ -174,7 +174,7 @@ func (h *FriendHandler) BlockFriendRequest(w http.ResponseWriter, r *http.Reques
 		return errors.NewApiError(err, "validation", http.StatusBadRequest)
 	}
 
-	err = h.repo.BlockFriend(r.Context(), sql.BlockFriendParams{
+	err = h.repo.BlockFriend(r.Context(), &domain.FriendBlockParams{
 		UserID:     claims.UserID,
 		FriendName: friendRequest.FriendName,
 	})
@@ -200,7 +200,7 @@ func (h *FriendHandler) UnblockFriendRequest(w http.ResponseWriter, r *http.Requ
 		return errors.NewApiError(err, "validation", http.StatusBadRequest)
 	}
 
-	err = h.repo.UnblockFriend(r.Context(), sql.UnblockFriendParams{
+	err = h.repo.UnblockFriend(r.Context(), &domain.FriendBlockParams{
 		UserID:     claims.UserID,
 		FriendName: friendRequest.FriendName,
 	})
@@ -226,7 +226,7 @@ func (h *FriendHandler) DeleteFriend(w http.ResponseWriter, r *http.Request) err
 		return errors.NewApiError(nil, "Missing username", http.StatusBadRequest)
 	}
 
-	err = h.repo.DeleteFriendship(r.Context(), sql.DeleteFriendshipParams{
+	err = h.repo.DeleteFriendship(r.Context(), &domain.FriendBlockParams{
 		UserID:     claims.UserID,
 		FriendName: username,
 	})
@@ -279,7 +279,7 @@ func (h *FriendHandler) DeleteFriendRequest(w http.ResponseWriter, r *http.Reque
 		return errors.NewApiError(nil, "Missing username", http.StatusBadRequest)
 	}
 
-	err = h.repo.DeleteFriendship(r.Context(), sql.DeleteFriendshipParams{
+	err = h.repo.DeleteFriendship(r.Context(), &domain.FriendBlockParams{
 		UserID:     claims.UserID,
 		FriendName: username,
 	})
