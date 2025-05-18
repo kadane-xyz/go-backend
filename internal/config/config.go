@@ -11,18 +11,11 @@ import (
 type Environment string
 
 const (
-	Production  Environment = "prod"
-	Staging     Environment = "stage"
-	Development Environment = "dev"
-	Test        Environment = "test"
+	EnvProduction  Environment = "prod"
+	EnvStaging     Environment = "stage"
+	EnvDevelopment Environment = "dev"
+	EnvTest        Environment = "test"
 )
-
-type PostgresConfig struct {
-	Url      string
-	User     string
-	Password string
-	DB       string
-}
 
 type FirebaseConfig struct {
 	Cred string
@@ -47,8 +40,8 @@ type Config struct {
 	// Server
 	Port        string
 	Environment Environment
-	// Postgres
-	Postgres PostgresConfig
+	// Database
+	DatabaseURL string
 	// Firebase
 	Firebase FirebaseConfig
 	// AWS
@@ -60,7 +53,7 @@ type Config struct {
 // IsValid reports whether e is one of the known Environments.
 func (e Environment) IsValid() bool {
 	switch e {
-	case Production, Staging, Development, Test:
+	case EnvProduction, EnvStaging, EnvDevelopment, EnvTest:
 		return true
 	}
 	return false
@@ -109,24 +102,9 @@ func LoadConfig() (*Config, error) {
 		log.Println("Debug mode enabled")
 	}
 
-	postgresUrl := os.Getenv("POSTGRES_URL")
-	if postgresUrl == "" {
-		return nil, fmt.Errorf("POSTGRES_URL is not set")
-	}
-
-	postgresUser := os.Getenv("POSTGRES_USER")
-	if postgresUser == "" {
-		return nil, fmt.Errorf("POSTGRES_USER is not set")
-	}
-
-	postgresPass := os.Getenv("POSTGRES_PASSWORD")
-	if postgresPass == "" {
-		return nil, fmt.Errorf("POSTGRES_PASSWORD is not set")
-	}
-
-	postgresDB := os.Getenv("POSTGRES_DB")
-	if postgresDB == "" {
-		return nil, fmt.Errorf("POSTGRES_DB is not set")
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		return nil, fmt.Errorf("DATABASE_URL is not set")
 	}
 
 	firebaseCred := os.Getenv("FIREBASE_CRED")
@@ -173,13 +151,8 @@ func LoadConfig() (*Config, error) {
 	config := &Config{
 		Debug:       debug,
 		Environment: environment,
-		//Postgres
-		Postgres: PostgresConfig{
-			Url:      postgresUrl,
-			User:     postgresUser,
-			Password: postgresPass,
-			DB:       postgresDB,
-		},
+		//Database
+		DatabaseURL: databaseURL,
 		//Firebase
 		Firebase: FirebaseConfig{
 			Cred: firebaseCred,

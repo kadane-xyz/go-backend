@@ -2,7 +2,6 @@ package database
 
 import (
 	"context"
-	"fmt"
 	"log"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -11,7 +10,7 @@ import (
 
 // Create new database pool
 func NewPool(ctx context.Context, cfg config.Config) (*pgxpool.Pool, error) {
-	connCfg, err := pgxpool.ParseConfig(fmt.Sprintf("postgres://%s:%s@%s/%s", cfg.Postgres.User, cfg.Postgres.Password, cfg.Postgres.Url, cfg.Postgres.DB))
+	connCfg, err := pgxpool.ParseConfig(cfg.DatabaseURL)
 	if err != nil {
 		return nil, err
 	}
