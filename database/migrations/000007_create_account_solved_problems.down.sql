@@ -1,0 +1,1 @@
+DROP TABLE IF EXISTS account_solved_problem;
