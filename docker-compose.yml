@@ -28,13 +28,14 @@ services:
   db:
     container_name: postgres
     image: postgres:15
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-kadane-dev}
+      POSTGRES_USER: ${POSTGRES_USER:-kadane}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kadane}
     ports:
       - 5432:5432/tcp
     volumes:
       - postgres:/var/lib/postgresql/data
-      - ./database/schemas:/docker-entrypoint-initdb.d/schemas
-      - ./database/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
-      - ./database/data:/docker-entrypoint-initdb.d/data
     env_file:
       - '.env' 
     healthcheck:
