@@ -4,11 +4,30 @@ INSERT INTO account (id, username, email, plan, admin, avatar_url) VALUES
 ('456def', 'janesmith', 'jane@example.com', 'plus', false, 'https://example.com/avatars/janesmith.jpg'),
 ('789ghi', 'bobjohnson', 'bob@example.com', 'free', false, 'https://example.com/avatars/bobjohnson.jpg');
 
-INSERT INTO account_attribute (id, bio, contact_email, location, real_name, github_url, linkedin_url, facebook_url, instagram_url, twitter_url, school, website_url) VALUES
-('123abc', 'Passionate coder', 'john@example.com', 'New York', 'John Doe', 'https://github.com/johndoe', 'https://linkedin.com/in/johndoe', 'https://facebook.com/johndoe', 'https://instagram.com/johndoe', 'https://twitter.com/johndoe', 'MIT', 'https://www.johndoe.com'),
-('456def', 'AI enthusiast', 'jane@example.com', 'San Francisco', 'Jane Smith', 'https://github.com/janesmith', 'https://linkedin.com/in/janesmith', 'https://facebook.com/janesmith', 'https://instagram.com/janesmith', 'https://twitter.com/janesmith', 'Stanford', 'https://www.janesmith.com'),
-('789ghi', 'Full-stack developer', 'bob@example.com', 'London', 'Bob Johnson', 'https://github.com/bobjohnson', 'https://linkedin.com/in/bobjohnson', 'https://facebook.com/bobjohnson', 'https://instagram.com/bobjohnson', 'https://twitter.com/bobjohnson', 'Oxford', 'https://www.bobjohnson.com');
-
+UPDATE account_attribute AS a
+SET
+  bio           = v.bio,
+  contact_email = v.contact_email,
+  location      = v.location,
+  real_name     = v.real_name,
+  github_url    = v.github_url,
+  linkedin_url  = v.linkedin_url,
+  facebook_url  = v.facebook_url,
+  instagram_url = v.instagram_url,
+  twitter_url   = v.twitter_url,
+  school        = v.school,
+  website_url   = v.website_url
+FROM (
+  VALUES
+    ('123abc', 'Passionate coder',      'john@example.com', 'New York',       'John Doe',      'https://github.com/johndoe',      'https://linkedin.com/in/johndoe',    'https://facebook.com/johndoe',    'https://instagram.com/johndoe',    'https://twitter.com/johndoe',    'MIT',      'https://www.johndoe.com'),
+    ('456def', 'AI enthusiast',         'jane@example.com', 'San Francisco',  'Jane Smith',    'https://github.com/janesmith',    'https://linkedin.com/in/janesmith',  'https://facebook.com/janesmith',  'https://instagram.com/janesmith',  'https://twitter.com/janesmith',  'Stanford', 'https://www.janesmith.com'),
+    ('789ghi', 'Full-stack developer',  'bob@example.com',  'London',         'Bob Johnson',   'https://github.com/bobjohnson',   'https://linkedin.com/in/bobjohnson', 'https://facebook.com/bobjohnson', 'https://instagram.com/bobjohnson', 'https://twitter.com/bobjohnson', 'Oxford',   'https://www.bobjohnson.com')
+) AS v(
+  id, bio, contact_email, location, real_name,
+  github_url, linkedin_url, facebook_url, instagram_url, twitter_url,
+  school, website_url
+)
+WHERE a.id = v.id;
 -- Insert problem
 INSERT INTO problem (title, description, function_name, points, difficulty, tags) VALUES
 ('Two Sum', 'Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.', 'twoSum', 10, 'easy', ARRAY['array', 'hash table']),
