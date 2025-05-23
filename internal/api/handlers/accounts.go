@@ -92,7 +92,7 @@ func (h *AccountHandler) GetAccounts(w http.ResponseWriter, r *http.Request) err
 	return nil
 }
 
-func ValidateCreateAccount(r *http.Request) (*domain.AccountCreateRequest, *errors.ApiError) {
+func ValidateCreateAccount(r *http.Request) (*domain.AccountCreateRequest, error) {
 	createAccountRequest, apiErr := httputils.DecodeJSONRequest[domain.AccountCreateRequest](r)
 	if apiErr != nil {
 		return nil, errors.NewUnprocessableEntityError("Invalid request body")
@@ -445,42 +445,6 @@ func (u *AccountUpdates) HasChanges() bool {
 type UpdateParamsResult struct {
 	Params     sql.UpdateAccountAttributesParams
 	HasChanges bool
-}
-
-// buildUpdateParams compares request attributes with current attributes
-// and returns an UpdateParamsResult with all provided fields, including empty strings
-func buildUpdateParams(req domain.AccountUpdateRequest, current domain.AccountAttributes) UpdateParamsResult {
-	result := UpdateParamsResult{
-		Params: sql.UpdateAccountAttributesParams{
-			ID: current.ID,
-		},
-		HasChanges: false,
-	}
-
-	// Helper function to check and set pgtype.Text fields
-	setField := func(newVal *string, currentVal string) string {
-		if newVal != nil { // If field was provided in request (including empty string)
-			result.HasChanges = result.HasChanges || (*newVal != currentVal)
-			return *newVal
-		}
-		// Keep current value if field not provided in request
-		return currentVal
-	}
-
-	// Update all fields, tracking changes
-	result.Params.Bio = setField(req.Bio, current.Bio)
-	result.Params.ContactEmail = setField(req.ContactEmail, current.ContactEmail)
-	result.Params.Location = setField(req.Location, current.Location)
-	result.Params.RealName = setField(req.RealName, current.RealName)
-	result.Params.GithubUrl = setField(req.GithubUrl, current.GithubUrl)
-	result.Params.LinkedinUrl = setField(req.LinkedinUrl, current.LinkedinUrl)
-	result.Params.FacebookUrl = setField(req.FacebookUrl, current.FacebookUrl)
-	result.Params.InstagramUrl = setField(req.InstagramUrl, current.InstagramUrl)
-	result.Params.TwitterUrl = setField(req.TwitterUrl, current.TwitterUrl)
-	result.Params.School = setField(req.School, current.School)
-	result.Params.WebsiteUrl = setField(req.WebsiteUrl, current.WebsiteUrl)
-
-	return result
 }
 
 // validateAccountAttributes performs validation on account attributes
