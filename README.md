@@ -29,6 +29,11 @@ Install air
 go install github.com/air-verse/air@latest
 ```
 
+Seed data base
+```bash
+go run cmd/migration/*.go seed
+```
+
 Run go binary using air
 ```bash
 air
