@@ -34,7 +34,6 @@ CREATE TABLE account_game_stat (
     elo INTEGER 
 );
 
-
 CREATE OR REPLACE FUNCTION create_account_attribute()
 RETURNS trigger AS $$
 BEGIN
@@ -48,4 +47,4 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER after_account_insert
 AFTER INSERT ON account
 FOR EACH ROW
-EXECUTE FUNCTION create_account_attributes();
+EXECUTE FUNCTION create_account_attribute();

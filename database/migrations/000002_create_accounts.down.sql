@@ -1,4 +1,4 @@
-DROP TRIGGER IF EXISTS after_account_insert;
+DROP TRIGGER IF EXISTS after_account_insert ON account;
 
 DROP FUNCTION IF EXISTS create_account_attribute;
 
