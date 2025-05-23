@@ -29,7 +29,7 @@ func NewSubmissionHandler(repo repository.SubmissionsRepository, problemsRepo re
 	return &SubmissionHandler{repo: repo, problemsRepo: problemsRepo, judge0client: judge0client}
 }
 
-func validateCreateSubmissionRequest(r *http.Request, userId string) (*domain.SubmissionCreateRequest, error) {
+func validateCreateSubmissionRequest(r *http.Request) (*domain.SubmissionCreateRequest, error) {
 	request, err := httputils.DecodeJSONRequest[domain.SubmissionCreateRequest](r)
 	if err != nil {
 		return nil, errors.NewApiError(err, "validation", http.StatusBadRequest)
@@ -81,6 +81,8 @@ func EvaluateTestResults(testCases []*domain.TestCase, responses []*judge0.Submi
 			return nil, err
 		}
 
+		timeStr := time.String()
+
 		// Check for failures
 		if actualOutput == "" || actualOutput != expectedOutput || resp.CompileOutput != "" {
 			var submissionStatus sql.SubmissionStatus
@@ -93,7 +95,7 @@ func EvaluateTestResults(testCases []*domain.TestCase, responses []*judge0.Submi
 			testResults.failedSubmission = &domain.Submission{
 				Status:        submissionStatus,
 				Memory:        int32(resp.Memory),
-				Time:          string(time),
+				Time:          timeStr,
 				Stdout:        resp.Stdout,
 				Stderr:        resp.Stderr,
 				CompileOutput: resp.CompileOutput,
@@ -123,17 +125,6 @@ func EvaluateTestResults(testCases []*domain.TestCase, responses []*judge0.Submi
 	return &testResults, nil
 }
 
-type SubmissionCreateParams struct {
-	userId          string
-	problem         *domain.Problem
-	request         *domain.SubmissionCreateRequest
-	passedTestCases int32
-	totalTestCases  int32
-	languageId      int32
-	languageName    int32
-	submissionId    uuid.UUID
-}
-
 func (h *SubmissionHandler) CreateSubmission(w http.ResponseWriter, r *http.Request) error {
 	// Get userid from middleware context
 	claims, err := middleware.GetClientClaims(r.Context())
@@ -141,7 +132,7 @@ func (h *SubmissionHandler) CreateSubmission(w http.ResponseWriter, r *http.Requ
 		return err
 	}
 
-	request, err := validateCreateSubmissionRequest(r, claims.UserID)
+	request, err := validateCreateSubmissionRequest(r)
 	if err != nil {
 		return errors.NewApiError(err, "validation", http.StatusBadRequest)
 	}
@@ -168,7 +159,7 @@ func (h *SubmissionHandler) CreateSubmission(w http.ResponseWriter, r *http.Requ
 		return errors.NewApiError(nil, "No test cases found", http.StatusBadRequest)
 	}
 
-	var submissions []*judge0.Submission
+	submissions := make([]*judge0.Submission, len(problemTestCases))
 	for i, testCase := range problemTestCases {
 		submission := judge0tmpl.TemplateCreate(judge0tmpl.TemplateInput{
 			Language:     request.Language,
@@ -213,6 +204,7 @@ func (h *SubmissionHandler) CreateSubmission(w http.ResponseWriter, r *http.Requ
 	memory := int32(testResults.totalMemory / count)
 	avgDuration := testResults.totalTime / time.Duration(count)
 	avgDuration = avgDuration.Truncate(time.Millisecond)
+	avgDurationStr := avgDuration.String()
 
 	// store averaged results to save to database
 	submissionCreateID := uuid.New()
@@ -231,7 +223,7 @@ func (h *SubmissionHandler) CreateSubmission(w http.ResponseWriter, r *http.Requ
 		ID:              submissionCreateID,
 		Status:          lastResp.Status.Description,
 		Memory:          memory,
-		Time:            string(avgDuration),
+		Time:            avgDurationStr,
 		Stdout:          lastResp.Stdout,
 		Stderr:          lastResp.Stderr,
 		CompileOutput:   lastResp.CompileOutput,
@@ -319,14 +311,6 @@ func (h *SubmissionHandler) GetSubmissionsByUsername(w http.ResponseWriter, r *h
 	httputils.SendJSONResponse(w, http.StatusOK, submissions)
 
 	return nil
-}
-
-// QueryParams holds processed query parameters
-type SubmissionQueryParams struct {
-	problemId int
-	status    string
-	order     string
-	sort      string
 }
 
 // ExtractSubmissionQueryParams processes and validates query parameters
