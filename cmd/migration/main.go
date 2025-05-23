@@ -197,7 +197,7 @@ Commands:
 		// Default seed path
 		defaultSeedPath := os.Getenv("DATABASE_SEED_FILE_PATH")
 		if defaultSeedPath == "" {
-			defaultSeedPath = filepath.Join("db", "seed", "seed.sql")
+			defaultSeedPath = filepath.Join("database", "seed", "seed.sql")
 		}
 
 		seedUsage := `seed [-path]  Seed the database with testing data
