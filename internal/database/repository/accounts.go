@@ -9,7 +9,7 @@ import (
 
 type AccountRepository interface {
 	GetAccount(ctx context.Context, params *domain.AccountGetParams) (domain.Account, error)
-	ListAccounts(ctx context.Context, params sql.ListAccountsParams) ([]domain.Account, error)
+	ListAccounts(ctx context.Context, params *domain.AccountGetParams) ([]domain.Account, error)
 	CreateAccount(ctx context.Context, params *domain.AccountCreateRequest) error
 	CreateAccountAttributes(ctx context.Context, params sql.CreateAccountAttributesParams) (sql.AccountAttribute, error)
 	UploadAccountAvatar(ctx context.Context, params sql.UpdateAccountAvatarParams) error
@@ -42,8 +42,14 @@ func (r *SQLAccountsRepository) GetAccount(ctx context.Context, params *domain.A
 	return domain.FromSQLAccountRow(q), nil
 }
 
-func (r *SQLAccountsRepository) ListAccounts(ctx context.Context, params sql.ListAccountsParams) ([]domain.Account, error) {
-	q, err := r.queries.ListAccounts(ctx, params)
+func (r *SQLAccountsRepository) ListAccounts(ctx context.Context, params *domain.AccountGetParams) ([]domain.Account, error) {
+	q, err := r.queries.ListAccounts(ctx, sql.ListAccountsParams{
+		IncludeAttributes: params.IncludeAttributes,
+		UsernamesFilter:   params.UsernamesFilter,
+		LocationsFilter:   params.LocationsFilter,
+		Sort:              params.Sort,
+		SortDirection:     params.SortDirection,
+	})
 	if err != nil {
 		return nil, err
 	}

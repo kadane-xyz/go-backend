@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 
 	request "kadane.xyz/go-backend/v2/internal/api/requests"
 	"kadane.xyz/go-backend/v2/internal/domain"
@@ -78,6 +79,20 @@ func GetQueryParam(r *http.Request, param string) (*string, error) {
 	}
 
 	return &params, nil
+}
+
+func GetQueryParamStringArray(r *http.Request, param string) ([]string, error) {
+	var params []string
+	p, err := GetQueryParam(r, param)
+	if err != nil {
+		return nil, err
+	}
+
+	if p != nil && *p != "" {
+		params = strings.Split(*p, ",")
+	}
+
+	return params, nil
 }
 
 func GetQueryParamInt32(r *http.Request, param string) (int32, error) {

@@ -40,17 +40,15 @@ func NewAccountHandler(repo repository.AccountRepository, awsClient *s3.Client, 
 	return &AccountHandler{repo: repo, awsClient: awsClient, config: config}
 }
 
-func ValidateGetAccountsFiltered(r *http.Request) (sql.ListAccountsParams, error) {
-	usernames := r.URL.Query().Get("usernames")
-	var usernamesFilter []string
-	if usernames != "" {
-		usernamesFilter = strings.Split(usernames, ",")
+func ValidateGetAccountsFiltered(r *http.Request) (*domain.AccountGetParams, error) {
+	usernames, err := httputils.GetQueryParamStringArray(r, "usernames")
+	if err != nil {
+		return nil, err
 	}
 
-	locations := r.URL.Query().Get("locations")
-	var locationsFilter []string
-	if locations != "" {
-		locationsFilter = strings.Split(locations, ",")
+	locations, err := httputils.GetQueryParamStringArray(r, "locations")
+	if err != nil {
+		return nil, err
 	}
 
 	sort := r.URL.Query().Get("sort")
@@ -58,18 +56,16 @@ func ValidateGetAccountsFiltered(r *http.Request) (sql.ListAccountsParams, error
 		sort = ""
 	}
 
-	order := r.URL.Query().Get("order")
-	if order == "asc" {
-		order = "ASC"
-	} else {
-		order = "DESC"
+	order, err := httputils.GetQueryParamOrder(r)
+	if err != nil {
+		return nil, err
 	}
 
-	return sql.ListAccountsParams{
-		UsernamesFilter:   usernamesFilter,
-		LocationsFilter:   locationsFilter,
+	return &domain.AccountGetParams{
+		UsernamesFilter:   usernames,
+		LocationsFilter:   locations,
 		Sort:              sort,
-		SortDirection:     order,
+		SortDirection:     sql.SortDirection(*order),
 		IncludeAttributes: true,
 	}, nil
 }
@@ -248,14 +244,17 @@ func ValidateGetAccount(r *http.Request) (*domain.AccountGetParams, error) {
 		return nil, errors.NewBadRequestError("Missing account id")
 	}
 
-	attributes := r.URL.Query().Get("attributes")
-	if attributes == "" {
-		attributes = "false"
+	attributes, err := httputils.GetQueryParam(r, "attributes")
+	if err != nil {
+		return nil, err
+	}
+	if *attributes == "" {
+		*attributes = "false"
 	}
 
 	return &domain.AccountGetParams{
 		ID:                accountId,
-		IncludeAttributes: attributes == "true",
+		IncludeAttributes: *attributes == "true",
 	}, nil
 }
 
@@ -528,16 +527,19 @@ func (h *AccountHandler) GetAccountByUsername(w http.ResponseWriter, r *http.Req
 		return errors.NewApiError(nil, "Missing username", http.StatusBadRequest)
 	}
 
-	attributes := r.URL.Query().Get("attributes")
-	if attributes == "" {
-		attributes = "false"
+	attributes, err := httputils.GetQueryParam(r, "attributes")
+	if err != nil {
+		return err
+	}
+	if *attributes == "" {
+		*attributes = "false"
 	}
 
 	// check if account exists
 	account, err := h.repo.GetAccountByUsername(r.Context(), sql.GetAccountByUsernameParams{
 		Username:          username,
 		UserID:            claims.UserID,
-		IncludeAttributes: attributes == "true",
+		IncludeAttributes: *attributes == "true",
 	})
 	if err != nil {
 		httputils.EmptyDataResponse(w)
