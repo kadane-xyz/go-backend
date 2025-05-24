@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -322,17 +321,9 @@ func validateGetSubmissionsByUsernameRequest(r *http.Request) (*domain.Submissio
 	}
 
 	// Process problem ID
-	id := r.URL.Query().Get("problemId")
-	var problemID int32
-	if id != "" {
-		i, err := strconv.ParseInt(id, 10, 32)
-		if err != nil {
-			return nil, err
-		}
-		if i < 1 {
-			return nil, errors.NewAppError(nil, "page number is less than 1", http.StatusBadRequest)
-		}
-		problemID = int32(i)
+	problemID, err := httputils.GetQueryParamInt32(r, "problemId")
+	if err != nil {
+		return nil, err
 	}
 
 	// Process status
@@ -368,15 +359,9 @@ func validateGetSubmissionsByUsernameRequest(r *http.Request) (*domain.Submissio
 	}
 
 	// Process order
-	order := r.URL.Query().Get("order")
-	if order == "" {
-		order = "DESC"
-	} else if order == "asc" {
-		order = "ASC"
-	} else if order == "desc" {
-		order = "DESC"
-	} else {
-		order = "DESC" // Default
+	order, err := httputils.GetQueryParamOrder(r)
+	if err != nil {
+		return nil, err
 	}
 
 	sort := r.URL.Query().Get("sort")
@@ -390,30 +375,14 @@ func validateGetSubmissionsByUsernameRequest(r *http.Request) (*domain.Submissio
 		sort = "created_at" // Default to sorting by creation time
 	}
 
-	page := r.URL.Query().Get("page")
-	var pageInt int32
-	if page != "" {
-		p, err := strconv.ParseInt(page, 10, 32)
-		if err != nil {
-			return nil, err
-		}
-		if p < 1 {
-			return nil, errors.NewAppError(nil, "page number is less than 1", http.StatusBadRequest)
-		}
-		pageInt = int32(p)
+	page, err := httputils.GetQueryParamInt32(r, "page")
+	if err != nil {
+		return nil, err
 	}
 
-	perPage := r.URL.Query().Get("perPage")
-	var perPageInt int32
-	if page != "" {
-		pp, err := strconv.ParseInt(perPage, 10, 32)
-		if err != nil {
-			return nil, err
-		}
-		if pp < 1 {
-			return nil, errors.NewAppError(nil, "page number is less than 1", http.StatusBadRequest)
-		}
-		perPageInt = int32(pp)
+	perPage, err := httputils.GetQueryParamInt32(r, "perPage")
+	if err != nil {
+		return nil, err
 	}
 
 	return &domain.SubmissionsGetByUsernameParams{
@@ -421,8 +390,8 @@ func validateGetSubmissionsByUsernameRequest(r *http.Request) (*domain.Submissio
 		ProblemID: problemID,
 		Status:    sql.SubmissionStatus(status),
 		Sort:      sql.ProblemSort(sort),
-		Order:     sql.SortDirection(order),
-		Page:      pageInt,
-		PerPage:   perPageInt,
+		Order:     sql.SortDirection(*order),
+		Page:      page,
+		PerPage:   perPage,
 	}, nil
 }

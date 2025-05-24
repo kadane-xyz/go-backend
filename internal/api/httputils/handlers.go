@@ -3,7 +3,9 @@ package httputils
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
+	request "kadane.xyz/go-backend/v2/internal/api/requests"
 	"kadane.xyz/go-backend/v2/internal/domain"
 	"kadane.xyz/go-backend/v2/internal/errors"
 )
@@ -76,4 +78,43 @@ func GetQueryParam(r *http.Request, param string) (*string, error) {
 	}
 
 	return &params, nil
+}
+
+func GetQueryParamInt32(r *http.Request, param string) (int32, error) {
+	p, err := GetQueryParam(r, param)
+	if err != nil {
+		return 0, err
+	}
+
+	var paramInt32 int32
+	if p != nil {
+		paramInt, err := strconv.ParseInt(*p, 10, 32)
+		if err != nil {
+			return 0, err
+		}
+		if paramInt < 1 {
+			return 0, errors.NewAppError(nil, "param: "+param+" is less than 1", http.StatusBadRequest)
+		}
+
+		paramInt32 = int32(paramInt)
+	}
+
+	return paramInt32, nil
+}
+
+func GetQueryParamOrder(r *http.Request) (*string, error) {
+	p, err := GetQueryParam(r, "order")
+	if err != nil {
+		return nil, err
+	}
+
+	if p == nil || *p == "" {
+		return nil, nil
+	}
+
+	if orderParam := request.RequestQueryParamOrder(*p); !orderParam.IsValid() {
+		return nil, errors.NewApiError(nil, "order param is invalid", http.StatusBadRequest)
+	}
+
+	return p, nil
 }
