@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"kadane.xyz/go-backend/v2/internal/api/httputils"
 	"kadane.xyz/go-backend/v2/internal/api/responses"
@@ -255,12 +254,12 @@ func (h *SubmissionHandler) CreateSubmission(w http.ResponseWriter, r *http.Requ
 }
 
 func validateGetSubmissionRequest(r *http.Request, userId string) (*domain.SubmissionGetParams, error) {
-	token := chi.URLParam(r, "token")
-	if token == "" {
-		return nil, errors.NewApiError(nil, "Missing submission ID", http.StatusBadRequest)
+	token, err := httputils.GetURLParam(r, "token")
+	if err != nil {
+		return nil, err
 	}
 
-	idUUID, err := uuid.Parse(token)
+	idUUID, err := uuid.Parse(*token)
 	if err != nil {
 		return nil, errors.NewApiError(err, "Invalid submission ID", http.StatusBadRequest)
 	}
@@ -315,9 +314,9 @@ func (h *SubmissionHandler) GetSubmissionsByUsername(w http.ResponseWriter, r *h
 // ExtractSubmissionQueryParams processes and validates query parameters
 // New helper function for FetchSubmissionsByUsername
 func validateGetSubmissionsByUsernameRequest(r *http.Request) (*domain.SubmissionsGetByUsernameParams, error) {
-	username := chi.URLParam(r, "username")
-	if username == "" {
-		return nil, errors.NewApiError(nil, "Missing username", http.StatusBadRequest)
+	username, err := httputils.GetURLParam(r, "username")
+	if err != nil {
+		return nil, err
 	}
 
 	// Process problem ID
@@ -327,8 +326,11 @@ func validateGetSubmissionsByUsernameRequest(r *http.Request) (*domain.Submissio
 	}
 
 	// Process status
-	status := r.URL.Query().Get("status")
-	if status != "" {
+	status, err := httputils.GetQueryParam(r, "status")
+	if err != nil {
+		return nil, err
+	}
+	if *status != "" {
 		// Check if status is valid
 		validStatuses := []sql.SubmissionStatus{
 			sql.SubmissionStatusAccepted,
@@ -347,7 +349,7 @@ func validateGetSubmissionsByUsernameRequest(r *http.Request) (*domain.Submissio
 
 		isValid := false
 		for _, validStatus := range validStatuses {
-			if sql.SubmissionStatus(status) == validStatus {
+			if sql.SubmissionStatus(*status) == validStatus {
 				isValid = true
 				break
 			}
@@ -364,15 +366,18 @@ func validateGetSubmissionsByUsernameRequest(r *http.Request) (*domain.Submissio
 		return nil, err
 	}
 
-	sort := r.URL.Query().Get("sort")
-	if sort == "runtime" {
-		sort = "time"
-	} else if sort == "memory" {
-		sort = "memory"
-	} else if sort == "created" {
-		sort = "created_at"
+	sort, err := httputils.GetQueryParam(r, "sort")
+	if err != nil {
+		return nil, err
+	}
+	if *sort == "runtime" {
+		*sort = "time"
+	} else if *sort == "memory" {
+		*sort = "memory"
+	} else if *sort == "created" {
+		*sort = "created_at"
 	} else {
-		sort = "created_at" // Default to sorting by creation time
+		*sort = "created_at" // Default to sorting by creation time
 	}
 
 	page, err := httputils.GetQueryParamInt32(r, "page")
@@ -386,10 +391,10 @@ func validateGetSubmissionsByUsernameRequest(r *http.Request) (*domain.Submissio
 	}
 
 	return &domain.SubmissionsGetByUsernameParams{
-		Username:  username,
+		Username:  *username,
 		ProblemID: problemID,
-		Status:    sql.SubmissionStatus(status),
-		Sort:      sql.ProblemSort(sort),
+		Status:    sql.SubmissionStatus(*status),
+		Sort:      sql.ProblemSort(*sort),
 		Order:     sql.SortDirection(*order),
 		Page:      page,
 		PerPage:   perPage,

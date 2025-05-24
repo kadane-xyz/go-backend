@@ -2,10 +2,7 @@ package handlers
 
 import (
 	"net/http"
-	"strconv"
-	"strings"
 
-	"github.com/go-chi/chi/v5"
 	"kadane.xyz/go-backend/v2/internal/api/httputils"
 	"kadane.xyz/go-backend/v2/internal/database/repository"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
@@ -23,74 +20,59 @@ func NewSolutionsHandler(repo repository.SolutionsRepository) *SolutionsHandler 
 }
 
 func ValidateGetSolutions(r *http.Request, userId string) (*domain.SolutionsGetParams, error) {
-	problemId := r.URL.Query().Get("problemId")
-	if problemId == "" {
-		return nil, errors.NewApiError(nil, "Missing problemId for solutions retrieval", http.StatusBadRequest)
-	}
-
-	id, err := strconv.ParseInt(problemId, 10, 32)
+	problemId, err := httputils.GetQueryParamInt32(r, "problemId")
 	if err != nil {
-		return nil, errors.NewApiError(err, "Invalid problemId format for solutions retrieval", http.StatusBadRequest)
+		return nil, err
 	}
 
-	titleSearch := r.URL.Query().Get("titleSearch")
-	if titleSearch == "" {
-		titleSearch = ""
+	titleSearch, err := httputils.GetQueryParam(r, "titleSearch")
+	if err != nil {
+		return nil, err
 	}
 
-	var tagsArray []string
-	tags := r.URL.Query().Get("tags")
-	if tags != "" {
-		tagsArray = strings.Split(tags, ",")
+	tags, err := httputils.GetQueryParamStringArray(r, "tags")
+	if err != nil {
+		return nil, err
 	}
 
 	// Handle pagination
-	var page int32
-	pageStr := r.URL.Query().Get("page")
-	pageInt, err := strconv.ParseInt(pageStr, 10, 32)
+	page, err := httputils.GetQueryParamInt32(r, "page")
 	if err != nil {
-		page = 1
-	} else {
-		page = int32(pageInt)
+		return nil, err
 	}
 
 	// Handle perPage
-	var perPage int32
-	perPageStr := r.URL.Query().Get("perPage")
-	perPageInt, err := strconv.ParseInt(perPageStr, 10, 32)
+	perPage, err := httputils.GetQueryParamInt32(r, "perPage")
 	if err != nil {
-		perPage = 10
-	} else {
-		perPage = int32(perPageInt)
+		return nil, err
 	}
 
 	// Handle sort
-	sort := r.URL.Query().Get("sort")
-	switch sort {
+	sort, err := httputils.GetQueryParam(r, "sort")
+	if err != nil {
+		return nil, err
+	}
+	switch *sort {
 	case "time":
-		sort = "created_at"
+		*sort = "created_at"
 	default:
-		sort = "votes"
+		*sort = "votes"
 	}
 
 	// Handle order
-	order := r.URL.Query().Get("order")
-	if order == "asc" {
-		order = "ASC"
-	} else if order == "desc" {
-		order = "DESC"
-	} else {
-		order = "DESC"
+	order, err := httputils.GetQueryParamOrder(r)
+	if err != nil {
+		return nil, err
 	}
 
 	return &domain.SolutionsGetParams{
-		ProblemID:     int32(id),
-		Tags:          tagsArray,
-		Title:         titleSearch,
+		ProblemID:     problemId,
+		Tags:          tags,
+		Title:         *titleSearch,
 		Page:          page,
 		PerPage:       perPage,
-		Sort:          sort,
-		SortDirection: sql.SortDirection(order),
+		Sort:          *sort,
+		SortDirection: sql.SortDirection(*order),
 		UserId:        userId,
 	}, nil
 }
@@ -196,18 +178,13 @@ func (h *SolutionsHandler) CreateSolution(w http.ResponseWriter, r *http.Request
 }
 
 func validateGetSolutionRequest(r *http.Request, userId string) (*domain.SolutionGetParams, error) {
-	solutionId := chi.URLParam(r, "solutionId")
-	if solutionId == "" {
-		return nil, errors.NewApiError(nil, "Missing solutionId for solution retrieval", http.StatusBadRequest)
-	}
-
-	id, err := strconv.ParseInt(solutionId, 10, 32)
+	solutionId, err := httputils.GetURLParamInt32(r, "solutionId")
 	if err != nil {
-		return nil, errors.NewApiError(err, "Invalid solutionId format for solution retrieval", http.StatusBadRequest)
+		return nil, err
 	}
 
 	return &domain.SolutionGetParams{
-		ID:     int32(id),
+		ID:     solutionId,
 		UserID: userId,
 	}, nil
 }
@@ -239,17 +216,10 @@ func (h *SolutionsHandler) GetSolution(w http.ResponseWriter, r *http.Request) e
 
 func validateUpdateSolutionRequest(r *http.Request, userID string) (*domain.SolutionsUpdateParams, error) {
 	// Handle problemId query parameter
-	solutionId := chi.URLParam(r, "solutionId")
-	// If problemId is empty, set idPg as NULL
-	if solutionId == "" {
-		return nil, errors.NewApiError(nil, "solutionId is required", http.StatusBadRequest)
-	}
-
-	id, err := strconv.ParseInt(solutionId, 10, 32)
+	solutionID, err := httputils.GetURLParamInt32(r, "solutionId")
 	if err != nil {
-		return nil, errors.NewApiError(err, "solutionId must be an integer", http.StatusBadRequest)
+		return nil, err
 	}
-	solutionID := int32(id)
 
 	solutionRequest, err := httputils.DecodeJSONRequest[domain.UpdateSolutionRequest](r)
 	if err != nil {
@@ -303,19 +273,13 @@ func (h *SolutionsHandler) DeleteSolution(w http.ResponseWriter, r *http.Request
 	}
 
 	// Handle problemId query parameter
-	solutionId := chi.URLParam(r, "solutionId")
-	// If problemId is empty, set idPg as NULL
-	if solutionId == "" {
-		return errors.NewApiError(nil, "solutionId is required", http.StatusBadRequest)
-	}
-
-	id, err := strconv.ParseInt(solutionId, 10, 32)
+	solutionID, err := httputils.GetURLParamInt32(r, "solutionId")
 	if err != nil {
-		return errors.NewApiError(err, "solutionId must be an integer", http.StatusBadRequest)
+		return err
 	}
 
 	// Get solutions from db by idPg
-	err = h.repo.DeleteSolution(r.Context(), claims.UserID, int32(id))
+	err = h.repo.DeleteSolution(r.Context(), claims.UserID, solutionID)
 	if err != nil {
 		return errors.HandleDatabaseError(err, "delete solution")
 	}
@@ -328,12 +292,7 @@ func (h *SolutionsHandler) DeleteSolution(w http.ResponseWriter, r *http.Request
 
 func validateVoteSolutionRequest(r *http.Request, userId string) (*domain.VoteSolutionsParams, error) {
 	// Extract solutionId from URL parameters
-	solutionId := chi.URLParam(r, "solutionId")
-	if solutionId == "" {
-		return nil, errors.NewApiError(nil, "Missing solutionId for solution retrieval", http.StatusBadRequest)
-	}
-
-	id, err := strconv.ParseInt(solutionId, 10, 32)
+	solutionId, err := httputils.GetURLParamInt32(r, "solutionId")
 	if err != nil {
 		return nil, errors.NewApiError(err, "Invalid solutionId format for solution retrieval", http.StatusBadRequest)
 	}
@@ -350,7 +309,7 @@ func validateVoteSolutionRequest(r *http.Request, userId string) (*domain.VoteSo
 
 	return &domain.VoteSolutionsParams{
 		UserId:     userId,
-		SolutionId: int32(id),
+		SolutionId: solutionId,
 		Vote:       req.Vote,
 	}, nil
 }

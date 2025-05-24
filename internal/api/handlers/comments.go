@@ -2,9 +2,7 @@ package handlers
 
 import (
 	"net/http"
-	"strconv"
 
-	"github.com/go-chi/chi/v5"
 	"kadane.xyz/go-backend/v2/internal/api/httputils"
 	"kadane.xyz/go-backend/v2/internal/database/repository"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
@@ -31,38 +29,31 @@ func (h *CommentHandler) GetComments(w http.ResponseWriter, r *http.Request) err
 	}
 
 	// Get the solutionId from the query parameters
-	solutionId := r.URL.Query().Get("solutionId")
-	if solutionId == "" {
-		return errors.NewApiError(nil, "Missing solutionId for comment retrieval", http.StatusBadRequest)
-	}
-
-	// Convert solutionId to int64
-	id, err := strconv.ParseInt(solutionId, 10, 32)
+	solutionId, err := httputils.GetQueryParamInt32(r, "solutionId")
 	if err != nil {
-		return errors.NewApiError(nil, "Invalid solutionId format for comment retrieval", http.StatusBadRequest)
+		return err
 	}
 
 	// Handle sort
-	sort := r.URL.Query().Get("sort")
-	switch sort {
+	sort, err := httputils.GetQueryParam(r, "sort")
+	if err != nil {
+		return err
+	}
+	switch *sort {
 	case "time":
-		sort = "created_at"
+		*sort = "created_at"
 	default:
-		sort = "votes"
+		*sort = "votes"
 	}
 
 	// Handle order
-	order := r.URL.Query().Get("order")
-	if order == "asc" {
-		order = "ASC"
-	} else if order == "desc" {
-		order = "DESC"
-	} else {
-		order = "DESC"
+	order, err := httputils.GetQueryParamOrder(r)
+	if err != nil {
+		return err
 	}
 
 	dbComments, err := h.repo.GetCommentsSorted(r.Context(), sql.GetCommentsSortedParams{
-		SolutionID:    int32(id),
+		SolutionID:    solutionId,
 		UserID:        claims.UserID,
 		Sort:          sort,
 		SortDirection: order,
@@ -164,18 +155,13 @@ func (h *CommentHandler) GetComment(w http.ResponseWriter, r *http.Request) erro
 		return err
 	}
 
-	commentId := chi.URLParam(r, "commentId")
-	if commentId == "" {
-		return errors.NewApiError(nil, "Missing commentId for comment retrieval", http.StatusBadRequest)
-	}
-
-	id, err := strconv.ParseInt(commentId, 10, 64)
+	commentId, err := httputils.GetURLParamInt64(r, "commentId")
 	if err != nil {
-		return errors.NewApiError(err, "Invalid commentId format for comment retrieval", http.StatusBadRequest)
+		return err
 	}
 
 	comment, err := h.repo.GetComment(r.Context(), sql.GetCommentParams{
-		ID:     id,
+		ID:     commentId,
 		UserID: claims.UserID,
 	})
 	if err != nil {
@@ -196,14 +182,9 @@ func (h *CommentHandler) UpdateComment(w http.ResponseWriter, r *http.Request) e
 		return err
 	}
 
-	commentId := chi.URLParam(r, "commentId")
-	if commentId == "" {
-		return errors.NewApiError(nil, "Missing commentId", http.StatusBadRequest)
-	}
-
-	id, err := strconv.ParseInt(commentId, 10, 64)
+	commentId, err := httputils.GetURLParamInt64(r, "commentId")
 	if err != nil {
-		return errors.NewApiError(err, "Invalid commentId format", http.StatusBadRequest)
+		return err
 	}
 
 	comment, err := httputils.DecodeJSONRequest[domain.CommentUpdateRequest](r)
@@ -217,7 +198,7 @@ func (h *CommentHandler) UpdateComment(w http.ResponseWriter, r *http.Request) e
 	}
 
 	_, err = h.repo.UpdateComment(r.Context(), sql.UpdateCommentParams{
-		ID:     id,
+		ID:     commentId,
 		Body:   comment.Body,
 		UserID: claims.UserID, // Check if the user is the owner of the comment
 	})
@@ -238,18 +219,13 @@ func (h *CommentHandler) DeleteComment(w http.ResponseWriter, r *http.Request) e
 		return err
 	}
 
-	commentId := chi.URLParam(r, "commentId")
-	if commentId == "" {
-		return errors.NewApiError(nil, "Missing commentId", http.StatusBadRequest)
-	}
-
-	id, err := strconv.ParseInt(commentId, 10, 64)
+	commentId, err := httputils.GetURLParamInt64(r, "commentId")
 	if err != nil {
-		return errors.NewApiError(err, "Invalid commentId format", http.StatusBadRequest)
+		return err
 	}
 
 	err = h.repo.DeleteComment(r.Context(), sql.DeleteCommentParams{
-		ID:     id,
+		ID:     commentId,
 		UserID: claims.UserID, // Check if the user is the owner of the comment
 	})
 	if err != nil {
@@ -270,14 +246,9 @@ func (h *CommentHandler) VoteComment(w http.ResponseWriter, r *http.Request) err
 	}
 
 	// Extract commentId from URL parameters
-	commentId := chi.URLParam(r, "commentId")
-	if commentId == "" {
-		return errors.NewApiError(nil, "Missing commentId", http.StatusBadRequest)
-	}
-
-	id, err := strconv.ParseInt(commentId, 10, 64)
+	commentId, err := httputils.GetURLParamInt64(r, "commentId")
 	if err != nil {
-		return errors.NewApiError(nil, "Invalid commentId format", http.StatusBadRequest)
+		return err
 	}
 
 	// Decode the request body into VoteRequest struct
@@ -291,14 +262,14 @@ func (h *CommentHandler) VoteComment(w http.ResponseWriter, r *http.Request) err
 	}
 
 	// Check if the comment exists
-	_, err = h.repo.GetCommentByID(r.Context(), id)
+	_, err = h.repo.GetCommentByID(r.Context(), commentId)
 	if err != nil {
 		return errors.HandleDatabaseError(err, "comment")
 	}
 
 	err = h.repo.VoteComment(r.Context(), sql.VoteCommentParams{
 		UserID:    claims.UserID,
-		CommentID: id,
+		CommentID: commentId,
 		Vote:      sql.VoteType(req.Vote),
 	})
 	if err != nil {

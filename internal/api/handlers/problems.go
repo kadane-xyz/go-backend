@@ -3,10 +3,7 @@ package handlers
 import (
 	"context"
 	"net/http"
-	"strconv"
-	"strings"
 
-	"github.com/go-chi/chi/v5"
 	"kadane.xyz/go-backend/v2/internal/api/httputils"
 	"kadane.xyz/go-backend/v2/internal/database/repository"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
@@ -24,54 +21,53 @@ func NewProblemHandler(repo repository.ProblemsRepository) *ProblemHandler {
 }
 
 func (h *ProblemHandler) GetProblemsValidateRequest(r *http.Request) (*domain.ProblemsGetParams, error) {
-	titleSearch := strings.TrimSpace(r.URL.Query().Get("titleSearch"))
-	sortType := strings.TrimSpace(r.URL.Query().Get("sort"))
-	if sortType == "" {
-		sortType = string(sql.ProblemSortIndex)
-	} else if sortType != string(sql.ProblemSortAlpha) && sortType != string(sql.ProblemSortIndex) {
+	titleSearch, err := httputils.GetQueryParam(r, "titleSearch")
+	if err != nil {
+		return nil, err
+	}
+
+	sort, err := httputils.GetQueryParam(r, "sort")
+	if err != nil {
+		return nil, err
+	}
+
+	if *sort == "" {
+		*sort = string(sql.ProblemSortIndex)
+	} else if *sort != string(sql.ProblemSortAlpha) && *sort != string(sql.ProblemSortIndex) {
 		return nil, errors.NewApiError(nil, "Invalid sort", http.StatusBadRequest)
 	}
 
-	order := strings.TrimSpace(r.URL.Query().Get("order"))
-	if order == "" {
-		order = string(sql.SortDirectionAsc)
-	} else if order != string(sql.SortDirectionAsc) && order != string(sql.SortDirectionDesc) {
+	order, err := httputils.GetQueryParam(r, "order")
+	if err != nil {
+		return nil, err
+	}
+	if *order == "" {
+		*order = string(sql.SortDirectionAsc)
+	} else if *order != string(sql.SortDirectionAsc) && *order != string(sql.SortDirectionDesc) {
 		return nil, errors.NewApiError(nil, "Invalid order", http.StatusBadRequest)
 	}
 
-	var page int32
-	pageStr := r.URL.Query().Get("page")
-	pageInt, err := strconv.ParseInt(pageStr, 10, 32)
+	page, err := httputils.GetQueryParamInt32(r, "page")
 	if err != nil {
-		page = 1
-	} else {
-		page = int32(pageInt)
+		return nil, err
 	}
 
-	var perPage int32
-	perPageStr := r.URL.Query().Get("perPage")
-	perPageInt, err := strconv.ParseInt(perPageStr, 10, 32)
+	perPage, err := httputils.GetQueryParamInt32(r, "perPage")
 	if err != nil {
-		perPage = 10
-	} else {
-		perPage = int32(perPageInt)
+		return nil, err
 	}
 
-	var difficulty string
-	difficultyStr := r.URL.Query().Get("difficulty")
-	if difficultyStr == string(sql.ProblemDifficultyEasy) ||
-		difficultyStr == string(sql.ProblemDifficultyMedium) ||
-		difficultyStr == string(sql.ProblemDifficultyHard) {
-		difficulty = difficultyStr
-	} else {
-		difficulty = ""
+	// validate difficulty
+	difficulty, err := httputils.GetQueryParam(r, "difficulty")
+	if err != nil {
+		return nil, err
 	}
 
 	return &domain.ProblemsGetParams{
-		Title:      titleSearch,
-		Difficulty: sql.ProblemDifficulty(difficulty),
-		Sort:       sql.ProblemSort(sortType),
-		Order:      sql.SortDirection(order),
+		Title:      *titleSearch,
+		Difficulty: sql.ProblemDifficulty(*difficulty),
+		Sort:       sql.ProblemSort(*sort),
+		Order:      sql.SortDirection(*order),
 		PerPage:    perPage,
 		Page:       page,
 	}, nil
@@ -135,15 +131,14 @@ func ValidateGetProblem(r *http.Request) (*domain.ProblemGetParams, error) {
 		return nil, err
 	}
 
-	problemId := chi.URLParam(r, "problemId")
-	problemIdInt, err := strconv.ParseInt(problemId, 10, 32)
+	problemId, err := httputils.GetURLParamInt32(r, "problemId")
 	if err != nil {
 		return nil, err
 	}
 
 	return &domain.ProblemGetParams{
 		UserID:    claims.UserID,
-		ProblemID: int32(problemIdInt),
+		ProblemID: problemId,
 	}, nil
 }
 

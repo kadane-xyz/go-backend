@@ -143,3 +143,32 @@ func GetURLParam(r *http.Request, param string) (*string, error) {
 
 	return &p, nil
 }
+
+func GetURLParamInt32(r *http.Request, param string) (int32, error) {
+	p, err := GetURLParam(r, param)
+	if err != nil {
+		return 0, err
+	}
+
+	paramInt, err := strconv.ParseInt(*p, 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	paramInt32 := int32(paramInt)
+
+	return paramInt32, nil
+}
+
+func GetURLParamInt64(r *http.Request, param string) (int64, error) {
+	p, err := GetURLParam(r, param)
+	if err != nil {
+		return 0, err
+	}
+
+	paramInt, err := strconv.ParseInt(*p, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+
+	return paramInt, nil
+}

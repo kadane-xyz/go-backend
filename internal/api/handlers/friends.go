@@ -242,20 +242,20 @@ func (h *FriendHandler) DeleteFriend(w http.ResponseWriter, r *http.Request) err
 // GET: /friends/username/{username}
 // GetFriendsUsername gets all friends by username
 func (h *FriendHandler) GetFriendsUsername(w http.ResponseWriter, r *http.Request) error {
-	username := chi.URLParam(r, "username")
-	if username == "" {
-		return errors.NewApiError(nil, "Missing username", http.StatusBadRequest)
+	username, err := httputils.GetURLParam(r, "username")
+	if err != nil {
+		return err
 	}
 
-	_, err := h.accountRepo.GetAccountByUsername(r.Context(), sql.GetAccountByUsernameParams{
-		Username:          username,
+	_, err = h.accountRepo.GetAccountByUsername(r.Context(), sql.GetAccountByUsernameParams{
+		Username:          *username,
 		IncludeAttributes: false,
 	})
 	if err != nil {
 		return errors.HandleDatabaseError(err, "get account by username")
 	}
 
-	friend, err := h.repo.GetFriendByUsername(r.Context(), username)
+	friend, err := h.repo.GetFriendByUsername(r.Context(), *username)
 	if err != nil {
 		httputils.EmptyDataArrayResponse(w)
 		return nil
@@ -274,14 +274,14 @@ func (h *FriendHandler) DeleteFriendRequest(w http.ResponseWriter, r *http.Reque
 		return err
 	}
 
-	username := chi.URLParam(r, "username")
-	if username == "" {
-		return errors.NewApiError(nil, "Missing username", http.StatusBadRequest)
+	username, err := httputils.GetURLParam(r, "username")
+	if err != nil {
+		return nil
 	}
 
 	err = h.repo.DeleteFriendship(r.Context(), &domain.FriendBlockParams{
 		UserID:     claims.UserID,
-		FriendName: username,
+		FriendName: *username,
 	})
 	if err != nil {
 		return errors.HandleDatabaseError(err, "delete friendship")
