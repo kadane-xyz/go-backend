@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"kadane.xyz/go-backend/v2/internal/api/httputils"
 	"kadane.xyz/go-backend/v2/internal/config"
@@ -51,9 +50,12 @@ func ValidateGetAccountsFiltered(r *http.Request) (*domain.AccountGetParams, err
 		return nil, err
 	}
 
-	sort := r.URL.Query().Get("sort")
-	if sort != "level" {
-		sort = ""
+	sort, err := httputils.GetQueryParam(r, "sort")
+	if err != nil {
+		return nil, err
+	}
+	if *sort != "level" {
+		*sort = ""
 	}
 
 	order, err := httputils.GetQueryParamOrder(r)
@@ -64,7 +66,7 @@ func ValidateGetAccountsFiltered(r *http.Request) (*domain.AccountGetParams, err
 	return &domain.AccountGetParams{
 		UsernamesFilter:   usernames,
 		LocationsFilter:   locations,
-		Sort:              sort,
+		Sort:              *sort,
 		SortDirection:     sql.SortDirection(*order),
 		IncludeAttributes: true,
 	}, nil
@@ -239,9 +241,9 @@ func (h *AccountHandler) UploadAccountAvatar(w http.ResponseWriter, r *http.Requ
 }
 
 func ValidateGetAccount(r *http.Request) (*domain.AccountGetParams, error) {
-	accountId := chi.URLParam(r, "id")
-	if accountId == "" {
-		return nil, errors.NewBadRequestError("Missing account id")
+	accountId, err := httputils.GetURLParam(r, "accountId")
+	if err != nil {
+		return nil, err
 	}
 
 	attributes, err := httputils.GetQueryParam(r, "attributes")
@@ -253,7 +255,7 @@ func ValidateGetAccount(r *http.Request) (*domain.AccountGetParams, error) {
 	}
 
 	return &domain.AccountGetParams{
-		ID:                accountId,
+		ID:                *accountId,
 		IncludeAttributes: *attributes == "true",
 	}, nil
 }
@@ -278,9 +280,9 @@ func (h *AccountHandler) GetAccount(w http.ResponseWriter, r *http.Request) erro
 
 func ValidateUpdateAccount(r *http.Request) (*domain.AccountUpdateParams, error) {
 	// Get account ID from URL parameters
-	accountID := chi.URLParam(r, "id")
-	if accountID == "" {
-		return nil, errors.NewBadRequestError("Missing account ID")
+	accountID, err := httputils.GetURLParam(r, "accountId")
+	if err != nil {
+		return nil, err
 	}
 
 	// Decode request body
@@ -296,7 +298,7 @@ func ValidateUpdateAccount(r *http.Request) (*domain.AccountUpdateParams, error)
 	}
 
 	return &domain.AccountUpdateParams{
-		ID: accountID,
+		ID: *accountID,
 	}, nil
 }
 
@@ -500,12 +502,12 @@ func isValidEmail(email string) bool {
 
 // DELETE: /accounts/id
 func (h *AccountHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) error {
-	accountId := chi.URLParam(r, "id")
-	if accountId == "" {
-		return errors.NewAppError(nil, "Missing account ID", http.StatusBadRequest)
+	accountId, err := httputils.GetURLParam(r, "accountId")
+	if err != nil {
+		return err
 	}
 
-	err := h.repo.DeleteAccount(r.Context(), accountId)
+	err = h.repo.DeleteAccount(r.Context(), *accountId)
 	if err != nil {
 		return err
 	}
@@ -522,9 +524,9 @@ func (h *AccountHandler) GetAccountByUsername(w http.ResponseWriter, r *http.Req
 		return err
 	}
 
-	username := chi.URLParam(r, "username")
-	if username == "" {
-		return errors.NewApiError(nil, "Missing username", http.StatusBadRequest)
+	username, err := httputils.GetURLParam(r, "username")
+	if err != nil {
+		return err
 	}
 
 	attributes, err := httputils.GetQueryParam(r, "attributes")
@@ -537,7 +539,7 @@ func (h *AccountHandler) GetAccountByUsername(w http.ResponseWriter, r *http.Req
 
 	// check if account exists
 	account, err := h.repo.GetAccountByUsername(r.Context(), sql.GetAccountByUsernameParams{
-		Username:          username,
+		Username:          *username,
 		UserID:            claims.UserID,
 		IncludeAttributes: *attributes == "true",
 	})

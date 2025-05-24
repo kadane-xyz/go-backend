@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/go-chi/chi/v5"
 	request "kadane.xyz/go-backend/v2/internal/api/requests"
 	"kadane.xyz/go-backend/v2/internal/domain"
 	"kadane.xyz/go-backend/v2/internal/errors"
@@ -132,4 +133,13 @@ func GetQueryParamOrder(r *http.Request) (*string, error) {
 	}
 
 	return p, nil
+}
+
+func GetURLParam(r *http.Request, param string) (*string, error) {
+	p := chi.URLParam(r, param)
+	if p == "" {
+		return nil, errors.NewApiError(nil, "Missing "+param, http.StatusBadRequest)
+	}
+
+	return &p, nil
 }
