@@ -13,6 +13,7 @@ import (
 	"syscall"
 
 	"github.com/golang-migrate/migrate/v4"
+	"kadane.xyz/go-backend/v2/internal/cli/migration"
 	"kadane.xyz/go-backend/v2/internal/config"
 )
 
@@ -136,7 +137,7 @@ Commands:
 			limit = int(limitUint64)
 		}
 
-		if err := Up(migrator, limit); err != nil {
+		if err := migration.Up(migrator, limit); err != nil {
 			log.Fatal(err)
 		}
 
@@ -159,7 +160,7 @@ Commands:
 
 		downArgs := downFlagSet.Args()
 
-		num, needsConfirm, err := numDownMigrationsFromArgs(*applyAll, downArgs)
+		num, needsConfirm, err := migration.NumDownMigrationsFromArgs(*applyAll, downArgs)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -178,7 +179,7 @@ Commands:
 			}
 		}
 
-		if err := Down(migrator, num); err != nil {
+		if err := migration.Down(migrator, num); err != nil {
 			log.Fatal(err)
 		}
 
@@ -214,7 +215,7 @@ Commands:
 			log.Fatal("error: seed file does not exist", seedPath)
 		}
 
-		if err := seedDatabase(cfg.DatabaseURL, seedPath); err != nil {
+		if err := migration.SeedDatabase(cfg.DatabaseURL, seedPath); err != nil {
 			log.Fatal(err)
 		}
 
@@ -223,7 +224,7 @@ Commands:
 			log.Fatal(migratorErr)
 		}
 
-		if err := Version(migrator); err != nil {
+		if err := migration.Version(migrator); err != nil {
 			log.Fatal(err)
 		}
 

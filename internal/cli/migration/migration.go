@@ -1,4 +1,4 @@
-package main
+package migration
 
 import (
 	"context"
@@ -76,7 +76,7 @@ func Version(mi *migrate.Migrate) error {
 	return nil
 }
 
-func numDownMigrationsFromArgs(applyAll bool, args []string) (int, bool, error) {
+func NumDownMigrationsFromArgs(applyAll bool, args []string) (int, bool, error) {
 	if applyAll {
 		if len(args) > 0 {
 			return 0, false, errors.New("-all cannot be used with other arguments")
@@ -106,7 +106,7 @@ func numDownMigrationsFromArgs(applyAll bool, args []string) (int, bool, error) 
 	}
 }
 
-func seedDatabase(databaseURL, seedPath string) error {
+func SeedDatabase(databaseURL, seedPath string) error {
 	seedSQL, err := os.ReadFile(seedPath)
 	if err != nil {
 		return fmt.Errorf("failed to read seed file: %w", err)

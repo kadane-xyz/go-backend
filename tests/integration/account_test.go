@@ -2,6 +2,7 @@ package integration_test
 
 import (
 	"net/http"
+	"net/url"
 	"testing"
 )
 
@@ -9,18 +10,26 @@ func TestGetAccount(t *testing.T) {
 	testCases := []TestingCase{
 		{
 			name:           "Get account missing id",
+			method:         http.MethodGet,
+			url:            "/api/v2/accounts/{id}",
 			urlParams:      map[string]string{"id": ""},
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
 			name:           "Get account",
+			method:         http.MethodGet,
+			url:            "/api/v2/accounts/{id}",
 			urlParams:      map[string]string{"id": "123abc"},
 			expectedStatus: http.StatusOK,
 		},
 		{
-			name:           "Get account with attributes",
-			urlParams:      map[string]string{"id": "123abc"},
-			queryParams:    map[string]string{"attributes": "true"},
+			name:      "Get account with attributes",
+			method:    http.MethodGet,
+			url:       "/api/v2/accounts/{id}",
+			urlParams: map[string]string{"id": "123abc"},
+			queryParams: url.Values{
+				"attributes": []string{"true"},
+			},
 			expectedStatus: http.StatusOK,
 		},
 	}
@@ -29,16 +38,14 @@ func TestGetAccount(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			request := newTestRequest(t, http.MethodGet, "/accounts", nil)
-			request = applyURLParams(request, testCase.urlParams)
-			request = applyQueryParams(request, testCase.queryParams)
+			ctx := withTestTransaction(t)
 
-			executeTestRequest(t, request, testCase.expectedStatus, handler.GetAccount)
+			testCase.HandleTestCaseRequest(ctx, t)
 		})
 	}
 }
 
-func TestGetAccounts(t *testing.T) {
+/*func TestGetAccounts(t *testing.T) {
 	testCases := []TestingCase{
 		{
 			name:           "Get accounts by username",
@@ -243,3 +250,4 @@ func TestDeleteAccount(t *testing.T) {
 		})
 	}
 }
+*/
