@@ -55,7 +55,7 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 
 	// Start the server in a goroutine so it's non-blocking
 	go func() {
-		fmt.Println("Starting server on " + address)
+		log.Println("Starting server on " + address)
 
 		if err := s.srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			serverError <- fmt.Errorf("server error: %w", err)
@@ -69,7 +69,7 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 		return s.gracefulShutdown()
 
 	case err := <-serverError:
-		fmt.Println("Server error: " + err.Error())
+		log.Println("Server error: " + err.Error())
 
 		// Try to gracefully shut the server down
 		s.gracefulShutdown()
