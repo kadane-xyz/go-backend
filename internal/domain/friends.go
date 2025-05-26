@@ -43,7 +43,7 @@ type FriendUnblockParams = FriendParams
 type FriendshipDeleteParams = FriendParams
 
 func FromSQLFromSQLGetFriendsRow(rows []sql.GetFriendsRow) []*Friend {
-	var friends []*Friend
+	friends := make([]*Friend, len(rows))
 	for i, row := range rows {
 		friends[i] = &Friend{
 			ID:         row.FriendID,
@@ -59,16 +59,16 @@ func FromSQLFromSQLGetFriendsRow(rows []sql.GetFriendsRow) []*Friend {
 }
 
 func FromSQLFriendsByUsernameRows(rows []sql.GetFriendsByUsernameRow) []*Friend {
-	friends := []*Friend{}
-	for i, row := range rows {
-		friends[i] = &Friend{
+	friends := make([]*Friend, len(rows))
+	for _, row := range rows {
+		friends = append(friends, &Friend{
 			ID:         row.FriendID,
 			Username:   row.FriendUsername,
 			AvatarUrl:  row.AvatarUrl,
 			Level:      row.Level,
 			Location:   row.Location,
 			AcceptedAt: row.AcceptedAt.Time,
-		}
+		})
 	}
 	return friends
 }
