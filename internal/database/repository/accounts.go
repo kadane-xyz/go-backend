@@ -11,8 +11,8 @@ type AccountRepository interface {
 	GetAccount(ctx context.Context, params *domain.AccountGetParams) (domain.Account, error)
 	ListAccounts(ctx context.Context, params *domain.AccountGetParams) ([]domain.Account, error)
 	CreateAccount(ctx context.Context, params *domain.AccountCreateRequest) error
-	CreateAccountAttributes(ctx context.Context, params sql.CreateAccountAttributesParams) (sql.AccountAttribute, error)
-	UploadAccountAvatar(ctx context.Context, params sql.UpdateAccountAvatarParams) error
+	CreateAccountAttributes(ctx context.Context, params *domain.AccountAttributesCreateParams) (*domain.AccountAttributes, error)
+	UploadAccountAvatar(ctx context.Context, params *domain.AccountAvatarParams) error
 	GetAccountAttributes(ctx context.Context, id string) (*domain.AccountAttributes, error)
 	DeleteAccount(ctx context.Context, id string) error
 	GetAccountByUsername(ctx context.Context, params sql.GetAccountByUsernameParams) (domain.Account, error)
@@ -69,16 +69,19 @@ func (r *SQLAccountsRepository) CreateAccount(ctx context.Context, params *domai
 	return nil
 }
 
-func (r *SQLAccountsRepository) CreateAccountAttributes(ctx context.Context, params sql.CreateAccountAttributesParams) (sql.AccountAttribute, error) {
-	q, err := r.queries.CreateAccountAttributes(ctx, params)
+func (r *SQLAccountsRepository) CreateAccountAttributes(ctx context.Context, params *domain.AccountAttributesCreateParams) (*domain.AccountAttributes, error) {
+	q, err := r.queries.CreateAccountAttributes(ctx, sql.CreateAccountAttributesParams(*params))
 	if err != nil {
-		return sql.AccountAttribute{}, err
+		return nil, err
 	}
-	return q, nil
+	return domain.FromSQLAccountAttributes(q), nil
 }
 
-func (r *SQLAccountsRepository) UploadAccountAvatar(ctx context.Context, params sql.UpdateAccountAvatarParams) error {
-	err := r.queries.UpdateAccountAvatar(ctx, params)
+func (r *SQLAccountsRepository) UploadAccountAvatar(ctx context.Context, params *domain.AccountAvatarParams) error {
+	err := r.queries.UpdateAccountAvatar(ctx, sql.UpdateAccountAvatarParams{
+		AvatarUrl: &params.AvatarUrl,
+		ID:        params.ID,
+	})
 	if err != nil {
 		return err
 	}
@@ -90,7 +93,7 @@ func (r *SQLAccountsRepository) GetAccountAttributes(ctx context.Context, id str
 	if err != nil {
 		return nil, err
 	}
-	return domain.FromSQLGetAccountAttributes(q), nil
+	return domain.FromSQLAccountAttributes(q), nil
 }
 
 func (r *SQLAccountsRepository) DeleteAccount(ctx context.Context, id string) error {
@@ -127,5 +130,5 @@ func (r *SQLAccountsRepository) UpdateAccountAttributes(ctx context.Context, par
 	if err != nil {
 		return nil, err
 	}
-	return domain.FromSQLGetAccountAttributes(q), nil
+	return domain.FromSQLAccountAttributes(q), nil
 }

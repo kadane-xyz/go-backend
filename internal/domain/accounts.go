@@ -37,6 +37,13 @@ type AccountAttributes struct {
 	FriendRequestCount int64
 }
 
+type AccountAvatarParams struct {
+	AvatarUrl string
+	ID        string
+}
+
+type AccountAttributesCreateParams = sql.CreateAccountAttributesParams
+
 type AccountGetParams struct {
 	ID                string            `json:"id"`
 	IncludeAttributes bool              `json:"includeAttributes"`
@@ -144,7 +151,7 @@ func FromSQLListAccountsRow(rows []sql.ListAccountsRow) []Account {
 	return accounts
 }
 
-func FromSQLGetAccountAttributes(row sql.AccountAttribute) *AccountAttributes {
+func FromSQLAccountAttributes(row sql.AccountAttribute) *AccountAttributes {
 	return &AccountAttributes{
 		ID:           row.ID,
 		Bio:          nullHandler(row.Bio),

@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"image"
 	_ "image/jpeg" // Register JPEG format
@@ -227,9 +226,9 @@ func (h *AccountHandler) UploadAccountAvatar(w http.ResponseWriter, r *http.Requ
 	url := h.config.AWS.CloudFrontURL + "/" + claims.UserID
 
 	// store image url in accounts table
-	err = h.repo.UploadAccountAvatar(r.Context(), sql.UpdateAccountAvatarParams{
+	err = h.repo.UploadAccountAvatar(r.Context(), &domain.AccountAvatarParams{
 		ID:        claims.UserID,
-		AvatarUrl: &url,
+		AvatarUrl: url,
 	})
 	if err != nil {
 		return err
@@ -286,11 +285,10 @@ func ValidateUpdateAccount(r *http.Request) (*domain.AccountUpdateParams, error)
 	}
 
 	// Decode request body
-	var requestAttrs domain.AccountUpdateRequest
-	if err := json.NewDecoder(r.Body).Decode(&requestAttrs); err != nil {
-		return nil, errors.NewBadRequestError("Invalid JSON format in request body")
+	requestAttrs, err := httputils.DecodeJSONRequest[domain.AccountUpdateRequest](r)
+	if err != nil {
+		return nil, err
 	}
-	defer r.Body.Close()
 
 	// Validate input fields
 	if err := validateAccountAttributes(requestAttrs); err != nil {
