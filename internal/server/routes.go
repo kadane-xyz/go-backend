@@ -146,7 +146,9 @@ func (s *Server) RegisterApiRoutes() {
 		// catch anything else under /v1
 		r.NotFound(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte("no such v1 endpoint"))
+
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{"error":"route not found"}`))
 		})
 	})
 	s.mux.NotFound(func(w http.ResponseWriter, r *http.Request) {

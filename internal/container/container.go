@@ -55,8 +55,11 @@ func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
 	// Create queries client
 	queries := sql.New(dbPool)
 
+	// DB transaction manager
+	txManager := database.NewTransactionManager(dbPool)
+
 	// Create database accessors
-	accountsRepo := repository.NewSQLAccountsRepository(queries)
+	accountsRepo := repository.NewAccountRepository(queries, txManager)
 	adminRepo := repository.NewSQLAdminRepository(queries)
 	problemsRepo := repository.NewSQLProblemsRepository(queries)
 	commentsRepo := repository.NewSQLCommentsRepository(queries)

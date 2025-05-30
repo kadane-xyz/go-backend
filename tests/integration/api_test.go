@@ -8,9 +8,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 
-	"github.com/go-chi/chi/v5"
+	"kadane.xyz/go-backend/v2/internal/middleware"
 )
 
 type TestingCase struct {
@@ -48,24 +49,41 @@ func (tc *TestingCase) buildRequest(ctx context.Context, t *testing.T) *http.Req
 		req.Header.Set("Content-Type", "application/json")
 	}
 
-	req = applyURLParams(req, tc.urlParams)
+	req = applyURLPathValues(req, tc.urlParams)
 
 	req.URL.RawQuery = tc.queryParams.Encode()
 
-	return req
+	return req.WithContext(context.WithValue(req.Context(), middleware.ClientTokenKey, clientToken))
 }
 
-// applyRouteParams adds url parameters using chi's RouteContext.
-func applyURLParams(req *http.Request, params map[string]string) *http.Request {
-	if params == nil {
+func applyURLPathValues(req *http.Request, values map[string]string) *http.Request {
+	if values == nil {
 		return req
 	}
 
-	routeCtx := chi.NewRouteContext()
-	for key, value := range params {
-		routeCtx.URLParams.Add(key, value)
+	for key, value := range values {
+		req.SetPathValue(key, value)
 	}
-	return req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+
+	rawPath := req.URL.Path
+	modified := false
+
+	// Build the URL using the processed parameters
+	for key, value := range values {
+		placeholder := "{" + key + "}"
+		if strings.Contains(rawPath, placeholder) {
+			rawPath = strings.ReplaceAll(rawPath, placeholder, value)
+			modified = true
+		}
+	}
+
+	if modified {
+		newURL := *req.URL
+		newURL.Path = rawPath
+		req.URL = &newURL
+	}
+
+	return req
 }
 
 // executeTestRequest runs the handler with the given request and checks that the status code is as expected.

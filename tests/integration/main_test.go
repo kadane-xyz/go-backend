@@ -2,7 +2,6 @@ package integration_test
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -17,6 +16,7 @@ import (
 	"kadane.xyz/go-backend/v2/internal/cli/migration"
 	"kadane.xyz/go-backend/v2/internal/config"
 	"kadane.xyz/go-backend/v2/internal/container"
+	"kadane.xyz/go-backend/v2/internal/database"
 	"kadane.xyz/go-backend/v2/internal/database/repository"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
 	"kadane.xyz/go-backend/v2/internal/middleware"
@@ -37,7 +37,7 @@ var (
 	TestingServer    *server.Server              // MockServer is a global reference to the mock server used by all tests
 	teardownFunc     func()                      // teardownFunc holds the function to shut down the container
 
-	errFailedTestAssertion = errors.New("failed test assertion")
+	//errFailedTestAssertion = errors.New("failed test assertion")
 )
 
 var clientToken middleware.ClientContext = middleware.ClientContext{
@@ -49,12 +49,14 @@ var clientToken middleware.ClientContext = middleware.ClientContext{
 }
 
 func TestMain(m *testing.M) {
+	var err error
+
 	testingContainer, err := setupTestEnv()
 	if err != nil {
 		log.Fatalf("failed to setup testing environment: %v", err)
 	}
 
-	TestingContainer := &TestContainer{
+	TestingContainer = &TestContainer{
 		Container: testingContainer,
 	}
 
@@ -74,7 +76,8 @@ func setupTestEnv() (*container.Container, error) {
 	ctx := context.Background()
 
 	// Start the PostgreSQL container.
-	pgContainer, err := postgres.Run(ctx,
+	pgContainer, err := postgres.Run(
+		ctx,
 		"postgres:17",
 		postgres.WithDatabase("kadane-test"),
 		postgres.WithUsername("kadane"),
@@ -84,12 +87,15 @@ func setupTestEnv() (*container.Container, error) {
 		testcontainers.WithWaitStrategy(
 			wait.ForLog("database system is ready to accept connections").
 				WithOccurrence(2).
-				WithStartupTimeout(5*time.Second),
+				WithStartupTimeout(10*time.Second),
+			wait.ForListeningPort("5432/tcp"),
 		),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start container: %w", err)
 	}
+
+	PGContainer = pgContainer
 
 	// Build the connection string.
 	testDBConn, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
@@ -129,8 +135,11 @@ func setupTestEnv() (*container.Container, error) {
 	// Create services
 	queries := sql.New(dbPool)
 
+	// database transaction manager
+	txManager := database.NewTransactionManager(dbPool)
+
 	// Create repositories
-	accountsRepo := repository.NewSQLAccountsRepository(queries)
+	accountsRepo := repository.NewAccountRepository(queries, txManager)
 	adminRepo := repository.NewSQLAdminRepository(queries)
 	problemsRepo := repository.NewSQLProblemsRepository(queries)
 	commentsRepo := repository.NewSQLCommentsRepository(queries)
@@ -197,33 +206,26 @@ func teardownContainer() {
 // test cleanup.
 func contextWithTimeout(tb testing.TB) context.Context {
 	tb.Helper()
-
 	ctx, cancel := context.WithTimeout(tb.Context(), 10*time.Second)
-
 	tb.Cleanup(func() {
 		cancel()
 	})
-
 	return ctx
 }
 
 // withTestTransaction creates a transaction for test isolation and returns a context with the transaction.
 func withTestTransaction(t *testing.T) context.Context {
 	t.Helper()
+	ctx := contextWithTimeout(t)
 
-	// Ensure we've got our timeout applied to the context
-	baseCtx := contextWithTimeout(t)
-
-	// Begin a database transaction
-	tx, err := TestingContainer.DB.Begin(baseCtx)
+	tx, err := TestingContainer.DB.Begin(ctx)
 	if err != nil {
 		t.Fatalf("Failed to begin transaction: %v", err)
 	}
 
 	t.Cleanup(func() {
-		_ = tx.Rollback(baseCtx)
+		_ = tx.Rollback(ctx)
 	})
 
-	// Create a context for the database transaction to use by the caller
-	return context.WithValue(baseCtx, txKey, tx)
+	return context.WithValue(ctx, txKey, tx)
 }

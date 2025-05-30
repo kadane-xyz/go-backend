@@ -32,6 +32,8 @@ type AccountAttributes struct {
 	TwitterUrl         string
 	School             string
 	WebsiteUrl         string
+	BlockedUsers       int64
+	FriendRequests     int64
 	FriendCount        int64
 	BlockedCount       int64
 	FriendRequestCount int64
@@ -98,8 +100,8 @@ type AccountUpdateParams struct {
 	AccountUpdateRequest
 }
 
-func FromSQLAccountRow(row sql.GetAccountRow) Account {
-	account := Account{
+func FromSQLAccountRow(row sql.GetAccountRow) *Account {
+	account := &Account{
 		ID:         row.ID,
 		Username:   row.Username,
 		Email:      row.Email,
@@ -115,8 +117,8 @@ func FromSQLAccountRow(row sql.GetAccountRow) Account {
 	return account
 }
 
-func FromSQLAccountByUsernameRow(row sql.GetAccountByUsernameRow) Account {
-	account := Account{
+func FromSQLAccountByUsernameRow(row sql.GetAccountByUsernameRow) *Account {
+	account := &Account{
 		ID:         row.ID,
 		Username:   row.Username,
 		Email:      row.Email,
@@ -132,10 +134,10 @@ func FromSQLAccountByUsernameRow(row sql.GetAccountByUsernameRow) Account {
 	return account
 }
 
-func FromSQLListAccountsRow(rows []sql.ListAccountsRow) []Account {
-	accounts := make([]Account, len(rows))
+func FromSQLListAccountsRow(rows []sql.ListAccountsRow) []*Account {
+	accounts := make([]*Account, len(rows))
 	for i, row := range rows {
-		accounts[i] = Account{
+		accounts[i] = &Account{
 			ID:         row.ID,
 			Username:   row.Username,
 			Email:      row.Email,

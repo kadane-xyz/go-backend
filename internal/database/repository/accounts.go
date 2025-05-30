@@ -3,47 +3,51 @@ package repository
 import (
 	"context"
 
+	"kadane.xyz/go-backend/v2/internal/database"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
 	"kadane.xyz/go-backend/v2/internal/domain"
 )
 
 type AccountRepository interface {
-	GetAccount(ctx context.Context, params *domain.AccountGetParams) (domain.Account, error)
-	ListAccounts(ctx context.Context, params *domain.AccountGetParams) ([]domain.Account, error)
+	GetAccount(ctx context.Context, params *domain.AccountGetParams) (*domain.Account, error)
+	ListAccounts(ctx context.Context, params *domain.AccountGetParams) ([]*domain.Account, error)
 	CreateAccount(ctx context.Context, params *domain.AccountCreateRequest) error
 	CreateAccountAttributes(ctx context.Context, params *domain.AccountAttributesCreateParams) (*domain.AccountAttributes, error)
 	UploadAccountAvatar(ctx context.Context, params *domain.AccountAvatarParams) error
 	GetAccountAttributes(ctx context.Context, id string) (*domain.AccountAttributes, error)
 	DeleteAccount(ctx context.Context, id string) error
-	GetAccountByUsername(ctx context.Context, params sql.GetAccountByUsernameParams) (domain.Account, error)
+	GetAccountByUsername(ctx context.Context, params sql.GetAccountByUsernameParams) (*domain.Account, error)
 	UpdateAccountAttributes(ctx context.Context, params *domain.AccountUpdateParams) (*domain.AccountAttributes, error)
 }
 
-type SQLAccountsRepository struct {
-	queries *sql.Queries
+type accountRepository struct {
+	*DatabaseRepository
 }
 
-func NewSQLAccountsRepository(queries *sql.Queries) *SQLAccountsRepository {
-	return &SQLAccountsRepository{queries: queries}
+func NewAccountRepository(queries *sql.Queries, txManager *database.TransactionManager) *accountRepository {
+	return &accountRepository{
+		DatabaseRepository: NewDatabaseRepository(queries, txManager),
+	}
+
 }
 
-func (r *SQLAccountsRepository) GetAccount(ctx context.Context, params *domain.AccountGetParams) (domain.Account, error) {
-	q, err := r.queries.GetAccount(ctx, sql.GetAccountParams{
+func (r *accountRepository) GetAccount(ctx context.Context, params *domain.AccountGetParams) (*domain.Account, error) {
+	q := r.getQueries(ctx)
+
+	account, err := q.GetAccount(ctx, sql.GetAccountParams{
 		ID:                params.ID,
 		IncludeAttributes: params.IncludeAttributes,
-		UsernamesFilter:   params.UsernamesFilter,
-		LocationsFilter:   params.LocationsFilter,
-		Sort:              params.Sort,
-		SortDirection:     params.SortDirection,
 	})
 	if err != nil {
-		return domain.Account{}, err
+		return nil, err
 	}
-	return domain.FromSQLAccountRow(q), nil
+	return domain.FromSQLAccountRow(account), nil
 }
 
-func (r *SQLAccountsRepository) ListAccounts(ctx context.Context, params *domain.AccountGetParams) ([]domain.Account, error) {
-	q, err := r.queries.ListAccounts(ctx, sql.ListAccountsParams{
+func (r *accountRepository) ListAccounts(ctx context.Context, params *domain.AccountGetParams) ([]*domain.Account, error) {
+	q := r.getQueries(ctx)
+
+	accounts, err := q.ListAccounts(ctx, sql.ListAccountsParams{
 		IncludeAttributes: params.IncludeAttributes,
 		UsernamesFilter:   params.UsernamesFilter,
 		LocationsFilter:   params.LocationsFilter,
@@ -54,11 +58,13 @@ func (r *SQLAccountsRepository) ListAccounts(ctx context.Context, params *domain
 		return nil, err
 	}
 
-	return domain.FromSQLListAccountsRow(q), nil
+	return domain.FromSQLListAccountsRow(accounts), nil
 }
 
-func (r *SQLAccountsRepository) CreateAccount(ctx context.Context, params *domain.AccountCreateRequest) error {
-	err := r.queries.CreateAccount(ctx, sql.CreateAccountParams{
+func (r *accountRepository) CreateAccount(ctx context.Context, params *domain.AccountCreateRequest) error {
+	q := r.getQueries(ctx)
+
+	err := q.CreateAccount(ctx, sql.CreateAccountParams{
 		ID:       params.ID,
 		Email:    params.Email,
 		Username: params.Username,
@@ -69,16 +75,20 @@ func (r *SQLAccountsRepository) CreateAccount(ctx context.Context, params *domai
 	return nil
 }
 
-func (r *SQLAccountsRepository) CreateAccountAttributes(ctx context.Context, params *domain.AccountAttributesCreateParams) (*domain.AccountAttributes, error) {
-	q, err := r.queries.CreateAccountAttributes(ctx, sql.CreateAccountAttributesParams(*params))
+func (r *accountRepository) CreateAccountAttributes(ctx context.Context, params *domain.AccountAttributesCreateParams) (*domain.AccountAttributes, error) {
+	q := r.getQueries(ctx)
+
+	attributes, err := q.CreateAccountAttributes(ctx, *params)
 	if err != nil {
 		return nil, err
 	}
-	return domain.FromSQLAccountAttributes(q), nil
+	return domain.FromSQLAccountAttributes(attributes), nil
 }
 
-func (r *SQLAccountsRepository) UploadAccountAvatar(ctx context.Context, params *domain.AccountAvatarParams) error {
-	err := r.queries.UpdateAccountAvatar(ctx, sql.UpdateAccountAvatarParams{
+func (r *accountRepository) UploadAccountAvatar(ctx context.Context, params *domain.AccountAvatarParams) error {
+	q := r.getQueries(ctx)
+
+	err := q.UpdateAccountAvatar(ctx, sql.UpdateAccountAvatarParams{
 		AvatarUrl: &params.AvatarUrl,
 		ID:        params.ID,
 	})
@@ -88,32 +98,40 @@ func (r *SQLAccountsRepository) UploadAccountAvatar(ctx context.Context, params 
 	return nil
 }
 
-func (r *SQLAccountsRepository) GetAccountAttributes(ctx context.Context, id string) (*domain.AccountAttributes, error) {
-	q, err := r.queries.GetAccountAttributes(ctx, id)
+func (r *accountRepository) GetAccountAttributes(ctx context.Context, id string) (*domain.AccountAttributes, error) {
+	q := r.getQueries(ctx)
+
+	attributes, err := q.GetAccountAttributes(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	return domain.FromSQLAccountAttributes(q), nil
+	return domain.FromSQLAccountAttributes(attributes), nil
 }
 
-func (r *SQLAccountsRepository) DeleteAccount(ctx context.Context, id string) error {
-	err := r.queries.DeleteAccount(ctx, id)
+func (r *accountRepository) DeleteAccount(ctx context.Context, id string) error {
+	q := r.getQueries(ctx)
+
+	err := q.DeleteAccount(ctx, id)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (r *SQLAccountsRepository) GetAccountByUsername(ctx context.Context, params sql.GetAccountByUsernameParams) (domain.Account, error) {
-	q, err := r.queries.GetAccountByUsername(ctx, params)
+func (r *accountRepository) GetAccountByUsername(ctx context.Context, params sql.GetAccountByUsernameParams) (*domain.Account, error) {
+	q := r.getQueries(ctx)
+
+	account, err := q.GetAccountByUsername(ctx, params)
 	if err != nil {
-		return domain.Account{}, err
+		return nil, err
 	}
-	return domain.FromSQLAccountByUsernameRow(q), nil
+	return domain.FromSQLAccountByUsernameRow(account), nil
 }
 
-func (r *SQLAccountsRepository) UpdateAccountAttributes(ctx context.Context, params *domain.AccountUpdateParams) (*domain.AccountAttributes, error) {
-	q, err := r.queries.UpdateAccountAttributes(ctx, sql.UpdateAccountAttributesParams{
+func (r *accountRepository) UpdateAccountAttributes(ctx context.Context, params *domain.AccountUpdateParams) (*domain.AccountAttributes, error) {
+	q := r.getQueries(ctx)
+
+	attributes, err := q.UpdateAccountAttributes(ctx, sql.UpdateAccountAttributesParams{
 		Bio:          *params.Bio,
 		ContactEmail: *params.ContactEmail,
 		Location:     *params.Location,
@@ -130,5 +148,5 @@ func (r *SQLAccountsRepository) UpdateAccountAttributes(ctx context.Context, par
 	if err != nil {
 		return nil, err
 	}
-	return domain.FromSQLAccountAttributes(q), nil
+	return domain.FromSQLAccountAttributes(attributes), nil
 }

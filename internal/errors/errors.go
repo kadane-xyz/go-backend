@@ -25,9 +25,9 @@ var (
 )
 
 type AppError struct {
-	Err        error  `json:"Error"`
-	Message    string `json:"Message"`
-	StatusCode int    `json:"StatusCode"`
+	Err        error  `json:"error"`
+	Message    string `json:"message"`
+	StatusCode int    `json:"statusCode"`
 }
 
 type ValidationError struct {

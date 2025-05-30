@@ -240,22 +240,21 @@ func (h *AccountHandler) UploadAccountAvatar(w http.ResponseWriter, r *http.Requ
 }
 
 func ValidateGetAccount(r *http.Request) (*domain.AccountGetParams, error) {
-	accountId, err := httputils.GetURLParam(r, "accountId")
+	idPtr, err := httputils.GetURLParam(r, "id")
 	if err != nil {
+		fmt.Println(err)
 		return nil, err
 	}
+	accountID := *idPtr
 
-	attributes, err := httputils.GetQueryParam(r, "attributes")
-	if err != nil {
-		return nil, err
-	}
-	if *attributes == "" {
-		*attributes = "false"
+	attributes := false
+	if attrPtr, err := httputils.GetQueryParamBool(r, "attributes"); err != nil && attrPtr != nil {
+		attributes = *attrPtr
 	}
 
 	return &domain.AccountGetParams{
-		ID:                *accountId,
-		IncludeAttributes: *attributes == "true",
+		ID:                accountID,
+		IncludeAttributes: attributes,
 	}, nil
 }
 
