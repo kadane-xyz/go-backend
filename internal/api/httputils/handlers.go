@@ -82,6 +82,21 @@ func GetQueryParam(r *http.Request, param string) (*string, error) {
 	return &params, nil
 }
 
+func GetQueryParamBool(r *http.Request, param string) (*bool, error) {
+	if param == "" {
+		return nil, errors.ErrInternalServer
+	}
+	raw := r.URL.Query().Get(param)
+	if raw == "" {
+		return nil, errors.ErrUnprocessableEntity
+	}
+	b, err := strconv.ParseBool(raw)
+	if err != nil {
+		return nil, errors.ErrInvalidRequest
+	}
+	return &b, nil
+}
+
 func GetQueryParamStringArray(r *http.Request, param string) ([]string, error) {
 	var params []string
 	p, err := GetQueryParam(r, param)
