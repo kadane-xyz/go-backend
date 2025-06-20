@@ -110,8 +110,8 @@ func FromSQLAccountRow(row sql.GetAccountRow) *Account {
 		Plan:       row.Plan,
 		Attributes: row.Attributes.(AccountAttributes),
 	}
-	if row.AvatarUrl != nil {
-		account.AvatarUrl = *row.AvatarUrl
+	if row.AvatarUrl.Valid {
+		account.AvatarUrl = row.AvatarUrl.String
 	}
 
 	return account
@@ -127,8 +127,8 @@ func FromSQLAccountByUsernameRow(row sql.GetAccountByUsernameRow) *Account {
 		Plan:       row.Plan,
 		Attributes: row.Attributes.(AccountAttributes),
 	}
-	if row.AvatarUrl != nil {
-		account.AvatarUrl = *row.AvatarUrl
+	if row.AvatarUrl.Valid {
+		account.AvatarUrl = row.AvatarUrl.String
 	}
 
 	return account
@@ -146,8 +146,8 @@ func FromSQLListAccountsRow(rows []sql.ListAccountsRow) []*Account {
 			Plan:       row.Plan,
 			Attributes: row.Attributes.(AccountAttributes),
 		}
-		if row.AvatarUrl != nil {
-			accounts[i].AvatarUrl = *row.AvatarUrl
+		if row.AvatarUrl.Valid {
+			accounts[i].AvatarUrl = row.AvatarUrl.String
 		}
 	}
 	return accounts
@@ -156,16 +156,16 @@ func FromSQLListAccountsRow(rows []sql.ListAccountsRow) []*Account {
 func FromSQLAccountAttributes(row sql.AccountAttribute) *AccountAttributes {
 	return &AccountAttributes{
 		ID:           row.ID,
-		Bio:          nullHandler(row.Bio),
-		ContactEmail: nullHandler(row.ContactEmail),
-		Location:     nullHandler(row.Location),
-		RealName:     nullHandler(row.RealName),
-		GithubUrl:    nullHandler(row.GithubUrl),
-		LinkedinUrl:  nullHandler(row.LinkedinUrl),
-		FacebookUrl:  nullHandler(row.FacebookUrl),
-		InstagramUrl: nullHandler(row.InstagramUrl),
-		TwitterUrl:   nullHandler(row.TwitterUrl),
-		School:       nullHandler(row.School),
-		WebsiteUrl:   nullHandler(row.WebsiteUrl),
+		Bio:          row.Bio.String,
+		ContactEmail: row.ContactEmail.String,
+		Location:     row.Location.String,
+		RealName:     row.RealName.String,
+		GithubUrl:    row.GithubUrl.String,
+		LinkedinUrl:  row.LinkedinUrl.String,
+		FacebookUrl:  row.FacebookUrl.String,
+		InstagramUrl: row.InstagramUrl.String,
+		TwitterUrl:   row.TwitterUrl.String,
+		School:       row.School.String,
+		WebsiteUrl:   row.WebsiteUrl.String,
 	}
 }

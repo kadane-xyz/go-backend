@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"kadane.xyz/go-backend/v2/internal/api/httputils"
@@ -21,45 +22,44 @@ func NewProblemHandler(repo repository.ProblemsRepository) *ProblemHandler {
 }
 
 func (h *ProblemHandler) GetProblemsValidateRequest(r *http.Request) (*domain.ProblemsGetParams, error) {
-	titleSearch, err := httputils.GetQueryParam(r, "titleSearch")
+	titleSearch, err := httputils.GetQueryParam(r, "titleSearch", false)
 	if err != nil {
 		return nil, err
 	}
 
-	sort, err := httputils.GetQueryParam(r, "sort")
+	sort, err := httputils.GetQueryParam(r, "sort", false)
 	if err != nil {
+		fmt.Println("error sort")
 		return nil, err
 	}
-
 	if *sort == "" {
 		*sort = string(sql.ProblemSortIndex)
 	} else if *sort != string(sql.ProblemSortAlpha) && *sort != string(sql.ProblemSortIndex) {
 		return nil, errors.NewApiError(nil, "Invalid sort", http.StatusBadRequest)
 	}
 
-	order, err := httputils.GetQueryParam(r, "order")
+	order, err := httputils.GetQueryParamOrder(r, false)
 	if err != nil {
-		return nil, err
-	}
-	if *order == "" {
-		*order = string(sql.SortDirectionAsc)
-	} else if *order != string(sql.SortDirectionAsc) && *order != string(sql.SortDirectionDesc) {
-		return nil, errors.NewApiError(nil, "Invalid order", http.StatusBadRequest)
-	}
-
-	page, err := httputils.GetQueryParamInt32(r, "page")
-	if err != nil {
+		fmt.Println("error order")
 		return nil, err
 	}
 
-	perPage, err := httputils.GetQueryParamInt32(r, "perPage")
+	page, err := httputils.GetQueryParamInt32(r, "page", false)
 	if err != nil {
+		fmt.Println("page error")
+		return nil, err
+	}
+
+	perPage, err := httputils.GetQueryParamInt32(r, "perPage", false)
+	if err != nil {
+		fmt.Println("perPage")
 		return nil, err
 	}
 
 	// validate difficulty
-	difficulty, err := httputils.GetQueryParam(r, "difficulty")
+	difficulty, err := httputils.GetQueryParam(r, "difficulty", false)
 	if err != nil {
+		fmt.Println("difficulty")
 		return nil, err
 	}
 
@@ -77,7 +77,12 @@ func (h *ProblemHandler) GetProblemsValidateRequest(r *http.Request) (*domain.Pr
 func (h *ProblemHandler) GetProblems(w http.ResponseWriter, r *http.Request) error {
 	params, err := h.GetProblemsValidateRequest(r)
 	if err != nil {
+		fmt.Println("test validate request")
 		return err
+	}
+
+	if params == nil {
+		return nil
 	}
 
 	problems, err := h.repo.GetProblems(r.Context(), params)

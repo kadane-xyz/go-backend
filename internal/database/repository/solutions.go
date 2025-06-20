@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
 	"kadane.xyz/go-backend/v2/internal/domain"
 )
@@ -40,7 +41,7 @@ func (r *SQLSolutionsRepository) GetSolution(ctx context.Context, params *domain
 func (r *SQLSolutionsRepository) GetSolutions(ctx context.Context, params *domain.SolutionsGetParams) ([]*domain.Solution, error) {
 	q, err := r.queries.GetSolutions(ctx, sql.GetSolutionsParams{
 		UserID:        params.UserId,
-		ProblemID:     &params.ProblemID,
+		ProblemID:     pgtype.Int4{Int32: params.ProblemID, Valid: true},
 		Page:          params.Page,
 		PerPage:       params.PerPage,
 		Tags:          params.Tags,
@@ -64,17 +65,17 @@ func (r *SQLSolutionsRepository) GetSolutionById(ctx context.Context, id int32) 
 
 func (r *SQLSolutionsRepository) CreateSolution(ctx context.Context, params *domain.SolutionsCreateParams) error {
 	return r.queries.CreateSolution(ctx, sql.CreateSolutionParams{
-		UserID:    &params.UserID,
+		UserID:    pgtype.Text{String: params.UserID, Valid: true},
 		Title:     params.Title,
 		Tags:      params.Tags,
 		Body:      params.Body,
-		ProblemID: params.ProblemID,
+		ProblemID: pgtype.Int4{Int32: *params.ProblemID, Valid: true},
 	})
 }
 
 func (r *SQLSolutionsRepository) UpdateSolution(ctx context.Context, params *domain.SolutionsUpdateParams) error {
 	return r.queries.UpdateSolution(ctx, sql.UpdateSolutionParams{
-		UserID: &params.UserID,
+		UserID: pgtype.Text{String: params.UserID, Valid: true},
 		Title:  params.Title,
 		Body:   params.Body,
 		Tags:   params.Tags,
@@ -84,7 +85,7 @@ func (r *SQLSolutionsRepository) UpdateSolution(ctx context.Context, params *dom
 
 func (r *SQLSolutionsRepository) DeleteSolution(ctx context.Context, userId string, id int32) error {
 	return r.queries.DeleteSolution(ctx, sql.DeleteSolutionParams{
-		UserID: &userId,
+		UserID: pgtype.Text{String: userId, Valid: true},
 		ID:     id,
 	})
 }

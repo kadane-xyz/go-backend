@@ -223,7 +223,7 @@ func (h *AdminHandler) GetAdminProblems(w http.ResponseWriter, r *http.Request) 
 			Problem: domain.Problem{
 				ID:           problem.ID,
 				Title:        problem.Title,
-				Description:  *problem.Description,
+				Description:  problem.Description.String,
 				FunctionName: problem.FunctionName,
 				Points:       problem.Points,
 				Difficulty:   problem.Difficulty,

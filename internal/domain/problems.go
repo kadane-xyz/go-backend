@@ -123,7 +123,7 @@ func FromSQLProblem(row sql.Problem) *Problem {
 	return &Problem{
 		ID:           row.ID,
 		Title:        row.Title,
-		Description:  nullHandler(row.Description),
+		Description:  row.Description.String,
 		FunctionName: row.FunctionName,
 		Points:       row.Points,
 		CreatedAt:    row.CreatedAt.Time,
@@ -176,7 +176,7 @@ func FromSQLGetProblemRow(row sql.GetProblemRow) (*Problem, error) {
 	return &Problem{
 		ID:            row.ID,
 		Title:         row.Title,
-		Description:   nullHandler(row.Description),
+		Description:   row.Description.String,
 		FunctionName:  row.FunctionName,
 		Points:        row.Points,
 		CreatedAt:     row.CreatedAt.Time,
@@ -220,7 +220,7 @@ func FromSQLGetProblemsRow(rows []sql.GetProblemsRow) ([]*Problem, error) {
 		problems[i] = &Problem{
 			ID:            row.ID,
 			Title:         row.Title,
-			Description:   nullHandler(row.Description),
+			Description:   row.Description.String,
 			FunctionName:  row.FunctionName,
 			Points:        row.Points,
 			CreatedAt:     row.CreatedAt.Time,

@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"kadane.xyz/go-backend/v2/internal/api/httputils"
+	"kadane.xyz/go-backend/v2/internal/api/requests"
 	"kadane.xyz/go-backend/v2/internal/api/responses"
 	"kadane.xyz/go-backend/v2/internal/database/repository"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
@@ -27,8 +28,8 @@ func NewSubmissionHandler(repo repository.SubmissionsRepository, problemsRepo re
 	return &SubmissionHandler{repo: repo, problemsRepo: problemsRepo, judge0client: judge0client}
 }
 
-func validateCreateSubmissionRequest(r *http.Request) (*domain.SubmissionCreateRequest, error) {
-	request, err := httputils.DecodeJSONRequest[domain.SubmissionCreateRequest](r)
+func validateCreateSubmissionRequest(r *http.Request) (*domain.SubmissionCreateParams, error) {
+	request, err := httputils.DecodeJSONRequest[requests.SubmissionRequest](r)
 	if err != nil {
 		return nil, errors.NewApiError(err, "validation", http.StatusBadRequest)
 	}
@@ -48,7 +49,7 @@ func validateCreateSubmissionRequest(r *http.Request) (*domain.SubmissionCreateR
 		return nil, errors.NewApiError(nil, "Missing source code", http.StatusBadRequest)
 	}
 
-	return &domain.SubmissionCreateRequest{
+	return &domain.SubmissionCreateParams{
 		Language:   request.Language,
 		SourceCode: request.SourceCode,
 		ProblemID:  request.ProblemID,
@@ -230,14 +231,14 @@ func (h *SubmissionHandler) CreateSubmission(w http.ResponseWriter, r *http.Requ
 		LanguageName:    lastResp.Language.Name,
 		AccountID:       claims.UserID,
 		ProblemID:       request.ProblemID,
-		SubmittedCode:   request.SourceCode,
+		SubmittedCode:   []byte(request.SourceCode),
 		FailedTestCase:  failedTestCaseByte,
 		PassedTestCases: testResults.passedTestCases,
 		TotalTestCases:  int32(len(problemTestCases)),
 	}
 
 	// Save to database
-	err = h.repo.CreateSubmission(r.Context(), &domain.SubmissionCreateParams{})
+	err = h.repo.CreateSubmission(r.Context(), &submissionCreateParams)
 	if err != nil {
 		return errors.HandleDatabaseError(err, "create submission")
 	}
@@ -320,13 +321,13 @@ func validateGetSubmissionsByUsernameRequest(r *http.Request) (*domain.Submissio
 	}
 
 	// Process problem ID
-	problemID, err := httputils.GetQueryParamInt32(r, "problemId")
+	problemID, err := httputils.GetQueryParamInt32(r, "problemId", true)
 	if err != nil {
 		return nil, err
 	}
 
 	// Process status
-	status, err := httputils.GetQueryParam(r, "status")
+	status, err := httputils.GetQueryParam(r, "status", false)
 	if err != nil {
 		return nil, err
 	}
@@ -361,12 +362,12 @@ func validateGetSubmissionsByUsernameRequest(r *http.Request) (*domain.Submissio
 	}
 
 	// Process order
-	order, err := httputils.GetQueryParamOrder(r)
+	order, err := httputils.GetQueryParamOrder(r, false)
 	if err != nil {
 		return nil, err
 	}
 
-	sort, err := httputils.GetQueryParam(r, "sort")
+	sort, err := httputils.GetQueryParam(r, "sort", false)
 	if err != nil {
 		return nil, err
 	}
@@ -380,12 +381,12 @@ func validateGetSubmissionsByUsernameRequest(r *http.Request) (*domain.Submissio
 		*sort = "created_at" // Default to sorting by creation time
 	}
 
-	page, err := httputils.GetQueryParamInt32(r, "page")
+	page, err := httputils.GetQueryParamInt32(r, "page", false)
 	if err != nil {
 		return nil, err
 	}
 
-	perPage, err := httputils.GetQueryParamInt32(r, "perPage")
+	perPage, err := httputils.GetQueryParamInt32(r, "perPage", false)
 	if err != nil {
 		return nil, err
 	}

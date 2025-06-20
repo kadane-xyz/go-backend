@@ -25,7 +25,7 @@ func FromDomainSubmissionCreateParamsToApiSubmissionResponse(submission *domain.
 
 	return &SubmissionResponse{
 		domain.Submission{
-			ID:              submission.ID,
+			ID:              submission.ID.String(),
 			Stdout:          submission.Stdout,
 			Time:            submission.Time,
 			Memory:          submission.Memory,

@@ -20,35 +20,35 @@ func NewSolutionsHandler(repo repository.SolutionsRepository) *SolutionsHandler 
 }
 
 func ValidateGetSolutions(r *http.Request, userId string) (*domain.SolutionsGetParams, error) {
-	problemId, err := httputils.GetQueryParamInt32(r, "problemId")
+	problemId, err := httputils.GetQueryParamInt32(r, "problemId", true)
 	if err != nil {
 		return nil, err
 	}
 
-	titleSearch, err := httputils.GetQueryParam(r, "titleSearch")
+	titleSearch, err := httputils.GetQueryParam(r, "titleSearch", false)
 	if err != nil {
 		return nil, err
 	}
 
-	tags, err := httputils.GetQueryParamStringArray(r, "tags")
+	tags, err := httputils.GetQueryParamStringArray(r, "tags", false)
 	if err != nil {
 		return nil, err
 	}
 
 	// Handle pagination
-	page, err := httputils.GetQueryParamInt32(r, "page")
+	page, err := httputils.GetQueryParamInt32(r, "page", false)
 	if err != nil {
 		return nil, err
 	}
 
 	// Handle perPage
-	perPage, err := httputils.GetQueryParamInt32(r, "perPage")
+	perPage, err := httputils.GetQueryParamInt32(r, "perPage", false)
 	if err != nil {
 		return nil, err
 	}
 
 	// Handle sort
-	sort, err := httputils.GetQueryParam(r, "sort")
+	sort, err := httputils.GetQueryParam(r, "sort", false)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ func ValidateGetSolutions(r *http.Request, userId string) (*domain.SolutionsGetP
 	}
 
 	// Handle order
-	order, err := httputils.GetQueryParamOrder(r)
+	order, err := httputils.GetQueryParamOrder(r, false)
 	if err != nil {
 		return nil, err
 	}

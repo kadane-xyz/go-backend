@@ -29,13 +29,13 @@ func (h *CommentHandler) GetComments(w http.ResponseWriter, r *http.Request) err
 	}
 
 	// Get the solutionId from the query parameters
-	solutionId, err := httputils.GetQueryParamInt32(r, "solutionId")
+	solutionId, err := httputils.GetQueryParamInt32(r, "solutionId", true)
 	if err != nil {
 		return err
 	}
 
 	// Handle sort
-	sort, err := httputils.GetQueryParam(r, "sort")
+	sort, err := httputils.GetQueryParam(r, "sort", false)
 	if err != nil {
 		return err
 	}
@@ -47,7 +47,7 @@ func (h *CommentHandler) GetComments(w http.ResponseWriter, r *http.Request) err
 	}
 
 	// Handle order
-	order, err := httputils.GetQueryParamOrder(r)
+	order, err := httputils.GetQueryParamOrder(r, false)
 	if err != nil {
 		return err
 	}

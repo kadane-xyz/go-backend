@@ -39,36 +39,36 @@ func NewAccountHandler(repo repository.AccountRepository, awsClient *s3.Client, 
 }
 
 func ValidateGetAccountsFiltered(r *http.Request) (*domain.AccountGetParams, error) {
-	usernames, err := httputils.GetQueryParamStringArray(r, "usernames")
-	if err != nil {
-		return nil, err
-	}
-
-	locations, err := httputils.GetQueryParamStringArray(r, "locations")
-	if err != nil {
-		return nil, err
-	}
-
-	sort, err := httputils.GetQueryParam(r, "sort")
-	if err != nil {
-		return nil, err
-	}
-	if *sort != "level" {
-		*sort = ""
-	}
-
-	order, err := httputils.GetQueryParamOrder(r)
-	if err != nil {
-		return nil, err
-	}
-
-	return &domain.AccountGetParams{
-		UsernamesFilter:   usernames,
-		LocationsFilter:   locations,
-		Sort:              *sort,
-		SortDirection:     sql.SortDirection(*order),
+	accountParams := domain.AccountGetParams{
+		Sort:              "",
 		IncludeAttributes: true,
-	}, nil
+	}
+
+	usernames, err := httputils.GetQueryParamStringArray(r, "usernames", false)
+	if err != nil && usernames != nil {
+		return nil, err
+	}
+	accountParams.UsernamesFilter = usernames
+
+	locations, err := httputils.GetQueryParamStringArray(r, "locations", false)
+	if err != nil && locations != nil {
+		return nil, err
+	}
+	accountParams.LocationsFilter = locations
+
+	sort, err := httputils.GetQueryParam(r, "sort", false)
+	if err != nil && sort != nil {
+		return nil, err
+	}
+	accountParams.Sort = *sort
+
+	order, err := httputils.GetQueryParamOrder(r, false)
+	if err != nil && order != nil {
+		return nil, err
+	}
+	accountParams.SortDirection = sql.SortDirection(*order)
+
+	return &accountParams, nil
 }
 
 // GET: /accounts
@@ -76,11 +76,13 @@ func ValidateGetAccountsFiltered(r *http.Request) (*domain.AccountGetParams, err
 func (h *AccountHandler) GetAccounts(w http.ResponseWriter, r *http.Request) error {
 	params, err := ValidateGetAccountsFiltered(r)
 	if err != nil {
+		fmt.Println("test123")
 		return err
 	}
 
 	accounts, err := h.repo.ListAccounts(r.Context(), params)
 	if err != nil {
+		fmt.Println(err)
 		return errors.HandleDatabaseError(err, "accounts")
 	}
 
@@ -248,7 +250,7 @@ func ValidateGetAccount(r *http.Request) (*domain.AccountGetParams, error) {
 	accountID := *idPtr
 
 	attributes := false
-	if attrPtr, err := httputils.GetQueryParamBool(r, "attributes"); err != nil && attrPtr != nil {
+	if attrPtr, err := httputils.GetQueryParamBool(r, "attributes", false); err != nil && attrPtr != nil {
 		attributes = *attrPtr
 	}
 
@@ -526,7 +528,7 @@ func (h *AccountHandler) GetAccountByUsername(w http.ResponseWriter, r *http.Req
 		return err
 	}
 
-	attributes, err := httputils.GetQueryParam(r, "attributes")
+	attributes, err := httputils.GetQueryParam(r, "attributes", false)
 	if err != nil {
 		return err
 	}

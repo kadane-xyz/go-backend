@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"kadane.xyz/go-backend/v2/internal/database"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
 	"kadane.xyz/go-backend/v2/internal/domain"
@@ -89,7 +90,7 @@ func (r *accountRepository) UploadAccountAvatar(ctx context.Context, params *dom
 	q := r.getQueries(ctx)
 
 	err := q.UpdateAccountAvatar(ctx, sql.UpdateAccountAvatarParams{
-		AvatarUrl: &params.AvatarUrl,
+		AvatarUrl: pgtype.Text{String: params.AvatarUrl, Valid: true},
 		ID:        params.ID,
 	})
 	if err != nil {

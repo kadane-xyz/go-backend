@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"kadane.xyz/go-backend/v2/internal/database/sql"
 	"kadane.xyz/go-backend/v2/internal/domain"
 )
@@ -62,7 +63,7 @@ func (r *SQLCommentsRepository) CreateComment(ctx context.Context, params *domai
 	q, err := r.queries.CreateComment(ctx, sql.CreateCommentParams{
 		UserID:     params.UserID,
 		SolutionID: params.SolutionID,
-		ParentID:   params.ParentID,
+		ParentID:   pgtype.Int8{Int64: *params.ParentID, Valid: true},
 		Body:       params.Body,
 	})
 	if err != nil {

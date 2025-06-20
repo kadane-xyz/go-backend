@@ -69,81 +69,89 @@ func SendJSONPaginatedResponse(w http.ResponseWriter, statusCode int, data any, 
 	})
 }
 
-func GetQueryParam(r *http.Request, param string) (*string, error) {
+func GetQueryParam(r *http.Request, param string, required bool) (*string, error) {
 	if param == "" {
-		return nil, errors.ErrInternalServer
+		if required {
+			return nil, errors.NewApiError(nil, "query param is missing", http.StatusBadRequest)
+		}
+		return nil, nil
 	}
 
-	params := r.URL.Query().Get(param)
-	if params == "" {
-		return nil, errors.ErrUnprocessableEntity
+	v := r.URL.Query().Get(param)
+	if v == "" {
+		if required {
+			return nil, errors.NewApiError(nil, "query param is missing", http.StatusBadRequest)
+		}
+		return nil, nil
 	}
 
-	return &params, nil
+	return &v, nil
 }
 
-func GetQueryParamBool(r *http.Request, param string) (*bool, error) {
-	if param == "" {
-		return nil, errors.ErrInternalServer
-	}
-	raw := r.URL.Query().Get(param)
-	if raw == "" {
-		return nil, errors.ErrUnprocessableEntity
-	}
-	b, err := strconv.ParseBool(raw)
+func GetQueryParamBool(r *http.Request, param string, required bool) (*bool, error) {
+	p, err := GetQueryParam(r, param, required)
 	if err != nil {
-		return nil, errors.ErrInvalidRequest
+		return nil, err
+	}
+
+	if p == nil {
+		return nil, nil
+	}
+
+	b, err := strconv.ParseBool(*p)
+	if err != nil {
+		return nil, errors.NewApiError(nil, "query param '"+param+"' is invalid", http.StatusUnprocessableEntity)
 	}
 	return &b, nil
 }
 
-func GetQueryParamStringArray(r *http.Request, param string) ([]string, error) {
-	var params []string
-	p, err := GetQueryParam(r, param)
+func GetQueryParamStringArray(r *http.Request, param string, required bool) ([]string, error) {
+	p, err := GetQueryParam(r, param, required)
 	if err != nil {
 		return nil, err
 	}
 
-	if p != nil && *p != "" {
-		params = strings.Split(*p, ",")
+	if p == nil {
+		return nil, nil
 	}
 
-	return params, nil
+	parts := strings.Split(*p, ",")
+	return parts, nil
 }
 
-func GetQueryParamInt32(r *http.Request, param string) (int32, error) {
-	p, err := GetQueryParam(r, param)
+func GetQueryParamInt32(r *http.Request, param string, required bool) (int32, error) {
+	p, err := GetQueryParam(r, param, required)
 	if err != nil {
 		return 0, err
 	}
 
-	var paramInt32 int32
-	if p != nil {
-		paramInt, err := strconv.ParseInt(*p, 10, 32)
-		if err != nil {
-			return 0, err
-		}
-		if paramInt < 1 {
-			return 0, errors.NewAppError(nil, "param: "+param+" is less than 1", http.StatusBadRequest)
-		}
-
-		paramInt32 = int32(paramInt)
+	if p == nil {
+		return 0, nil
 	}
 
-	return paramInt32, nil
+	parsed, err := strconv.ParseInt(*p, 10, 32)
+	if err != nil {
+		return 0, errors.NewAppError(nil, "query param is invalid", http.StatusUnprocessableEntity)
+	}
+	if parsed < 1 {
+		return 0, errors.NewAppError(nil, "param: "+param+" is less than 1", http.StatusBadRequest)
+	}
+
+	return int32(parsed), nil
 }
 
-func GetQueryParamOrder(r *http.Request) (*string, error) {
-	p, err := GetQueryParam(r, "order")
+func GetQueryParamOrder(r *http.Request, required bool) (*string, error) {
+	p, err := GetQueryParam(r, "order", required)
 	if err != nil {
 		return nil, err
 	}
 
-	if p == nil || *p == "" {
+	if p == nil {
 		return nil, nil
 	}
 
-	if orderParam := request.RequestQueryParamOrder(*p); !orderParam.IsValid() {
+	orderParam := request.RequestQueryParamOrder(*p)
+	if !orderParam.IsValid() {
 		return nil, errors.NewApiError(nil, "order param is invalid", http.StatusBadRequest)
 	}
 
@@ -165,13 +173,12 @@ func GetURLParamInt32(r *http.Request, param string) (int32, error) {
 		return 0, err
 	}
 
-	paramInt, err := strconv.ParseInt(*p, 10, 32)
+	n, err := strconv.ParseInt(*p, 10, 32)
 	if err != nil {
-		return 0, err
+		return 0, errors.NewApiError(nil, "param is invalid", http.StatusBadRequest)
 	}
-	paramInt32 := int32(paramInt)
 
-	return paramInt32, nil
+	return int32(n), nil
 }
 
 func GetURLParamInt64(r *http.Request, param string) (int64, error) {
@@ -180,10 +187,10 @@ func GetURLParamInt64(r *http.Request, param string) (int64, error) {
 		return 0, err
 	}
 
-	paramInt, err := strconv.ParseInt(*p, 10, 64)
+	n, err := strconv.ParseInt(*p, 10, 64)
 	if err != nil {
-		return 0, err
+		return 0, errors.NewApiError(nil, "param is invalid", http.StatusBadRequest)
 	}
 
-	return paramInt, nil
+	return n, nil
 }
