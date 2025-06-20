@@ -1,0 +1,147 @@
+package middleware
+
+import (
+	"context"
+	"log"
+	"net/http"
+
+	"github.com/go-chi/chi/v5/middleware"
+	"kadane.xyz/go-backend/v2/internal/database/sql"
+	"kadane.xyz/go-backend/v2/internal/errors"
+)
+
+func (h *Handler) FirebaseAuth() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Skip auth for health check endpoint
+			if r.URL.Path == "/health" || r.Method == http.MethodOptions {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			// Get the Firebase ID token from the Authorization header
+			authHeader := r.Header.Get("Authorization")
+			if authHeader == "" {
+				log.Printf("Missing Authorization header: %s\n", r.URL.Path)
+				errors.NewUnauthorizedError("Missing Authorization header")
+				return
+			}
+
+			const bearerPrefix = "Bearer "
+			if len(authHeader) <= len(bearerPrefix) || authHeader[:len(bearerPrefix)] != bearerPrefix {
+				log.Printf("Invalid Authorization header: %s\n", r.URL.Path)
+				errors.NewUnauthorizedError("Invalid Authorization header")
+				return
+			}
+
+			// Extract the ID token from the Authorization header
+			idToken := authHeader[len(bearerPrefix):]
+			if idToken == "" {
+				log.Printf("Missing ID token: %s\n", r.URL.Path)
+				errors.NewUnauthorizedError("Missing ID token")
+				return
+			}
+
+			client, err := h.FirebaseApp.Auth(r.Context())
+			if err != nil {
+				log.Fatalf("error getting Auth client: %v\n", err)
+			}
+
+			// Verify the ID token
+			token, err := client.VerifyIDToken(r.Context(), idToken)
+			if err != nil {
+				log.Println("Error verifying ID token: ", err)
+				errors.NewUnauthorizedError("Invalid Firebase ID token")
+				return
+			}
+
+			claims := ClientContext{
+				UserID: token.UID,
+				Email:  getStringClaim(token.Claims, "email"),
+				Name:   getStringClaim(token.Claims, "name"),
+			}
+
+			// Pass the claims to the next handler via the context
+			ctx := context.WithValue(r.Context(), ClientTokenKey, claims)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+func (h *Handler) FirebaseDebugAuth() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Skip auth for health check endpoint
+			if r.URL.Path == "/health" || r.Method == http.MethodOptions {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			token := "123abc"
+
+			claims := ClientContext{
+				UserID: token,
+				Email:  "john@example.com",
+				Name:   "John Doe",
+			}
+
+			// Pass the claims to the next handler via the context
+			ctx := context.WithValue(r.Context(), ClientTokenKey, claims)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+func CustomLogger(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/health" {
+			next.ServeHTTP(w, r)
+			return
+		}
+		middleware.Logger(next).ServeHTTP(w, r)
+	})
+}
+
+func GetClientClaims(ctx context.Context) (*ClientContext, error) {
+	value := ctx.Value(ClientTokenKey)
+	if value == nil {
+		return nil, errors.NewAppError(nil, "user id not found in context", http.StatusUnauthorized)
+	}
+
+	claims, ok := value.(*ClientContext)
+	if !ok {
+		return nil, errors.NewAppError(nil, "user id in context is of incorrect type", http.StatusUnauthorized)
+	}
+
+	return claims, nil
+}
+
+func (c *ClientContext) UserId() string {
+	return c.UserID
+}
+
+func (c *ClientContext) IsAdmin() bool {
+	return c.Admin
+}
+
+func (c *ClientContext) GetName() string {
+	return c.Name
+}
+
+func (c *ClientContext) GetEmail() string {
+	return c.Email
+}
+
+func (c *ClientContext) GetPlan() sql.AccountPlan {
+	return c.Plan
+}
+
+func GetContextUserIsAdmin(ctx context.Context) (bool, error) {
+	claims, err := GetClientClaims(ctx)
+	if err != nil {
+		return false, err
+	}
+
+	return claims.Admin, nil
+
+}

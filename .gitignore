@@ -2,7 +2,7 @@
 *.env.local
 *.pem
 
-src/sql/sql/*
+internal/database/sql
 
 .DS_Store
 */.DS_Store
